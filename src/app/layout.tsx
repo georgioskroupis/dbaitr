@@ -7,7 +7,7 @@ import QueryProvider from '@/context/QueryProvider';
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'], // Light, Regular, Medium, SemiBold, Bold
+  weight: ['300', '400', '500', '700'], // Updated weights
   variable: '--font-poppins',
 });
 

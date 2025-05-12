@@ -156,3 +156,17 @@
 .dark .auth-background-glow .bg-card {
   background-color: #121212; /* Card background #121212 */
 }
+
+/* Force Poppins into all common targets */
+html, body, input, button, textarea, select, label {
+  font-family: 'Poppins', sans-serif !important;
+  font-weight: 500;
+}
+
+h1, h2, .logo-text {
+  font-weight: 700;
+}
+
+.footer-text {
+  font-weight: 300;
+}
