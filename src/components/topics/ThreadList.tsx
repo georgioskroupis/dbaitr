@@ -36,10 +36,19 @@ export function ThreadList({ threads, statementId, topicId, statementAuthorId, i
   // For simplicity, we'll pass all nodes and let ThreadItem figure out its children
   // Root nodes are those with parentId === null
   const rootNodes = threads.filter(node => node.parentId === null).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  
+  // Log received threads and identified root nodes for debugging
+  console.log(`[ThreadList] For statement ${statementId} - Received ${threads.length} total threads. Identified ${rootNodes.length} root nodes. Threads:`, JSON.parse(JSON.stringify(threads)));
+
 
   if (threads.length === 0) {
     return <p className="text-sm text-muted-foreground mt-4 text-center py-4">No questions or responses yet for this statement.</p>;
   }
+  
+  // If threads are present but no root nodes are found (e.g. all have parentId),
+  // the map below will render nothing. This is correct behavior if there are no root questions.
+  // The message "No questions or responses yet..." only appears if the entire threads array is empty.
+  // If the message is shown, it means `DebatePostCard`'s `threads` state is empty.
 
   return (
     <div className="mt-4 space-y-1">

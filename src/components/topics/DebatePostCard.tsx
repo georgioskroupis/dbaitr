@@ -30,21 +30,39 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
 
   const fetchThreads = React.useCallback(async () => {
+    // Guard against fetching with invalid statement data
+    if (!statement || !statement.id || !statement.topicId) {
+      console.warn("[DebatePostCard] Attempted to fetch threads with invalid statement data:", statement);
+      setThreads([]);
+      setIsLoadingThreads(false);
+      return;
+    }
     setIsLoadingThreads(true);
     try {
       const fetchedThreads = await getThreadsForStatement(statement.topicId, statement.id);
+      console.log(`[DebatePostCard] Fetched ${fetchedThreads.length} threads for statement ${statement.id}:`, fetchedThreads);
       setThreads(fetchedThreads);
     } catch (error) {
       console.error("Error fetching threads for statement:", statement.id, error);
       toast({ title: "Error", description: "Could not load discussion threads.", variant: "destructive" });
+      setThreads([]); // Ensure threads are empty on error
     } finally {
       setIsLoadingThreads(false);
     }
-  }, [statement.id, statement.topicId, toast]);
+  }, [statement, toast]); // Depend on the whole statement object and toast
 
   React.useEffect(() => {
-    fetchThreads();
-  }, [fetchThreads]);
+    // This effect will run when the component mounts or when `fetchThreads` or `statement` changes.
+    // `fetchThreads` changes if `statement` (the object) changes.
+    if (statement && statement.id && statement.topicId) {
+      fetchThreads();
+    } else {
+      // If statement data is not valid (e.g. still loading higher up), clear threads and stop loading.
+      setThreads([]);
+      setIsLoadingThreads(false);
+    }
+  }, [statement, fetchThreads]);
+
 
   React.useEffect(() => {
     async function fetchAuthor() {
@@ -58,15 +76,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
    React.useEffect(() => {
     async function fetchUserQuestionCount() {
-        if (user && !authLoading) { // Ensure user is loaded
+        if (user && !authLoading && statement && statement.id && statement.topicId) { // Ensure user and statement details are loaded
             setIsLoadingQuestionCount(true);
             try {
-                // Fetch count for this specific statement
                 const count = await getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId);
                 setUserQuestionCountForThisStatement(count);
             } catch (error) {
                 console.error("Error fetching user question count in DebatePostCard:", error);
-                // Optionally toast error or handle silently
             } finally {
                 setIsLoadingQuestionCount(false);
             }
@@ -76,7 +92,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         }
     }
     fetchUserQuestionCount();
-  }, [user, authLoading, statement.id, statement.topicId]);
+  }, [user, authLoading, statement]); // Depend on statement object
 
 
   const timeAgo = statement.createdAt ? formatDistanceToNow(new Date(statement.createdAt), { addSuffix: true }) : '';
@@ -111,9 +127,8 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
   const handleRootQuestionSuccess = () => {
     setShowRootQuestionForm(false);
-    fetchThreads(); // Refresh threads
-    // Re-fetch user question count after successfully posting a root question
-    if (user) {
+    fetchThreads(); 
+    if (user && statement && statement.id && statement.topicId) {
       setIsLoadingQuestionCount(true);
       getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId)
         .then(count => setUserQuestionCountForThisStatement(count))
@@ -170,13 +185,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             {showRootQuestionForm ? 'Cancel Question' : 'Ask a Question on this Statement'}
           </Button>
         )}
-        {showRootQuestionForm && user && (
+        {showRootQuestionForm && user && statement && statement.id && statement.topicId && ( // Ensure statement details are available
           <div className="w-full mb-2">
             <ThreadPostForm
               topicId={statement.topicId}
               statementId={statement.id}
               statementAuthorId={statement.createdBy} 
-              parentId={null} // Root question
+              parentId={null} 
               type="question"
               onSuccess={handleRootQuestionSuccess}
             />
@@ -189,7 +204,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             threads={threads} 
             statementId={statement.id}
             topicId={statement.topicId}
-            statementAuthorId={statement.createdBy} // Pass statementAuthorId
+            statementAuthorId={statement.createdBy} 
             isLoading={isLoadingThreads}
             onThreadUpdate={fetchThreads}
         />
