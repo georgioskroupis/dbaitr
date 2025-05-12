@@ -1,8 +1,9 @@
+
 "use server";
 
 import { auth, db } from '@/lib/firebase/config';
 import type { Topic, Post, UserProfile } from '@/types';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
 export async function createUserProfile(userId: string, email: string, displayName: string | null): Promise<UserProfile> {
@@ -32,9 +33,11 @@ export async function updateUserVerificationStatus(userId: string, idDocumentUrl
   await updateDoc(userProfileRef, {
     isVerified: true, // Simulate verification upon upload for now
     idDocumentUrl: idDocumentUrl,
+    updatedAt: serverTimestamp(),
   });
-  revalidatePath('/(app)/verify-identity'); // Revalidate relevant paths
+  revalidatePath('/(app)/verify-identity'); 
   revalidatePath('/(app)/dashboard');
+  revalidatePath('/'); // Revalidate homepage as well, auth state might change display
 }
 
 
@@ -47,10 +50,13 @@ export async function createTopic(title: string, description: string | undefined
     createdBy: userId,
     creatorName: creatorName || 'Anonymous',
     createdAt: serverTimestamp(),
-    tags: title.toLowerCase().split(/\s+/).filter(tag => tag.length > 2), // Basic tagging
+    tags: title.toLowerCase().split(/\s+/).filter(tag => tag.length > 2 && tag.length < 20).slice(0,5), // Basic tagging
+    participantCount: 0,
+    postCount: 0,
   });
   revalidatePath('/(app)/dashboard');
   revalidatePath('/(app)/topics/new');
+  revalidatePath('/');
   return { id: newTopicRef.id, title, createdBy: userId, createdAt: Timestamp.now(), aiAnalysis };
 }
 
@@ -65,15 +71,27 @@ export async function createPost(topicId: string, userId: string, userName: stri
     position: position || null,
     positionConfidence: positionConfidence || null,
     createdAt: serverTimestamp(),
-    isMainStatement: true, // For simplicity, all posts are main statements initially
+    isMainStatement: true, 
   });
+
+  // Increment postCount on the topic
+  const topicRef = doc(db, "topics", topicId);
+  const topicSnap = await getDoc(topicRef);
+  if (topicSnap.exists()) {
+    const currentPostCount = topicSnap.data().postCount || 0;
+    await updateDoc(topicRef, {
+      postCount: currentPostCount + 1,
+    });
+  }
+
   revalidatePath(`/(app)/topics/${topicId}`);
+  revalidatePath('/(app)/dashboard'); // To update topic card stats potentially
   return { id: newPostRef.id, topicId, userId, content, createdAt: Timestamp.now(), isMainStatement: true };
 }
 
 export async function getTopics(): Promise<Topic[]> {
   const topicsCollection = collection(db, "topics");
-  const q = query(topicsCollection); // Add ordering later if needed, e.g., orderBy("createdAt", "desc")
+  const q = query(topicsCollection, orderBy("createdAt", "desc")); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
 }
@@ -87,9 +105,20 @@ export async function getTopicById(topicId: string): Promise<Topic | null> {
   return null;
 }
 
+export async function getTopicByTitle(title: string): Promise<Topic | null> {
+  const topicsCollection = collection(db, "topics");
+  const q = query(topicsCollection, where("title", "==", title), limit(1));
+  const querySnapshot = await getDocs(q);
+  if (!querySnapshot.empty) {
+    const docSnap = querySnapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() } as Topic;
+  }
+  return null;
+}
+
 export async function getPostsForTopic(topicId: string): Promise<Post[]> {
   const postsCollection = collection(db, "posts");
-  const q = query(postsCollection, where("topicId", "==", topicId)); // Add ordering by createdAt
+  const q = query(postsCollection, where("topicId", "==", topicId), orderBy("createdAt", "asc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
 }
@@ -100,7 +129,7 @@ export async function checkIfUserHasPostedMainStatement(userId: string, topicId:
     postsCollection,
     where("userId", "==", userId),
     where("topicId", "==", topicId),
-    where("isMainStatement", "==", true),
+    where("isMainStatement", "==", true), // This might be redundant if all posts are main for now
     limit(1)
   );
   const querySnapshot = await getDocs(q);
@@ -109,7 +138,9 @@ export async function checkIfUserHasPostedMainStatement(userId: string, topicId:
 
 export async function getAllTopicTitles(): Promise<string[]> {
   const topicsCollection = collection(db, "topics");
-  const q = query(topicsCollection);
+  // Consider limiting the number of titles fetched if the collection grows very large.
+  // For now, fetching all is fine for a smaller set of topics.
+  const q = query(topicsCollection, orderBy("createdAt", "desc"), limit(500)); // Fetch recent 500
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => (doc.data() as Topic).title);
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,7 +34,7 @@ interface PostFormProps {
 export function PostForm({ topic, onPostCreated }: PostFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, isVerified } = useAuth();
+  const { user, userProfile, isVerified, loading: authLoading } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [isCheckingPostStatus, setIsCheckingPostStatus] = React.useState(true);
   const [hasPostedMainStatement, setHasPostedMainStatement] = React.useState(false);
@@ -52,30 +53,36 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
           setHasPostedMainStatement(hasPosted);
         } catch (error) {
           console.error("Error checking post status:", error);
-          toast({ title: "Error", description: "Could not check your posting status.", variant: "destructive" });
+          // toast({ title: "Error", description: "Could not check your posting status.", variant: "destructive" });
           // Assume they haven't posted to allow trying, or handle error more gracefully
           setHasPostedMainStatement(false); 
         } finally {
           setIsCheckingPostStatus(false);
         }
-      } else if (!user) {
-        // If no user, they obviously haven't posted. And form will be disabled by !isVerified anyway.
+      } else {
         setIsCheckingPostStatus(false);
         setHasPostedMainStatement(false);
       }
     }
-    checkPostStatus();
-  }, [user, topic.id, toast]);
+    // Only run if user is not in authLoading state.
+    if (!authLoading) {
+      checkPostStatus();
+    }
+  }, [user, topic.id, toast, authLoading]);
 
 
   async function onSubmit(values: PostFormValues) {
+    if (authLoading) return; // Should not happen if button is disabled by authLoading
+
     if (!user || !userProfile) {
-      toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
+      toast({ title: "Authentication Required", description: "Please sign in to post.", variant: "destructive" });
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
     if (!isVerified) {
       toast({ title: "Verification Required", description: "Please verify your ID to post.", variant: "destructive" });
-      router.push('/verify-identity');
+      router.push('/verify-identity'); // Verification page will redirect back or to dashboard
       return;
     }
     if (hasPostedMainStatement) {
@@ -85,10 +92,8 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
 
     setLoading(true);
     try {
-      // 1. Classify post position using AI
       const classification = await classifyPostPosition({ topic: topic.title, post: values.content });
       
-      // 2. Create post in Firestore
       await createPost(
         topic.id, 
         user.uid, 
@@ -101,7 +106,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
       
       toast({ title: "Post Submitted!", description: "Your contribution has been added to the debate." });
       form.reset(); 
-      setHasPostedMainStatement(true); // Update status locally
+      setHasPostedMainStatement(true); 
       if (onPostCreated) onPostCreated();
     } catch (error: any) {
       console.error("Error creating post:", error);
@@ -111,11 +116,11 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
     }
   }
 
-  if (isCheckingPostStatus) {
+  if (authLoading || isCheckingPostStatus) {
     return (
       <div className="p-6 rounded-lg border bg-card shadow-sm mt-6 flex items-center justify-center min-h-[200px]">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Checking your status...</p>
+        <p className="ml-2 text-muted-foreground">Loading form...</p>
       </div>
     );
   }
@@ -126,11 +131,14 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
         <MessageSquare className="h-5 w-5 text-primary mx-auto mb-2" />
         <AlertTitle className="text-primary/90 font-semibold">Main Statement Submitted</AlertTitle>
         <AlertDescription className="text-foreground/80">
-          You have already shared your main perspective on this topic. You can engage further by asking questions on other posts.
+          You have already shared your main perspective on this topic.
         </AlertDescription>
       </Alert>
     );
   }
+
+
+  const canSubmit = user && isVerified;
 
   return (
     <Form {...form}>
@@ -144,18 +152,28 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
             <FormItem>
               <FormControl>
                 <Textarea
-                  placeholder="Share your main argument or perspective on this topic..."
+                  placeholder={
+                    !user 
+                      ? "Please sign in to post." 
+                      : !isVerified 
+                      ? "Please verify your ID to post."
+                      : "Share your main argument or perspective on this topic..."
+                  }
                   className="resize-none min-h-[120px]"
                   rows={5}
                   {...field}
-                  disabled={loading || !isVerified || hasPostedMainStatement}
+                  disabled={loading || !user || !isVerified || hasPostedMainStatement}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="mt-4 w-full sm:w-auto" disabled={loading || !isVerified || hasPostedMainStatement || isCheckingPostStatus}>
+        <Button 
+          type="submit" 
+          className="mt-4 w-full sm:w-auto" 
+          disabled={loading || !user || !isVerified || hasPostedMainStatement || authLoading || isCheckingPostStatus}
+        >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -163,7 +181,16 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
           )}
           Submit Post
         </Button>
-        {!isVerified && (
+        
+        {!user && (
+           <p className="mt-2 text-xs text-destructive">
+            <Button variant="link" className="p-0 text-destructive hover:text-destructive/80 h-auto" onClick={() => {
+                 const currentPath = window.location.pathname + window.location.search;
+                 router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
+            }}>Sign in</Button> to participate.
+          </p>
+        )}
+        {user && !isVerified && (
           <p className="mt-2 text-xs text-destructive">
             You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate.
           </p>

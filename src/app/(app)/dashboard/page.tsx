@@ -1,14 +1,69 @@
+
+"use client"; // Make it a client component to use hooks
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TopicCard } from '@/components/topics/TopicCard';
 import Link from 'next/link';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { getTopics } from '@/lib/firestoreActions';
 import type { Topic } from '@/types';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
-export const revalidate = 60; // Revalidate every 60 seconds
+// export const revalidate = 60; // Revalidate every 60 seconds - remove for client component with dynamic data fetching
 
-export default async function DashboardPage() {
-  const topics: Topic[] = await getTopics();
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth(); // Use auth context
+  const router = useRouter();
+  const [topics, setTopics] = React.useState<Topic[]>([]);
+  const [isLoadingTopics, setIsLoadingTopics] = React.useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/'); // Redirect to homepage if not authenticated
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    async function fetchTopics() {
+      if (user) { // Only fetch if user is authenticated
+        setIsLoadingTopics(true);
+        try {
+          const fetchedTopics = await getTopics();
+          setTopics(fetchedTopics);
+        } catch (error) {
+          console.error("Failed to fetch topics:", error);
+          // Handle error (e.g., show toast)
+        } finally {
+          setIsLoadingTopics(false);
+        }
+      }
+    }
+    if (!authLoading && user) {
+        fetchTopics();
+    }
+  }, [user, authLoading]);
+
+
+  if (authLoading || (!user && !authLoading)) { // Show loader if auth is loading or if redirecting
+    return (
+      <div className="flex min-h-[calc(100vh-150px)] flex-col items-center justify-center p-8">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Loading Dashboard...</p>
+      </div>
+    );
+  }
+  
+  if (isLoadingTopics) {
+     return (
+      <div className="flex min-h-[calc(100vh-150px)] flex-col items-center justify-center p-8">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-foreground">Loading Topics...</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="container mx-auto">

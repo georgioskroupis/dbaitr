@@ -1,10 +1,11 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // Import useSearchParams
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -31,6 +32,7 @@ type SignInFormValues = z.infer<typeof formSchema>;
 
 export function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
   const { toast } = useToast();
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -48,7 +50,17 @@ export function SignInForm() {
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({ title: "Signed in successfully!" });
-      router.push("/"); // Redirect handled by root page logic
+      
+      const redirectUrl = searchParams.get('redirect');
+      if (redirectUrl) {
+        router.push(decodeURIComponent(redirectUrl));
+      } else {
+        // Default redirect logic: if user is not verified, go to verify-identity, else dashboard
+        // This logic is typically handled by the AuthContext and root page, so just pushing to '/' might be enough
+        // or directly to dashboard if that's the standard post-login destination.
+        // For simplicity, keeping the original behavior which leads to root page handling.
+        router.push("/"); 
+      }
     } catch (error: any) {
       console.error("Sign in error:", error);
       toast({

@@ -1,8 +1,9 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Search, Sparkles, AlertTriangle, CheckCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -26,8 +27,9 @@ type NewTopicFormValues = z.infer<typeof formSchema>;
 
 export function NewTopicForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, userProfile, isVerified } = useAuth();
+  const { user, userProfile, isVerified, loading: authLoading } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
   const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
@@ -37,12 +39,22 @@ export function NewTopicForm() {
     defaultValues: { title: "", description: "" },
   });
 
+  React.useEffect(() => {
+    const prefilledTitle = searchParams.get('title');
+    if (prefilledTitle) {
+      form.setValue('title', decodeURIComponent(prefilledTitle));
+      // Trigger similarity check for prefilled title
+      handleTitleChange({ target: { value: decodeURIComponent(prefilledTitle) } } as React.ChangeEvent<HTMLInputElement>);
+    }
+  }, [searchParams, form]);
+
+
   const titleDebounceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    form.setValue("title", event.target.value);
     const newTitle = event.target.value;
-
+    form.setValue("title", newTitle, { shouldValidate: true });
+    
     if (titleDebounceTimeoutRef.current) {
       clearTimeout(titleDebounceTimeoutRef.current);
     }
@@ -57,7 +69,7 @@ export function NewTopicForm() {
           setSimilarityResult(result);
         } catch (error) {
           console.error("Error checking topic similarity:", error);
-          toast({ title: "Error", description: "Could not check topic similarity.", variant: "destructive" });
+          // Do not toast here, as it can be annoying during typing
         } finally {
           setCheckingSimilarity(false);
         }
@@ -70,19 +82,21 @@ export function NewTopicForm() {
 
   async function onSubmit(values: NewTopicFormValues) {
     if (!user || !userProfile) {
-      toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
+      toast({ title: "Authentication Required", description: "Please sign in to create a topic.", variant: "destructive" });
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
     if (!isVerified) {
       toast({ title: "Verification Required", description: "Please verify your ID to create topics.", variant: "destructive" });
-      router.push('/verify-identity');
+      router.push('/verify-identity'); // Verification page will redirect back or to dashboard
       return;
     }
 
     if (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) {
         toast({
             title: "Topic Potentially Similar",
-            description: "This topic seems very similar to an existing one. Please consider revising.",
+            description: "This topic seems very similar to an existing one. Please consider revising or checking the existing topic.",
             variant: "destructive"
         });
         return;
@@ -90,14 +104,16 @@ export function NewTopicForm() {
 
     setLoading(true);
     try {
-      // 1. Create the topic in Firestore
       const newTopic = await createTopic(values.title, values.description, user.uid, userProfile.displayName);
       
-      // 2. Generate AI analysis (can happen in background, but for UX, do it before redirect)
-      const analysisResult = await generateTopicAnalysis({ topic: values.title });
-      if (analysisResult.analysis && newTopic.id) {
-        await updateTopicWithAnalysis(newTopic.id, analysisResult.analysis);
-      }
+      // Generate AI analysis in the background (don't block redirect)
+      generateTopicAnalysis({ topic: values.title })
+        .then(analysisResult => {
+          if (analysisResult.analysis && newTopic.id) {
+            updateTopicWithAnalysis(newTopic.id, analysisResult.analysis);
+          }
+        })
+        .catch(err => console.error("Failed to generate topic analysis:", err));
       
       toast({ title: "Topic Created!", description: `"${values.title}" is now live.` });
       router.push(`/topics/${newTopic.id}`);
@@ -107,6 +123,14 @@ export function NewTopicForm() {
     } finally {
       setLoading(false);
     }
+  }
+  
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -135,7 +159,7 @@ export function NewTopicForm() {
                     </div>
                   </FormControl>
                   <FormMessage />
-                  {similarityResult && (
+                  {similarityResult && similarityResult.guidanceMessage && (
                     <div className={`mt-2 p-3 rounded-md text-sm flex items-start gap-2 ${
                       similarityResult.isSimilar ? 'bg-destructive/10 text-destructive-foreground border border-destructive/30' : 'bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30'
                     }`}>
