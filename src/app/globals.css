@@ -116,12 +116,26 @@
   .text-subtext { /* Poppins Light (300) or Regular (400) */
     @apply text-xs font-light; 
   }
+
+  /* Force Poppins into all common targets */
+  html, body, input, button, textarea, select, label {
+    font-family: 'Poppins', sans-serif !important;
+    font-weight: 500;
+  }
+
+  h1, h2, .logo-text {
+    font-weight: 700;
+  }
+
+  .footer-text {
+    font-weight: 300;
+  }
 }
 
 .auth-background-glow {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
+  background-image: url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
   background-size: contain;
-  background-position: center;
+  background-position: center center;
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-color: #000000; /* Fallback color */
@@ -155,18 +169,4 @@
 /* Card background for auth form container */
 .dark .auth-background-glow .bg-card {
   background-color: #121212; /* Card background #121212 */
-}
-
-/* Force Poppins into all common targets */
-html, body, input, button, textarea, select, label {
-  font-family: 'Poppins', sans-serif !important;
-  font-weight: 500;
-}
-
-h1, h2, .logo-text {
-  font-weight: 700;
-}
-
-.footer-text {
-  font-weight: 300;
 }
