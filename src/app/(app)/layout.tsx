@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Home, PlusSquare, Settings, LogOut, Landmark as AppIcon, Search as SearchIcon } from 'lucide-react'; // Updated AppIcon
+import { Home, PlusSquare, MessageSquare as AppIcon, Search as SearchIcon } from 'lucide-react'; // Changed AppIcon to MessageSquare
 import {
   SidebarProvider,
   Sidebar,
@@ -15,15 +15,17 @@ import {
 } from '@/components/ui/sidebar'; 
 import { UserNav } from '@/components/layout/UserNav';
 import { Logo } from '@/components/layout/Logo';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// Button and Input are not used here directly anymore for search
+// import { Button } from '@/components/ui/button';
+// import { Input } from '@/components/ui/input';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader className="p-4">
-          <Logo showText={false} iconSize={8}/>
+          {/* Logo now has its own text, showText is not needed. iconSize adjusts SVG height. */}
+          <Logo iconSize={8} /> 
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
@@ -50,7 +52,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-4">
             <SidebarTrigger className="md:hidden" /> {/* Mobile trigger */}
             <div className="hidden md:block">
-             <Logo iconSize={6} textSize="text-xl"/>
+             {/* Use AppIcon for a simple icon representation in header, if needed, or full Logo */}
+             {/* Using full logo for consistency, iconSize adjusts height */}
+             <Logo iconSize={7}/>
             </div>
           </div>
           

@@ -32,8 +32,14 @@ export function DebatePostCard({ post }: DebatePostCardProps) {
         </div>
         {post.position && (
           <Badge 
-            variant={post.position === 'For' ? 'default' : 'destructive'} 
-            className={`ml-auto text-xs ${post.position === 'For' ? 'bg-green-500/80 hover:bg-green-500' : 'bg-red-500/80 hover:bg-red-500'} text-white`}
+            // Use explicit background colors based on theme variables for success (For) and destructive (Against)
+            className={`ml-auto text-xs 
+              ${post.position === 'For' 
+                ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-[hsl(var(--success-foreground))]' 
+                : 'bg-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/90 text-[hsl(var(--destructive-foreground))]'
+              }
+              font-medium uppercase tracking-wider`}
+            style={{ letterSpacing: '0.5px' }} // As per typography guidelines for FOR/AGAINST tags
           >
             {post.position === 'For' ? <ThumbsUp className="h-3 w-3 mr-1" /> : <ThumbsDown className="h-3 w-3 mr-1" />}
             {post.position}
@@ -41,6 +47,8 @@ export function DebatePostCard({ post }: DebatePostCardProps) {
         )}
       </CardHeader>
       <CardContent className="p-4 pt-0">
+        {/* Style for quotes/highlighted arguments - could be applied here if post.content is a quote */}
+        {/* For now, standard paragraph. If it's a quote, could add: `italic border-l-2 border-primary pl-3` */}
         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{post.content}</p>
       </CardContent>
       {/* Footer for actions like reply, like, etc. - Future enhancement */}

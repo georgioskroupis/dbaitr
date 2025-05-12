@@ -45,21 +45,21 @@ export function PositionTally({ posts, isLoading }: PositionTallyProps) {
       <CardContent className="space-y-4">
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium text-green-500 flex items-center">
+            <span className="text-sm font-medium text-[hsl(var(--success))] flex items-center">
               <ThumbsUp className="h-4 w-4 mr-1" /> For ({forCount})
             </span>
             <span className="text-sm text-muted-foreground">{forPercentage.toFixed(0)}%</span>
           </div>
-          <Progress value={forPercentage} className="h-3 [&>div]:bg-green-500" />
+          <Progress value={forPercentage} className="h-3 [&>div]:bg-[hsl(var(--success))]" />
         </div>
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium text-red-500 flex items-center">
+            <span className="text-sm font-medium text-[hsl(var(--destructive))] flex items-center">
               <ThumbsDown className="h-4 w-4 mr-1" /> Against ({againstCount})
             </span>
             <span className="text-sm text-muted-foreground">{againstPercentage.toFixed(0)}%</span>
           </div>
-          <Progress value={againstPercentage} className="h-3 [&>div]:bg-red-500" />
+          <Progress value={againstPercentage} className="h-3 [&>div]:bg-[hsl(var(--destructive))]" />
         </div>
         {totalCount === 0 && (
           <p className="text-sm text-center text-muted-foreground pt-2">No positions stated yet. Be the first!</p>
