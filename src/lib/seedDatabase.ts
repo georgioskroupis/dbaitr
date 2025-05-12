@@ -105,21 +105,20 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
     console.log('✅ Test data batch committed (oldSeedTestData for users, topics).');
 
     // STEP 3: Add Statements sequentially using createStatement and get their IDs
-    let statement1TikTokDyn: string, statementAIJobsForIdDyn: string, statementMeatAgainstOldIdDyn: string, statementSocialForOldIdDyn: string;
-
+    
     // For TikTok Topic
     const createdStatement1TikTok = await createStatement(
       topicTikTokHardcodedId, 
       testUserId, 
       "TikTok enables foreign governments to subtly influence public opinion."
     );
-    statement1TikTokDyn = createdStatement1TikTok.id;
     
-    await createStatement(
+    const createdStatement2TikTok = await createStatement(
       topicTikTokHardcodedId,
       testUserId,
       "Banning TikTok undermines digital freedom. Users should choose what apps to use."
     );
+    console.log(`✅ Created 2 statements for topic ${topicTikTokHardcodedId} (old seed)`);
     
     // For AI Jobs Topic
     const createdStatementAIJobsFor = await createStatement(
@@ -127,16 +126,16 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "Efficiency and consistency matter. AI in logistics and customer service has already proven its worth, streamlining operations and reducing errors."
     );
-    statementAIJobsForIdDyn = createdStatementAIJobsFor.id;
 
-    await createStatement(
+    const createdStatementAIJobsAgainst = await createStatement(
       topicAIJobsHardcodedId,
       testUserId,
       "Replacing people with AI erodes dignity. Work isn't just economic — it's part of identity and community. We risk widespread social displacement."
     );
+    console.log(`✅ Created 2 statements for topic ${topicAIJobsHardcodedId} (old seed)`);
 
     // For Eating Meat Topic
-    await createStatement(
+    const createdStatementMeatFor = await createStatement(
       topicEatingMeatHardcodedId,
       testUserId,
       "We’ve evolved to eat meat; it's a natural part of the human diet. Ethical farming and emerging lab-grown alternatives mitigate most concerns about animal welfare and environmental impact."
@@ -146,7 +145,7 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "With viable plant-based and cultivated meat alternatives increasingly available, the continued large-scale suffering of sentient animals for food is no longer ethically justifiable."
     );
-    statementMeatAgainstOldIdDyn = createdStatementMeatAgainst.id;
+    console.log(`✅ Created 2 statements for topic ${topicEatingMeatHardcodedId} (old seed)`);
 
     // For Social Censorship Topic
     const createdStatementSocialFor = await createStatement(
@@ -154,39 +153,39 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "Unchecked misinformation can destabilize democracies and endanger public health. Social media platforms have a moral and ethical responsibility to actively curate and censor harmful content."
     );
-    statementSocialForOldIdDyn = createdStatementSocialFor.id;
 
-    await createStatement(
+    const createdStatementSocialAgainst = await createStatement(
       topicSocialCensorshipHardcodedId,
       testUserId,
       "Censorship, even with good intentions, is a slippery slope and more dangerous in the long run than falsehoods. The public should be empowered to discern truth, not have it dictated by platforms."
     );
+    console.log(`✅ Created 2 statements for topic ${topicSocialCensorshipHardcodedId} (old seed)`);
     console.log('✅ Statements seeded sequentially via createStatement (oldSeedTestData).');
 
 
     // Seed questions using createThreadNode with dynamic statement IDs
     console.log('⏳ Seeding questions via createThreadNode (oldSeedTestData)...');
-    if (statement1TikTokDyn) {
+    if (createdStatement1TikTok?.id) {
         await createThreadNode({
-        topicId: topicTikTokHardcodedId, statementId: statement1TikTokDyn, statementAuthorId: testUserId,
+        topicId: topicTikTokHardcodedId, statementId: createdStatement1TikTok.id, statementAuthorId: testUserId,
         parentId: null, content: "What about similar practices by U.S. platforms?", createdBy: testUserId, type: 'question'
         });
     }
-    if (statementAIJobsForIdDyn) {
+    if (createdStatementAIJobsFor?.id) {
         await createThreadNode({
-        topicId: topicAIJobsHardcodedId, statementId: statementAIJobsForIdDyn, statementAuthorId: testUserId,
+        topicId: topicAIJobsHardcodedId, statementId: createdStatementAIJobsFor.id, statementAuthorId: testUserId,
         parentId: null, content: "Do you have examples where AI improved job satisfaction overall, rather than just company profits?", createdBy: testUserId, type: 'question'
         });
     }
-    if (statementMeatAgainstOldIdDyn) {
+    if (createdStatementMeatAgainst?.id) {
         await createThreadNode({
-        topicId: topicEatingMeatHardcodedId, statementId: statementMeatAgainstOldIdDyn, statementAuthorId: testUserId,
+        topicId: topicEatingMeatHardcodedId, statementId: createdStatementMeatAgainst.id, statementAuthorId: testUserId,
         parentId: null, content: "What about cultures that rely on livestock for survival and have done so sustainably for centuries? Is a global moratorium on meat ethical for them?", createdBy: testUserId, type: 'question'
         });
     }
-    if (statementSocialForOldIdDyn) {
+    if (createdStatementSocialFor?.id) {
         await createThreadNode({
-        topicId: topicSocialCensorshipHardcodedId, statementId: statementSocialForOldIdDyn, statementAuthorId: testUserId,
+        topicId: topicSocialCensorshipHardcodedId, statementId: createdStatementSocialFor.id, statementAuthorId: testUserId,
         parentId: null, content: "How do we define 'misinformation' and 'harmful content' consistently and without inherent political or ideological bias, especially at a global scale?", createdBy: testUserId, type: 'question'
         });
     }
@@ -267,16 +266,11 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
           title: topic.title,
           description: topic.description,
           createdBy: testUserId,
-          createdAt: Timestamp.now(),
+          createdAt: Timestamp.now(), // Firestore Timestamp for writing
           scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0, 
           slug: topic.slug
         });
       } else {
-        // If topic exists, ensure its scores are reset if we are about to re-seed statements.
-        // This is important if createStatement runs and assumes scores start from 0.
-        // However, createStatement itself should fetch current scores and update them incrementally.
-        // For simplicity and idempotency, we'll let createStatement handle score updates.
-        // We could update a 'lastSeeded' timestamp here if needed.
         console.log(`Topic ${topic.id} already exists. Scores will be updated by createStatement calls if statements are re-seeded.`);
       }
     }
@@ -319,28 +313,32 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
 
     console.log('⏳ Seeding statements and questions sequentially for multi-topic data using createStatement...');
     for (const topicData of statementsAndQuestions) {
+      let statementsCreatedCount = 0;
       for (const stmt of topicData.statements) {
+        // Use createStatement which handles AI classification and score updates
         const createdStatement = await createStatement(
           topicData.topicId,
           testUserId,
           stmt.content
         );
-        const dynamicStatementId = createdStatement.id;
-        console.log(`📝 Statement created with ID: ${dynamicStatementId} for topic ${topicData.topicId}. Position: ${createdStatement.position}`);
+        statementsCreatedCount++;
+        
+        console.log(`📝 Statement created with ID: ${createdStatement.id} for topic ${topicData.topicId}. Position: ${createdStatement.position}`);
 
-        if (stmt.question) {
+        if (stmt.question && createdStatement.id) { // Ensure createdStatement.id is valid
           await createThreadNode({
             topicId: topicData.topicId,
-            statementId: dynamicStatementId, 
+            statementId: createdStatement.id, 
             statementAuthorId: testUserId, 
             parentId: null,
             content: stmt.question,
             createdBy: testUserId,
             type: 'question'
           });
-          console.log(`❓ Question seeded for statement ID: ${dynamicStatementId}`);
+          console.log(`❓ Question seeded for statement ID: ${createdStatement.id}`);
         }
       }
+      console.log(`✅ Created ${statementsCreatedCount} statements for topic ${topicData.topicId}`);
     }
     console.log('✅ Statements and questions for multi-topic data seeded sequentially.');
     
