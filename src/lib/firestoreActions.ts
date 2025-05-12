@@ -3,7 +3,7 @@
 
 import { auth, db } from '@/lib/firebase/config';
 import type { Topic, Statement, UserProfile, Question, ThreadNode } from '@/types';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue, increment } from 'firebase/firestore'; // Added increment
 import { revalidatePath } from 'next/cache';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 
@@ -141,21 +141,18 @@ export async function createStatement(topicId: string, userId: string, content: 
       throw new Error("Topic does not exist inside transaction!");
     }
 
-    // Prepare the update object for topic scores using FieldValue.increment
-    const topicScoreUpdateData: { [key: string]: FieldValue } = {};
+    // Prepare the update object for topic scores using increment
+    const topicScoreUpdateData: { [key: string]: FieldValue | ReturnType<typeof increment> } = {};
     if (position === 'for') {
-      topicScoreUpdateData.scoreFor = FieldValue.increment(1);
+      topicScoreUpdateData.scoreFor = increment(1);
     } else if (position === 'against') {
-      topicScoreUpdateData.scoreAgainst = FieldValue.increment(1);
+      topicScoreUpdateData.scoreAgainst = increment(1);
     } else if (position === 'neutral') {
-      topicScoreUpdateData.scoreNeutral = FieldValue.increment(1);
+      topicScoreUpdateData.scoreNeutral = increment(1);
     } else {
-      // This case should ideally not happen if AI classification is robust
-      // and returns one of 'for', 'against', 'neutral'.
       console.warn(`createStatement: Unhandled position '${position}' for score update. Scores will not be incremented for this statement.`);
     }
     
-    // Update topic scores if a valid position was determined
     if (Object.keys(topicScoreUpdateData).length > 0) {
         transaction.update(topicRef, topicScoreUpdateData);
     }
@@ -170,9 +167,9 @@ export async function createStatement(topicId: string, userId: string, content: 
       lastEditedAt: serverTimestamp(),
     };
     
-    const tempStatementRef = doc(statementsCollection); // Create a new doc ref for statement to get its ID
+    const tempStatementRef = doc(statementsCollection); 
     newStatementRefId = tempStatementRef.id;
-    transaction.set(tempStatementRef, statementServerData); // Set the statement data
+    transaction.set(tempStatementRef, statementServerData); 
   });
 
   revalidatePath(`/(app)/topics/${topicId}`);
@@ -184,7 +181,6 @@ export async function createStatement(topicId: string, userId: string, content: 
   
   console.log("[createStatement] Statement successfully created with ID:", newStatementRefId);
 
-  // For the returned object, create an approximation that matches client-side type
   return {
     id: newStatementRefId,
     topicId,
@@ -192,8 +188,8 @@ export async function createStatement(topicId: string, userId: string, content: 
     createdBy: userId,
     position,
     aiConfidence,
-    createdAt: new Date().toISOString(), // Approximation
-    lastEditedAt: new Date().toISOString(), // Approximation
+    createdAt: new Date().toISOString(), 
+    lastEditedAt: new Date().toISOString(), 
   };
 }
 
@@ -300,23 +296,23 @@ export async function updateStatementPosition(
 
     const actualOldPosition = oldPosition || statementData.position as 'for' | 'against' | 'neutral' | 'pending';
 
-    if (actualOldPosition === newPosition && statementData.position !== 'pending') { // also check if it's not a pending to classified change
-      transaction.update(statementRef, { lastEditedAt: serverTimestamp() }); // Just update edit time if position is same and not pending
+    if (actualOldPosition === newPosition && statementData.position !== 'pending') { 
+      transaction.update(statementRef, { lastEditedAt: serverTimestamp() }); 
       return;
     }
 
-    const scoresUpdate: { [key: string]: FieldValue | number } = {};
+    const scoresUpdate: { [key: string]: ReturnType<typeof increment> } = {};
 
-    if (actualOldPosition !== 'pending') { // Only decrement if it was a scoring position
-        if (actualOldPosition === 'for') scoresUpdate.scoreFor = FieldValue.increment(-1); // Use increment for decrement
-        else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = FieldValue.increment(-1);
-        else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = FieldValue.increment(-1);
+    if (actualOldPosition !== 'pending') { 
+        if (actualOldPosition === 'for') scoresUpdate.scoreFor = increment(-1); 
+        else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = increment(-1);
+        else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = increment(-1);
     }
 
 
-    if (newPosition === 'for') scoresUpdate.scoreFor = FieldValue.increment(1);
-    else if (newPosition === 'against') scoresUpdate.scoreAgainst = FieldValue.increment(1);
-    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = FieldValue.increment(1);
+    if (newPosition === 'for') scoresUpdate.scoreFor = increment(1);
+    else if (newPosition === 'against') scoresUpdate.scoreAgainst = increment(1);
+    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = increment(1);
     
     transaction.update(topicRef, scoresUpdate);
     transaction.update(statementRef, { position: newPosition, lastEditedAt: serverTimestamp() });
@@ -330,16 +326,15 @@ export async function updateStatementPosition(
 export async function createThreadNode(data: {
   topicId: string;
   statementId: string;
-  statementAuthorId: string; // Author of the root statement
-  parentId: string | null; // ID of parent ThreadNode, or null if root question for statement
+  statementAuthorId: string; 
+  parentId: string | null; 
   content: string;
-  createdBy: string; // UID of user creating this node
+  createdBy: string; 
   type: 'question' | 'response';
 }): Promise<ThreadNode> {
   const { topicId, statementId, statementAuthorId, parentId, content, createdBy, type } = data;
   const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
 
-  // Constraint 1: User question limit (3 per statement thread for questions of type 'question').
   if (type === 'question') {
     const userQuestionCount = await getUserQuestionCountForStatement(createdBy, statementId, topicId);
     if (userQuestionCount >= 3) {
@@ -347,14 +342,11 @@ export async function createThreadNode(data: {
     }
   }
   
-  // Constraint 2: Only statement author can create ThreadNode of type 'response'.
   if (type === 'response') {
     if (createdBy !== statementAuthorId) {
       throw new Error("Only the statement author can respond to questions in this thread.");
     }
-    // Constraint 3: A ThreadNode of type: 'question' can only have one direct child ThreadNode of type: 'response'.
-    // This means if parentId is a question, check if it already has a response.
-    if (!parentId) { // Should not happen for a response, but defensive check
+    if (!parentId) { 
         throw new Error("Responses must have a parent question node.");
     }
     const q = query(threadsCollection, where("parentId", "==", parentId), where("type", "==", "response"));
@@ -469,3 +461,4 @@ export async function answerQuestion(topicId: string, statementId: string, quest
 // End Old Question/Answer System
 
     
+
