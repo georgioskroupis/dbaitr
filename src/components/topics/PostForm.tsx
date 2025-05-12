@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Send, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
-import * => React from "react";
+import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
