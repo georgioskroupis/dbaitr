@@ -119,49 +119,17 @@
 }
 
 .auth-background-glow {
-  background: linear-gradient(135deg, hsl(var(--background)) 0%, #1a0000 100%); /* #1a0000 is a very dark red */
+  background-image: url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-color: #000000; /* Fallback color */
   position: relative;
-  overflow: hidden; /* Contain glows */
+  overflow: hidden; /* Contain potential overflow from background image if not perfectly sized */
 }
 
-.auth-background-glow::before,
-.auth-background-glow::after {
-  content: '';
-  position: absolute;
-  width: 600px; /* Increased size of glow */
-  height: 600px; /* Increased size of glow */
-  border-radius: 50%;
-  opacity: 0.1; /* Adjusted intensity for subtlety */
-  pointer-events: none; 
-  z-index: 0; /* Behind content */
-  filter: blur(50px); /* Added blur for softer glow */
-}
-
-.auth-background-glow::before {
-  background: radial-gradient(ellipse at center, hsl(var(--primary)) 0%, transparent 60%);
-  top: -20%; 
-  left: -20%;
-  animation: pulseGlow1 12s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
-}
-
-.auth-background-glow::after {
-  background: radial-gradient(ellipse at center, hsl(var(--primary)) 0%, transparent 60%);
-  bottom: -20%; 
-  right: -20%;
-  animation: pulseGlow2 15s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
-}
-
-@keyframes pulseGlow1 {
-  0% { transform: scale(0.8) translate(-10%, -10%); opacity: 0.08; }
-  100% { transform: scale(1.2) translate(10%, 10%); opacity: 0.12; }
-}
-
-@keyframes pulseGlow2 {
-  0% { transform: scale(0.8) translate(10%, 10%); opacity: 0.1; }
-  100% { transform: scale(1.2) translate(-10%, -10%); opacity: 0.15; }
-}
-
-/* Ensure input fields in dark theme have the correct background and border */
+/* Ensure input fields in dark theme have the correct background and border on auth pages */
 .dark .auth-background-glow input[type="email"],
 .dark .auth-background-glow input[type="password"],
 .dark .auth-background-glow input[type="text"] {
