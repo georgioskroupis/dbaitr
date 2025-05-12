@@ -40,7 +40,7 @@ type IdVerificationFormValues = z.infer<typeof formSchema>;
 export function IdVerificationForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, kycVerified } = useAuth(); // Changed isVerified to kycVerified
   const [loading, setLoading] = React.useState(false);
   const [fileName, setFileName] = React.useState<string | null>(null);
 
@@ -93,7 +93,7 @@ export function IdVerificationForm() {
     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  if (userProfile?.isVerified) {
+  if (kycVerified) { // Changed userProfile?.isVerified to kycVerified
      router.replace('/dashboard');
      return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">You are already verified. Redirecting to dashboard...</p></div>;
   }
@@ -147,4 +147,3 @@ export function IdVerificationForm() {
     </Form>
   );
 }
-

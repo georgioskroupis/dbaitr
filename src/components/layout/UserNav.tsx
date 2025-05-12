@@ -1,3 +1,4 @@
+
 "use client";
 
 import { signOut } from "firebase/auth";
@@ -21,7 +22,7 @@ import { auth } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 
 export function UserNav() {
-  const { user, userProfile, isVerified } = useAuth();
+  const { user, userProfile, kycVerified } = useAuth(); // Changed isVerified to kycVerified
   const router = useRouter();
   const { toast } = useToast();
 
@@ -43,14 +44,17 @@ export function UserNav() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   }
 
+  // Firebase Auth User still has displayName, UserProfile has fullName
+  const displayNameForAvatar = userProfile?.fullName || user.displayName;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10 border-2 border-primary/50 hover:border-primary transition-colors">
-            <AvatarImage src={userProfile?.photoURL || user.photoURL || undefined} alt={userProfile?.displayName || user.displayName || "User"} />
+            <AvatarImage src={userProfile?.photoURL || user.photoURL || undefined} alt={displayNameForAvatar || "User"} />
             <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-              {getInitials(userProfile?.displayName || user.displayName)}
+              {getInitials(displayNameForAvatar)}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -58,7 +62,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{userProfile?.displayName || user.displayName || "User"}</p>
+            <p className="text-sm font-medium leading-none">{displayNameForAvatar || "User"}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
@@ -67,9 +71,9 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <Link href="/verify-identity" passHref>
-            <DropdownMenuItem disabled={isVerified}>
-              {isVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-500" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />}
-              <span>{isVerified ? "Verified" : "Verify ID"}</span>
+            <DropdownMenuItem disabled={kycVerified}> {/* Changed isVerified to kycVerified */}
+              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-500" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />}
+              <span>{kycVerified ? "Verified" : "Verify ID"}</span> {/* Changed isVerified to kycVerified */}
             </DropdownMenuItem>
           </Link>
           {/* Add more items like Profile, Settings here if needed */}

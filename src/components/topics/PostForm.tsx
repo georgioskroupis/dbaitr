@@ -13,65 +13,61 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createPost, checkIfUserHasPostedMainStatement } from "@/lib/firestoreActions";
-import { classifyPostPosition } from "@/ai/flows/classify-post-position";
+import { createStatement, checkIfUserHasPostedStatement } from "@/lib/firestoreActions"; // Renamed
 import type { Topic } from "@/types";
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const formSchema = z.object({
-  content: z.string().min(10, "Post must be at least 10 characters.").max(2000, "Post must be at most 2000 characters."),
+  content: z.string().min(10, "Statement must be at least 10 characters.").max(2000, "Statement must be at most 2000 characters."), // Changed from Post
 });
 
-type PostFormValues = z.infer<typeof formSchema>;
+type StatementFormValues = z.infer<typeof formSchema>; // Changed from PostFormValues
 
-interface PostFormProps {
+interface StatementFormProps { // Changed from PostFormProps
   topic: Topic;
-  onPostCreated?: () => void; // Callback after post is created
+  onStatementCreated?: () => void; // Changed from onPostCreated
 }
 
-export function PostForm({ topic, onPostCreated }: PostFormProps) {
+export function PostForm({ topic, onStatementCreated }: StatementFormProps) { // Component name kept PostForm for now to avoid renaming the file in this step
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, isVerified, loading: authLoading } = useAuth();
+  const { user, userProfile, kycVerified, loading: authLoading } = useAuth(); // Changed isVerified to kycVerified
   const [loading, setLoading] = React.useState(false);
-  const [isCheckingPostStatus, setIsCheckingPostStatus] = React.useState(true);
-  const [hasPostedMainStatement, setHasPostedMainStatement] = React.useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = React.useState(true); // Renamed
+  const [hasPostedStatement, setHasPostedStatement] = React.useState(false); // Renamed
 
-  const form = useForm<PostFormValues>({
+  const form = useForm<StatementFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { content: "" },
   });
 
   React.useEffect(() => {
-    async function checkPostStatus() {
+    async function checkStatementStatus() { // Renamed
       if (user && topic.id) {
-        setIsCheckingPostStatus(true);
+        setIsCheckingStatus(true);
         try {
-          const hasPosted = await checkIfUserHasPostedMainStatement(user.uid, topic.id);
-          setHasPostedMainStatement(hasPosted);
+          const hasPosted = await checkIfUserHasPostedStatement(user.uid, topic.id); // Renamed
+          setHasPostedStatement(hasPosted);
         } catch (error) {
-          console.error(`Detailed error: Could not check if user ${user.uid} has posted a main statement for topic ${topic.id}:`, error);
-          // Assuming they haven't posted to allow trying. An error here shouldn't block submission.
-          // A toast could be shown, but might be too intrusive if it's a transient network issue.
-          setHasPostedMainStatement(false); 
+          console.error(`Detailed error: Could not check if user ${user.uid} has posted a statement for topic ${topic.id}:`, error);
+          setHasPostedStatement(false); 
         } finally {
-          setIsCheckingPostStatus(false);
+          setIsCheckingStatus(false);
         }
       } else {
-        setIsCheckingPostStatus(false);
-        setHasPostedMainStatement(false);
+        setIsCheckingStatus(false);
+        setHasPostedStatement(false);
       }
     }
-    // Only run if user is not in authLoading state.
     if (!authLoading) {
-      checkPostStatus();
+      checkStatementStatus();
     }
   }, [user, topic.id, authLoading]);
 
 
-  async function onSubmit(values: PostFormValues) {
+  async function onSubmit(values: StatementFormValues) {
     if (authLoading) return; 
 
     if (!user || !userProfile) {
@@ -84,7 +80,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
-    if (!isVerified) {
+    if (!kycVerified) { // Changed isVerified to kycVerified
       toast({ 
         title: "Identity Verification Required", 
         description: "To maintain a fair and accountable debate space, please verify your ID before posting. You will be redirected to the verification page.", 
@@ -93,10 +89,10 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
       router.push('/verify-identity'); 
       return;
     }
-    if (hasPostedMainStatement) {
+    if (hasPostedStatement) {
       toast({ 
-        title: "Main Statement Already Submitted", 
-        description: "You have already submitted your primary statement for this debate topic. Further interactions (like replies or Q&A) will be available in future updates.", 
+        title: "Statement Already Submitted", // Renamed
+        description: "You have already submitted your statement for this debate topic. Further interactions (like replies or Q&A) will be available in future updates.", 
         variant: "default" 
       });
       return;
@@ -104,27 +100,26 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
 
     setLoading(true);
     try {
-      const classification = await classifyPostPosition({ topic: topic.title, post: values.content });
-      
-      await createPost(
+      // createStatement now handles AI classification and topic score updates.
+      // userName and userPhotoURL are not passed directly as they are not in Statement schema;
+      // they can be fetched using createdBy (user.uid).
+      await createStatement(
         topic.id, 
         user.uid, 
-        userProfile.displayName,
-        userProfile.photoURL,
-        values.content,
-        classification.position,
-        classification.confidence
+        values.content
+        // userProfile.fullName, // Not passed directly
+        // userProfile.photoURL, // Not passed directly
       );
       
-      toast({ title: "Post Submitted Successfully!", description: "Your contribution has been added to the debate and classified by our AI." });
+      toast({ title: "Statement Submitted Successfully!", description: "Your contribution has been added to the debate." }); // Updated message
       form.reset(); 
-      setHasPostedMainStatement(true); 
-      if (onPostCreated) onPostCreated();
+      setHasPostedStatement(true); 
+      if (onStatementCreated) onStatementCreated();
     } catch (error: any) {
-      console.error("Detailed error: Failed to create post. Values:", values, "Topic ID:", topic.id, "Error:", error);
+      console.error("Detailed error: Failed to create statement. Values:", values, "Topic ID:", topic.id, "Error:", error);
       toast({ 
-        title: "Failed to Submit Post", 
-        description: `Your post could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the post to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
+        title: "Failed to Submit Statement", // Renamed
+        description: `Your statement could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the statement to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
         variant: "destructive" 
       });
     } finally {
@@ -132,29 +127,26 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
     }
   }
 
-  if (authLoading || isCheckingPostStatus) {
+  if (authLoading || isCheckingStatus) {
     return (
       <div className="p-6 rounded-lg border bg-card shadow-sm mt-6 flex items-center justify-center min-h-[200px]">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading your posting status...</p>
+        <p className="ml-2 text-muted-foreground">Loading your statement status...</p> {/* Renamed */}
       </div>
     );
   }
 
-  if (hasPostedMainStatement) {
+  if (hasPostedStatement) {
     return (
       <Alert className="mt-6 border-primary/30 bg-primary/5 text-center">
         <MessageSquare className="h-5 w-5 text-primary mx-auto mb-2" />
-        <AlertTitle className="text-primary/90 font-semibold">Main Statement Submitted</AlertTitle>
+        <AlertTitle className="text-primary/90 font-semibold">Statement Submitted</AlertTitle> {/* Renamed */}
         <AlertDescription className="text-foreground/80">
-          You have already shared your main perspective on this topic. Thank you for your contribution!
+          You have already shared your perspective on this topic. Thank you for your contribution!
         </AlertDescription>
       </Alert>
     );
   }
-
-
-  const canSubmit = user && isVerified;
 
   return (
     <Form {...form}>
@@ -171,14 +163,14 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
                   placeholder={
                     !user 
                       ? "Please sign in to contribute to the debate." 
-                      : !isVerified 
+                      : !kycVerified // Changed
                       ? "Please verify your identity to participate."
                       : "Share your main argument or perspective on this topic..."
                   }
                   className="resize-none min-h-[120px]"
                   rows={5}
                   {...field}
-                  disabled={loading || !user || !isVerified || hasPostedMainStatement}
+                  disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus} // Changed
                 />
               </FormControl>
               <FormMessage />
@@ -188,14 +180,14 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
         <Button 
           type="submit" 
           className="mt-4 w-full sm:w-auto" 
-          disabled={loading || !user || !isVerified || hasPostedMainStatement || authLoading || isCheckingPostStatus}
+          disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus} // Changed
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Send className="mr-2 h-4 w-4" />
           )}
-          Submit Post
+          Submit Statement {/* Renamed */}
         </Button>
         
         {!user && (
@@ -206,7 +198,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
             }}>Sign in</Button> to participate.
           </p>
         )}
-        {user && !isVerified && (
+        {user && !kycVerified && ( // Changed
           <p className="mt-2 text-xs text-destructive">
             You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate in debates.
           </p>
@@ -216,4 +208,3 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
     </Form>
   );
 }
-

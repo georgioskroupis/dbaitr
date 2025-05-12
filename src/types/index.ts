@@ -3,34 +3,45 @@ import type { Timestamp } from 'firebase/firestore';
 export interface UserProfile {
   uid: string;
   email: string | null;
-  displayName: string | null;
+  fullName: string | null; // Changed from displayName
   photoURL?: string | null;
-  isVerified: boolean;
-  idDocumentUrl?: string;
+  kycVerified: boolean; // Changed from isVerified
+  // idDocumentUrl is removed as per new schema
   createdAt: Timestamp;
+  updatedAt?: Timestamp; // Optional: for tracking updates
 }
 
 export interface Topic {
   id: string;
-  title: string;
-  description?: string; // Optional brief description by creator
-  aiAnalysis?: string; // AI-generated neutral analysis
-  createdBy: string; // User ID
-  creatorName?: string; // User display name
+  title: string; // must be unique, AI-filtered
+  description: string; // AI-generated summary. Initially can be user-provided or empty.
+  createdBy: string; // User ID (reference to users/{userId})
   createdAt: Timestamp;
-  tags?: string[];
+  scoreFor: number;
+  scoreAgainst: number;
+  scoreNeutral: number;
+  slug?: string; // Optional: URL-friendly version of the title
 }
 
-export interface Post {
+export interface Statement { // Renamed from Post
   id: string;
-  topicId: string;
-  userId: string;
-  userName?: string; // User display name
-  userPhotoURL?: string;
+  topicId: string; // Added to know which topic it belongs to when querying statements directly
   content: string;
-  position?: 'For' | 'Against' | null; // AI classified
-  positionConfidence?: number;
+  createdBy: string; // User ID (reference to users/{userId})
   createdAt: Timestamp;
-  isMainStatement?: boolean; // True if it's the user's main statement for the topic
-  parentId?: string | null; // For Q&A flow, references parent post/question
+  position: 'for' | 'against' | 'neutral' | 'pending'; // Determined by AI. 'pending' can be an initial state.
+  lastEditedAt?: Timestamp;
+  aiConfidence?: number; // Optional confidence score from AI classification
+}
+
+export interface Question {
+  id:string;
+  topicId: string; // To easily query all questions for a topic if needed
+  statementId: string; // Parent statement
+  content: string;
+  askedBy: string; // User ID (reference to users/{userId})
+  createdAt: Timestamp;
+  answered: boolean;
+  answer?: string;
+  answeredAt?: Timestamp;
 }

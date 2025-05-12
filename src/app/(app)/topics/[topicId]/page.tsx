@@ -1,4 +1,4 @@
-import { getTopicById, getPostsForTopic } from '@/lib/firestoreActions';
+import { getTopicById, getStatementsForTopic } from '@/lib/firestoreActions'; // Renamed getPostsForTopic
 import { TopicDetailClient } from '@/components/topics/TopicDetailClient';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Frown } from "lucide-react";
@@ -11,9 +11,7 @@ interface TopicPageProps {
   };
 }
 
-// Enable dynamic rendering and revalidation
 export const dynamic = 'force-dynamic';
-// export const revalidate = 60; // Revalidate data every 60 seconds
 
 export default async function TopicPage({ params }: TopicPageProps) {
   const topicId = params.topicId;
@@ -33,12 +31,13 @@ export default async function TopicPage({ params }: TopicPageProps) {
     );
   }
 
-  // Fetch posts in parallel or sequentially after topic is confirmed
-  const posts = await getPostsForTopic(topicId);
+  // Fetch statements for the topic
+  const statements = await getStatementsForTopic(topicId); // Renamed from posts
 
   return (
     <div className="container mx-auto py-6">
-      <TopicDetailClient initialTopic={topic} initialPosts={posts} />
+      {/* Pass statements as initialStatements */}
+      <TopicDetailClient initialTopic={topic} initialPosts={statements} /> 
     </div>
   );
 }

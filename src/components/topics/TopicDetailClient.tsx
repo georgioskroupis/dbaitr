@@ -1,98 +1,115 @@
 
 "use client";
 
-import type { Topic, Post as PostType } from '@/types';
+import type { Topic, Statement as StatementType } from '@/types'; // Renamed PostType to StatementType
 import { TopicAnalysis } from './TopicAnalysis';
 import { PositionTally } from './PositionTally';
-import { PostForm } from './PostForm';
-import { DebatePostCard } from './DebatePostCard';
+import { PostForm } from './PostForm'; // Assuming this is now StatementForm
+import { DebatePostCard } from './DebatePostCard'; // Assuming this is now DebateStatementCard
 import { useEffect, useState } from 'react';
-import { getPostsForTopic, getTopicById, updateTopicWithAnalysis } from '@/lib/firestoreActions';
+import { getStatementsForTopic, getTopicById, updateTopicDescriptionWithAISummary, getUserProfile } from '@/lib/firestoreActions'; // Renamed getPostsForTopic
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, WifiOff } from "lucide-react"; // Added WifiOff for network errors
-import { Separator } from '../ui/separator';
+import { Terminal } from "lucide-react"; 
 import { Skeleton } from '../ui/skeleton'; 
 import { useToast } from '@/hooks/use-toast';
+import type { UserProfile } from '@/types';
 
 
 interface TopicDetailClientProps {
   initialTopic: Topic;
-  initialPosts: PostType[];
+  initialPosts: StatementType[]; // Renamed initialPosts to initialStatements, and PostType to StatementType
 }
 
-export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailClientProps) {
+export function TopicDetailClient({ initialTopic, initialPosts: initialStatements }: TopicDetailClientProps) {
   const [topic, setTopic] = useState<Topic>(initialTopic);
-  const [posts, setPosts] = useState<PostType[]>(initialPosts);
-  const [isLoadingTopic, setIsLoadingTopic] = useState<boolean>(!initialTopic.aiAnalysis); 
-  const [isLoadingPosts, setIsLoadingPosts] = useState<boolean>(false);
+  const [statements, setStatements] = useState<StatementType[]>(initialStatements); // Renamed posts to statements
+  const [isLoadingTopicDetails, setIsLoadingTopicDetails] = useState<boolean>(!initialTopic.description); // Topic description is AI summary
+  const [isLoadingStatements, setIsLoadingStatements] = useState<boolean>(false); // Renamed
+  const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
 
-  // Fetch AI analysis if not already present or if it's empty
+  // Fetch creator profile
   useEffect(() => {
-    async function fetchAnalysis() {
-      if (topic && (!topic.aiAnalysis || topic.aiAnalysis.trim() === '')) {
-        setIsLoadingTopic(true);
+    async function fetchCreator() {
+      if (topic.createdBy) {
+        const profile = await getUserProfile(topic.createdBy);
+        setCreatorProfile(profile);
+      }
+    }
+    fetchCreator();
+  }, [topic.createdBy]);
+
+  // Fetch AI summary for topic description if not present
+  useEffect(() => {
+    async function fetchAiSummary() {
+      if (topic && (!topic.description || topic.description.trim() === '')) {
+        setIsLoadingTopicDetails(true);
         try {
           const analysisResult = await generateTopicAnalysis({ topic: topic.title });
           if (analysisResult.analysis) {
-            await updateTopicWithAnalysis(topic.id, analysisResult.analysis); 
-            setTopic(prev => ({ ...prev, aiAnalysis: analysisResult.analysis }));
+            await updateTopicDescriptionWithAISummary(topic.id, analysisResult.analysis); 
+            setTopic(prev => ({ ...prev, description: analysisResult.analysis }));
           } else {
-            // Case where analysis is empty but no error thrown by AI flow
-            console.warn("AI topic analysis result was empty for topic:", topic.title);
+            console.warn("AI topic summary result was empty for topic:", topic.title);
           }
         } catch (error: any) {
-          console.error(`Detailed error: Failed to generate or fetch AI topic analysis for topic "${topic.title}" (ID: ${topic.id}):`, error);
+          console.error(`Detailed error: Failed to generate or fetch AI topic summary for topic "${topic.title}" (ID: ${topic.id}):`, error);
           toast({
-            title: "AI Analysis Unavailable",
-            description: `Could not load the AI-generated overview for this topic. This may be a temporary issue with the AI service or network. The debate can still proceed without it. Error: ${error.message || 'Unknown AI error.'}`,
-            variant: "default", // Not destructive as it's non-critical
+            title: "AI Summary Unavailable",
+            description: `Could not load the AI-generated summary for this topic. This may be a temporary issue. Error: ${error.message || 'Unknown AI error.'}`,
+            variant: "default",
             duration: 7000,
           });
         } finally {
-          setIsLoadingTopic(false);
+          setIsLoadingTopicDetails(false);
         }
-      } else if (topic && topic.aiAnalysis) {
-         setIsLoadingTopic(false); 
+      } else if (topic && topic.description) {
+         setIsLoadingTopicDetails(false); 
       }
     }
-    fetchAnalysis();
-  }, [topic?.id, topic?.title, topic?.aiAnalysis, toast]);
+    fetchAiSummary();
+  }, [topic?.id, topic?.title, topic?.description, toast]);
 
-  const refreshPosts = async () => {
-    setIsLoadingPosts(true);
+  const refreshStatements = async () => { // Renamed refreshPosts
+    setIsLoadingStatements(true);
     try {
-      const updatedPosts = await getPostsForTopic(topic.id);
-      setPosts(updatedPosts);
+      const updatedStatements = await getStatementsForTopic(topic.id); // Renamed
+      setStatements(updatedStatements);
+      // Also refresh topic data to get updated scores
+      const updatedTopic = await getTopicById(topic.id);
+      if (updatedTopic) {
+        setTopic(updatedTopic);
+      }
     } catch (error: any) {
-      console.error(`Detailed error: Failed to refresh posts for topic "${topic.title}" (ID: ${topic.id}):`, error);
+      console.error(`Detailed error: Failed to refresh statements for topic "${topic.title}" (ID: ${topic.id}):`, error);
       toast({
-        title: "Post Refresh Failed",
-        description: `Could not update the list of posts for this topic. This might be due to a network connection problem or a temporary server issue. Please try refreshing the page or check your connection. Error: ${error.message || 'Unknown error.'}`,
+        title: "Statement Refresh Failed", // Renamed
+        description: `Could not update the list of statements for this topic. Error: ${error.message || 'Unknown error.'}`,
         variant: "destructive",
       });
     } finally {
-      setIsLoadingPosts(false);
+      setIsLoadingStatements(false);
     }
   };
+
+  const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2">{topic.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Created by {topic.creatorName || 'Anonymous'} on {topic.createdAt ? new Date(topic.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+          Created by {creatorNameDisplay} on {topic.createdAt ? new Date(topic.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
         </p>
-        {topic.description && <p className="mt-3 text-md text-foreground/80">{topic.description}</p>}
+        {/* Topic Analysis component now shows the AI-generated description */}
+        <TopicAnalysis analysis={topic.description} isLoading={isLoadingTopicDetails} />
       </div>
-
-      <TopicAnalysis analysis={topic.aiAnalysis} isLoading={isLoadingTopic} />
       
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <h2 className="text-2xl font-semibold text-foreground">Debate Area</h2>
-          {isLoadingPosts ? (
+          {isLoadingStatements ? ( // Renamed
              Array.from({ length: 3 }).map((_, index) => (
                 <Card className="mb-4 bg-card/80 shadow-md" key={index}>
                   <CardHeader className="flex flex-row items-center space-x-3 p-4">
@@ -108,24 +125,25 @@ export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailCli
                   </CardContent>
                 </Card>
               ))
-          ) : posts.length > 0 ? (
-            posts.map(post => <DebatePostCard key={post.id} post={post} />)
+          ) : statements.length > 0 ? ( // Renamed
+            statements.map(statement => <DebatePostCard key={statement.id} statement={statement} />) // Renamed post to statement
           ) : (
             <Alert className="border-primary/30 bg-primary/5">
               <Terminal className="h-4 w-4 text-primary" />
-              <AlertTitle className="text-primary/90">No Posts Yet!</AlertTitle>
+              <AlertTitle className="text-primary/90">No Statements Yet!</AlertTitle> {/* Renamed */}
               <AlertDescription className="text-foreground/80">
-                This debate is just getting started. Be the first to share your thoughts and set the tone!
+                This debate is just getting started. Be the first to share your statement! {/* Renamed */}
               </AlertDescription>
             </Alert>
           )}
         </div>
         <div className="md:col-span-1 space-y-6">
-           <PositionTally posts={posts} isLoading={isLoadingPosts} />
-           <PostForm topic={topic} onPostCreated={refreshPosts} />
+           {/* PositionTally now takes the full topic object to use scores directly */}
+           <PositionTally topic={topic} isLoading={isLoadingStatements || isLoadingTopicDetails} />
+           {/* Assuming PostForm is now StatementForm and onPostCreated is onStatementCreated */}
+           <PostForm topic={topic} onStatementCreated={refreshStatements} /> 
         </div>
       </div>
     </div>
   );
 }
-

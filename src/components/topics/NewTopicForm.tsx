@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createTopic, getAllTopicTitles, updateTopicWithAnalysis } from "@/lib/firestoreActions";
+import { createTopic, getAllTopicTitles, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions"; // Renamed updateTopicWithAnalysis
 import { checkTopicSimilarity, type CheckTopicSimilarityOutput } from "@/ai/flows/prevent-duplicate-topics";
 import { generateTopicAnalysis } from "@/ai/flows/generate-topic-analysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ export function NewTopicForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, userProfile, isVerified, loading: authLoading } = useAuth();
+  const { user, userProfile, kycVerified, loading: authLoading } = useAuth(); // Changed isVerified to kycVerified
   const [loading, setLoading] = React.useState(false);
   const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
   const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
@@ -43,7 +43,6 @@ export function NewTopicForm() {
     const prefilledTitle = searchParams.get('title');
     if (prefilledTitle) {
       form.setValue('title', decodeURIComponent(prefilledTitle));
-      // Trigger similarity check for prefilled title
       handleTitleChange({ target: { value: decodeURIComponent(prefilledTitle) } } as React.ChangeEvent<HTMLInputElement>);
     }
   }, [searchParams, form]);
@@ -69,14 +68,12 @@ export function NewTopicForm() {
           setSimilarityResult(result);
         } catch (error) {
           console.error("Detailed error during topic similarity check (AI flow):", error);
-          // Do not toast here, as it can be annoying during typing.
-          // However, logging helps developers.
         } finally {
           setCheckingSimilarity(false);
         }
-      }, 1000); // 1 second debounce
+      }, 1000); 
     } else {
-      setSimilarityResult(null); // Clear results if title is too short
+      setSimilarityResult(null); 
     }
   };
 
@@ -92,7 +89,7 @@ export function NewTopicForm() {
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
-    if (!isVerified) {
+    if (!kycVerified) { // Changed isVerified to kycVerified
       toast({ 
         title: "Identity Verification Required", 
         description: "To ensure a quality debate environment, please verify your ID before creating topics. You'll be redirected to the verification page.", 
@@ -107,23 +104,25 @@ export function NewTopicForm() {
             title: "Topic May Be Too Similar",
             description: `The topic "${values.title}" seems very similar to an existing one ("${similarityResult.closestMatch}"). Please consider revising your title for originality or check out the existing topic. This helps keep discussions focused.`,
             variant: "destructive",
-            duration: 7000, // Longer duration for this specific warning
+            duration: 7000, 
         });
         return;
     }
 
     setLoading(true);
     try {
-      const newTopic = await createTopic(values.title, values.description, user.uid, userProfile.displayName);
+      // creatorName is no longer passed to createTopic, it's derived from createdBy ID (user.uid)
+      const newTopic = await createTopic(values.title, values.description, user.uid);
       
-      // Generate AI analysis in the background (don't block redirect)
+      // Generate AI summary for the topic's description field
       generateTopicAnalysis({ topic: values.title })
         .then(analysisResult => {
           if (analysisResult.analysis && newTopic.id) {
-            updateTopicWithAnalysis(newTopic.id, analysisResult.analysis);
+            // This function now updates the `description` field of the topic.
+            updateTopicDescriptionWithAISummary(newTopic.id, analysisResult.analysis);
           }
         })
-        .catch(err => console.error("Background task: Failed to generate AI topic analysis after topic creation. Topic ID:", newTopic.id, "Error:", err));
+        .catch(err => console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err));
       
       toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
       router.push(`/topics/${newTopic.id}`);
@@ -155,7 +154,7 @@ export function NewTopicForm() {
           <Sparkles className="h-6 w-6 text-primary" /> Create a New Debate Topic
         </CardTitle>
         <CardDescription>
-          Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness against existing topics.
+          Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness against existing topics. The topic description will be enhanced by AI.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -196,10 +195,10 @@ export function NewTopicForm() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Brief Description (Optional)</FormLabel>
+                  <FormLabel>Initial Description (Optional)</FormLabel> {/* AI will generate a summary later */}
                   <FormControl>
                     <Textarea
-                      placeholder="Provide a short overview or context for your debate topic. This helps others understand the scope. (Max 500 characters)"
+                      placeholder="Provide a short overview or context for your debate topic. This can be refined by AI later. (Max 500 characters)"
                       className="resize-none"
                       rows={4}
                       {...field}
@@ -219,4 +218,3 @@ export function NewTopicForm() {
     </Card>
   );
 }
-

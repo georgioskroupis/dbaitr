@@ -4,7 +4,7 @@
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { DocumentData } from 'firebase/firestore';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore'; // Added onSnapshot for real-time updates
 import * as React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase/config';
@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  isVerified: boolean; // Convenience flag based on userProfile
+  kycVerified: boolean; // Changed from isVerified
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,33 +25,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Fetch user profile from Firestore
+        // Set up a real-time listener for user profile changes
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setUserProfile(userDocSnap.data() as UserProfile);
-        } else {
-          // Potentially create a profile if it doesn't exist, or handle as new user
-          setUserProfile(null); 
-        }
+        const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUserProfile(docSnap.data() as UserProfile);
+          } else {
+            setUserProfile(null); 
+          }
+          // Ensure loading is set to false after profile is fetched or listener updates
+          // This might need to be coordinated if auth state changes rapidly
+          if (loading) setLoading(false); 
+        }, (error) => {
+          console.error("Error listening to user profile:", error);
+          setUserProfile(null);
+          if (loading) setLoading(false);
+        });
+        // Return this inner unsubscribe when the auth state changes or component unmounts
+        return () => unsubscribeProfile(); 
       } else {
         setUser(null);
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
-
-    return () => unsubscribe();
-  }, []);
+    // This outer unsubscribe is for the auth state listener
+    return () => unsubscribeAuth();
+  }, [loading]); // Added loading to dependency array to manage its state carefully
   
-  const isVerified = !!userProfile?.isVerified;
+  const kycVerified = !!userProfile?.kycVerified; // Changed from isVerified
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, isVerified }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, kycVerified }}>
       {children}
     </AuthContext.Provider>
   );
