@@ -11,17 +11,26 @@ const poppins = Poppins({
   variable: '--font-poppins',
 });
 
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-logo.png?alt=media&token=ccea3f69-32c3-4960-9b5f-afa56e963347";
+const FAVICON_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-favicon.png?alt=media&token=2c530150-2b60-4715-a385-0c9e9443ac0e";
+
 export const metadata: Metadata = {
   title: 'db8 - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis and KYC verification.',
+  icons: {
+    icon: [
+      { url: FAVICON_URL, type: 'image/png' },
+    ],
+    // apple: '/apple-touch-icon.png', // Example: if you have an apple touch icon
+  },
   openGraph: {
     title: 'db8 - AI Powered Debates',
     description: 'Engage in structured debates with AI analysis and KYC verification.',
     images: [
       {
-        url: '/assets/images/db8-logo.png', // Assumes db8-logo.png is in public/assets/images
-        width: 1080, // Actual width of the logo image
-        height: 1080, // Actual height of the logo image
+        url: LOGO_URL, 
+        width: 1200, // Provide actual or estimated dimensions for OG images
+        height: 630, // Standard OG image aspect ratio is 1.91:1
         alt: 'db8 Logo',
       },
     ],
@@ -32,8 +41,9 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'db8 - AI Powered Debates',
     description: 'Engage in structured debates with AI analysis and KYC verification.',
-    images: ['/assets/images/db8-logo.png'], // Assumes db8-logo.png is in public/assets/images
+    images: [LOGO_URL], 
   },
+  manifest: '/manifest.json', // If you have a PWA manifest
 };
 
 export default function RootLayout({
@@ -54,3 +64,4 @@ export default function RootLayout({
     </html>
   );
 }
+
