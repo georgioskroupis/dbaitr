@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,10 +60,13 @@ export function SignUpForm() {
       toast({ title: "Account created successfully!" });
       router.push("/verify-identity"); 
     } catch (error: any) {
-      console.error("Sign up error:", error);
+      console.error("Detailed error: Account creation failed:", error);
+      const specificErrorMessage = error.code === 'auth/email-already-in-use' 
+        ? 'This email address is already in use by another account.' 
+        : (error.message || "An unknown error occurred.");
       toast({
         title: "Sign Up Failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: `We couldn't create your account at this time. This could be due to various reasons like an email already in use or a network issue. Please review the details provided and try again. The system reported: ${specificErrorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -142,3 +146,4 @@ export function SignUpForm() {
     </Form>
   );
 }
+

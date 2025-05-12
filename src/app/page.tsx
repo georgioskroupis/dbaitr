@@ -25,10 +25,10 @@ export default function HomePage() {
         const titles = await getAllTopicTitles();
         setExistingTopicTitles(titles);
       } catch (error) {
-        console.error("Failed to load existing topic titles:", error);
+        console.error("Detailed error: Failed to load existing topic titles for the homepage search functionality:", error);
         toast({
-          title: "Error",
-          description: "Could not load existing topics. Please try again later.",
+          title: "Error Loading Topic Data",
+          description: "Failed to load the list of existing debate topics. This might be a temporary network issue or a problem with our servers. Please try refreshing the page. If the problem persists, please contact support.",
           variant: "destructive",
         });
       }
@@ -63,11 +63,11 @@ export default function HomePage() {
       toast({ title: "Create New Topic", description: `No direct match found. Let's create "${searchQuery}".` });
       router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
 
-    } catch (error) {
-      console.error("Error handling search/create:", error);
+    } catch (error: any) {
+      console.error("Detailed error: Error during topic search or initial creation step:", error);
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Search/Create Topic Error",
+        description: `Something went wrong while trying to search for or create the topic "${searchQuery}". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
         variant: "destructive",
       });
     } finally {

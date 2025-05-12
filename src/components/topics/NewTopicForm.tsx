@@ -68,8 +68,9 @@ export function NewTopicForm() {
           const result = await checkTopicSimilarity({ newTopic: newTitle, existingTopics });
           setSimilarityResult(result);
         } catch (error) {
-          console.error("Error checking topic similarity:", error);
-          // Do not toast here, as it can be annoying during typing
+          console.error("Detailed error during topic similarity check (AI flow):", error);
+          // Do not toast here, as it can be annoying during typing.
+          // However, logging helps developers.
         } finally {
           setCheckingSimilarity(false);
         }
@@ -82,22 +83,31 @@ export function NewTopicForm() {
 
   async function onSubmit(values: NewTopicFormValues) {
     if (!user || !userProfile) {
-      toast({ title: "Authentication Required", description: "Please sign in to create a topic.", variant: "destructive" });
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please sign in to create a topic. You will be redirected to the sign-in page. After signing in, you can return to create your topic.", 
+        variant: "destructive" 
+      });
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
     if (!isVerified) {
-      toast({ title: "Verification Required", description: "Please verify your ID to create topics.", variant: "destructive" });
-      router.push('/verify-identity'); // Verification page will redirect back or to dashboard
+      toast({ 
+        title: "Identity Verification Required", 
+        description: "To ensure a quality debate environment, please verify your ID before creating topics. You'll be redirected to the verification page.", 
+        variant: "destructive" 
+      });
+      router.push('/verify-identity'); 
       return;
     }
 
     if (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) {
         toast({
-            title: "Topic Potentially Similar",
-            description: "This topic seems very similar to an existing one. Please consider revising or checking the existing topic.",
-            variant: "destructive"
+            title: "Topic May Be Too Similar",
+            description: `The topic "${values.title}" seems very similar to an existing one ("${similarityResult.closestMatch}"). Please consider revising your title for originality or check out the existing topic. This helps keep discussions focused.`,
+            variant: "destructive",
+            duration: 7000, // Longer duration for this specific warning
         });
         return;
     }
@@ -113,13 +123,17 @@ export function NewTopicForm() {
             updateTopicWithAnalysis(newTopic.id, analysisResult.analysis);
           }
         })
-        .catch(err => console.error("Failed to generate topic analysis:", err));
+        .catch(err => console.error("Background task: Failed to generate AI topic analysis after topic creation. Topic ID:", newTopic.id, "Error:", err));
       
-      toast({ title: "Topic Created!", description: `"${values.title}" is now live.` });
+      toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
       router.push(`/topics/${newTopic.id}`);
     } catch (error: any) {
-      console.error("Error creating topic:", error);
-      toast({ title: "Failed to Create Topic", description: error.message, variant: "destructive" });
+      console.error("Detailed error: Failed to create new topic. Values:", values, "Error:", error);
+      toast({ 
+        title: "Failed to Create Topic", 
+        description: `An error occurred while trying to create your new topic. The system reported: ${error.message || "An unspecified error."} Please try submitting again. If the issue persists, it might be a temporary server problem or an issue with the provided details.`, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -129,6 +143,7 @@ export function NewTopicForm() {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Loading user data...</p>
       </div>
     );
   }
@@ -140,7 +155,7 @@ export function NewTopicForm() {
           <Sparkles className="h-6 w-6 text-primary" /> Create a New Debate Topic
         </CardTitle>
         <CardDescription>
-          Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness.
+          Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness against existing topics.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -154,7 +169,7 @@ export function NewTopicForm() {
                   <FormLabel>Topic Title</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Input placeholder="e.g., Should AI have human rights?" {...field} onChange={handleTitleChange} />
+                      <Input placeholder="e.g., Should AI advancements be regulated more strictly?" {...field} onChange={handleTitleChange} />
                        {checkingSimilarity && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                   </FormControl>
@@ -165,10 +180,10 @@ export function NewTopicForm() {
                     }`}>
                       {similarityResult.isSimilar ? <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" /> : <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" />}
                       <div>
-                        <p className="font-semibold">{similarityResult.isSimilar ? "Potential Duplicate" : "Looks Unique!"}</p>
+                        <p className="font-semibold">{similarityResult.isSimilar ? "Potential Duplicate Alert" : "Looking Good and Unique!"}</p>
                         <p>{similarityResult.guidanceMessage}</p>
                         {similarityResult.isSimilar && similarityResult.closestMatch && (
-                          <p className="mt-1">Closest match: <span className="italic">{similarityResult.closestMatch}</span> (Similarity: {((similarityResult.similarityScore || 0) * 100).toFixed(0)}%)</p>
+                          <p className="mt-1">Closest match identified: <span className="italic">"{similarityResult.closestMatch}"</span> (Similarity score: {((similarityResult.similarityScore || 0) * 100).toFixed(0)}%)</p>
                         )}
                       </div>
                     </div>
@@ -184,7 +199,7 @@ export function NewTopicForm() {
                   <FormLabel>Brief Description (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Provide a short overview or context for your debate topic. (Max 500 characters)"
+                      placeholder="Provide a short overview or context for your debate topic. This helps others understand the scope. (Max 500 characters)"
                       className="resize-none"
                       rows={4}
                       {...field}

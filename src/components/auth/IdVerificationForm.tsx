@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +61,7 @@ export function IdVerificationForm() {
 
   async function onSubmit(values: IdVerificationFormValues) {
     if (!user) {
-      toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+      toast({ title: "Error: Not Logged In", description: "You must be logged in to upload an ID document. Please sign in and try again.", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -71,16 +72,17 @@ export function IdVerificationForm() {
     const result = await uploadIdDocument(user.uid, formData);
 
     if (result.url) {
-      toast({ title: "ID Document Uploaded", description: "Your ID has been submitted for verification." });
+      toast({ title: "ID Document Uploaded Successfully", description: "Your ID has been submitted and is pending verification. You will be redirected shortly." });
       // The server action `uploadIdDocument` now calls `updateUserVerificationStatus`.
       // For this scaffold, we assume verification is immediate.
       // Re-fetching user or relying on AuthContext update (which might need a manual trigger or listen to Firestore changes)
       // For now, just redirect. The AuthContext will eventually pick up the change on next load or if user data is actively refreshed.
       router.push('/dashboard'); 
     } else {
+      console.error("Detailed error: ID document upload failed. Server action response:", result.error);
       toast({
-        title: "Upload Failed",
-        description: result.error || "An unexpected error occurred.",
+        title: "ID Document Upload Failed",
+        description: `Failed to upload your ID document. The system reported: ${result.error || "An unknown error occurred during the upload process."} Please ensure your file meets the requirements (JPG, PNG, or PDF, max 5MB) and try again. If the issue persists, contact support.`,
         variant: "destructive",
       });
     }
@@ -93,7 +95,7 @@ export function IdVerificationForm() {
 
   if (userProfile?.isVerified) {
      router.replace('/dashboard');
-     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">Already verified. Redirecting...</p></div>;
+     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">You are already verified. Redirecting to dashboard...</p></div>;
   }
 
 
@@ -139,9 +141,10 @@ export function IdVerificationForm() {
           Submit for Verification
         </Button>
          <p className="text-xs text-center text-muted-foreground">
-          Verification helps maintain a trustworthy debate environment. Your data is handled securely.
+          Verification helps maintain a trustworthy debate environment. Your data is handled securely according to our privacy policy.
         </p>
       </form>
     </Form>
   );
 }
+

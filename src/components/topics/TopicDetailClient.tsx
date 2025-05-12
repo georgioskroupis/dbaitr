@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Topic, Post as PostType } from '@/types';
@@ -9,9 +10,11 @@ import { useEffect, useState } from 'react';
 import { getPostsForTopic, getTopicById, updateTopicWithAnalysis } from '@/lib/firestoreActions';
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from "lucide-react";
+import { Terminal, WifiOff } from "lucide-react"; // Added WifiOff for network errors
 import { Separator } from '../ui/separator';
-import { Skeleton } from '../ui/skeleton'; // For loading state
+import { Skeleton } from '../ui/skeleton'; 
+import { useToast } from '@/hooks/use-toast';
+
 
 interface TopicDetailClientProps {
   initialTopic: Topic;
@@ -21,8 +24,9 @@ interface TopicDetailClientProps {
 export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailClientProps) {
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const [posts, setPosts] = useState<PostType[]>(initialPosts);
-  const [isLoadingTopic, setIsLoadingTopic] = useState<boolean>(!initialTopic.aiAnalysis); // Load analysis if not present
+  const [isLoadingTopic, setIsLoadingTopic] = useState<boolean>(!initialTopic.aiAnalysis); 
   const [isLoadingPosts, setIsLoadingPosts] = useState<boolean>(false);
+  const { toast } = useToast();
 
   // Fetch AI analysis if not already present or if it's empty
   useEffect(() => {
@@ -32,29 +36,42 @@ export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailCli
         try {
           const analysisResult = await generateTopicAnalysis({ topic: topic.title });
           if (analysisResult.analysis) {
-            await updateTopicWithAnalysis(topic.id, analysisResult.analysis); // Update in Firestore
+            await updateTopicWithAnalysis(topic.id, analysisResult.analysis); 
             setTopic(prev => ({ ...prev, aiAnalysis: analysisResult.analysis }));
+          } else {
+            // Case where analysis is empty but no error thrown by AI flow
+            console.warn("AI topic analysis result was empty for topic:", topic.title);
           }
-        } catch (error) {
-          console.error("Error fetching topic analysis:", error);
-          // Optionally show a toast or error message
+        } catch (error: any) {
+          console.error(`Detailed error: Failed to generate or fetch AI topic analysis for topic "${topic.title}" (ID: ${topic.id}):`, error);
+          toast({
+            title: "AI Analysis Unavailable",
+            description: `Could not load the AI-generated overview for this topic. This may be a temporary issue with the AI service or network. The debate can still proceed without it. Error: ${error.message || 'Unknown AI error.'}`,
+            variant: "default", // Not destructive as it's non-critical
+            duration: 7000,
+          });
         } finally {
           setIsLoadingTopic(false);
         }
       } else if (topic && topic.aiAnalysis) {
-         setIsLoadingTopic(false); // Analysis already loaded
+         setIsLoadingTopic(false); 
       }
     }
     fetchAnalysis();
-  }, [topic?.id, topic?.title, topic?.aiAnalysis]);
+  }, [topic?.id, topic?.title, topic?.aiAnalysis, toast]);
 
   const refreshPosts = async () => {
     setIsLoadingPosts(true);
     try {
       const updatedPosts = await getPostsForTopic(topic.id);
       setPosts(updatedPosts);
-    } catch (error) {
-      console.error("Error refreshing posts:", error);
+    } catch (error: any) {
+      console.error(`Detailed error: Failed to refresh posts for topic "${topic.title}" (ID: ${topic.id}):`, error);
+      toast({
+        title: "Post Refresh Failed",
+        description: `Could not update the list of posts for this topic. This might be due to a network connection problem or a temporary server issue. Please try refreshing the page or check your connection. Error: ${error.message || 'Unknown error.'}`,
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingPosts(false);
     }
@@ -77,7 +94,7 @@ export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailCli
           <h2 className="text-2xl font-semibold text-foreground">Debate Area</h2>
           {isLoadingPosts ? (
              Array.from({ length: 3 }).map((_, index) => (
-                <Card className="mb-4" key={index}>
+                <Card className="mb-4 bg-card/80 shadow-md" key={index}>
                   <CardHeader className="flex flex-row items-center space-x-3 p-4">
                     <Skeleton className="h-10 w-10 rounded-full" />
                     <div className="space-y-1">
@@ -98,7 +115,7 @@ export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailCli
               <Terminal className="h-4 w-4 text-primary" />
               <AlertTitle className="text-primary/90">No Posts Yet!</AlertTitle>
               <AlertDescription className="text-foreground/80">
-                Be the first to share your thoughts on this topic.
+                This debate is just getting started. Be the first to share your thoughts and set the tone!
               </AlertDescription>
             </Alert>
           )}
@@ -111,3 +128,4 @@ export function TopicDetailClient({ initialTopic, initialPosts }: TopicDetailCli
     </div>
   );
 }
+

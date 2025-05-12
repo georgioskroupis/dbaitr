@@ -1,3 +1,4 @@
+
 "use server";
 
 import { storage } from '@/lib/firebase/config';
@@ -8,16 +9,16 @@ export async function uploadIdDocument(userId: string, formData: FormData): Prom
   const file = formData.get('idDocument') as File;
 
   if (!file) {
-    return { error: 'No file selected.' };
+    return { error: 'No file was selected for upload. Please choose a file and try again.' };
   }
 
   if (file.size > 5 * 1024 * 1024) { // Max 5MB
-    return { error: 'File size exceeds 5MB limit.' };
+    return { error: 'The selected file exceeds the maximum size limit of 5MB. Please choose a smaller file.' };
   }
 
   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   if (!allowedTypes.includes(file.type)) {
-    return { error: 'Invalid file type. Only JPG, PNG, or PDF are allowed.' };
+    return { error: 'Invalid file type. Only JPG, PNG, or PDF files are accepted. Please select a file with a supported format.' };
   }
 
   try {
@@ -30,7 +31,12 @@ export async function uploadIdDocument(userId: string, formData: FormData): Prom
 
     return { url: downloadURL };
   } catch (error: any) {
-    console.error('Error uploading ID document:', error);
-    return { error: error.message || 'Failed to upload ID document.' };
+    console.error(`Detailed error during ID document upload on server for user ${userId}:`, error);
+    // Provide a more specific error message if available, otherwise a generic one.
+    const errorMessage = error.message 
+      ? `Server-side upload failed due to: ${error.message}` 
+      : 'An unexpected server-side error occurred while attempting to upload the ID document. Please try again later or contact support if the issue persists.';
+    return { error: errorMessage };
   }
 }
+

@@ -52,9 +52,9 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
           const hasPosted = await checkIfUserHasPostedMainStatement(user.uid, topic.id);
           setHasPostedMainStatement(hasPosted);
         } catch (error) {
-          console.error("Error checking post status:", error);
-          // toast({ title: "Error", description: "Could not check your posting status.", variant: "destructive" });
-          // Assume they haven't posted to allow trying, or handle error more gracefully
+          console.error(`Detailed error: Could not check if user ${user.uid} has posted a main statement for topic ${topic.id}:`, error);
+          // Assuming they haven't posted to allow trying. An error here shouldn't block submission.
+          // A toast could be shown, but might be too intrusive if it's a transient network issue.
           setHasPostedMainStatement(false); 
         } finally {
           setIsCheckingPostStatus(false);
@@ -68,25 +68,37 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
     if (!authLoading) {
       checkPostStatus();
     }
-  }, [user, topic.id, toast, authLoading]);
+  }, [user, topic.id, authLoading]);
 
 
   async function onSubmit(values: PostFormValues) {
-    if (authLoading) return; // Should not happen if button is disabled by authLoading
+    if (authLoading) return; 
 
     if (!user || !userProfile) {
-      toast({ title: "Authentication Required", description: "Please sign in to post.", variant: "destructive" });
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please sign in to share your statement. You'll be redirected to sign in, and then you can come back to post.", 
+        variant: "destructive" 
+      });
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
     if (!isVerified) {
-      toast({ title: "Verification Required", description: "Please verify your ID to post.", variant: "destructive" });
-      router.push('/verify-identity'); // Verification page will redirect back or to dashboard
+      toast({ 
+        title: "Identity Verification Required", 
+        description: "To maintain a fair and accountable debate space, please verify your ID before posting. You will be redirected to the verification page.", 
+        variant: "destructive" 
+      });
+      router.push('/verify-identity'); 
       return;
     }
     if (hasPostedMainStatement) {
-      toast({ title: "Already Posted", description: "You have already submitted your main statement for this topic.", variant: "default" });
+      toast({ 
+        title: "Main Statement Already Submitted", 
+        description: "You have already submitted your primary statement for this debate topic. Further interactions (like replies or Q&A) will be available in future updates.", 
+        variant: "default" 
+      });
       return;
     }
 
@@ -104,13 +116,17 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
         classification.confidence
       );
       
-      toast({ title: "Post Submitted!", description: "Your contribution has been added to the debate." });
+      toast({ title: "Post Submitted Successfully!", description: "Your contribution has been added to the debate and classified by our AI." });
       form.reset(); 
       setHasPostedMainStatement(true); 
       if (onPostCreated) onPostCreated();
     } catch (error: any) {
-      console.error("Error creating post:", error);
-      toast({ title: "Failed to Submit Post", description: error.message, variant: "destructive" });
+      console.error("Detailed error: Failed to create post. Values:", values, "Topic ID:", topic.id, "Error:", error);
+      toast({ 
+        title: "Failed to Submit Post", 
+        description: `Your post could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the post to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -120,7 +136,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
     return (
       <div className="p-6 rounded-lg border bg-card shadow-sm mt-6 flex items-center justify-center min-h-[200px]">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading form...</p>
+        <p className="ml-2 text-muted-foreground">Loading your posting status...</p>
       </div>
     );
   }
@@ -131,7 +147,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
         <MessageSquare className="h-5 w-5 text-primary mx-auto mb-2" />
         <AlertTitle className="text-primary/90 font-semibold">Main Statement Submitted</AlertTitle>
         <AlertDescription className="text-foreground/80">
-          You have already shared your main perspective on this topic.
+          You have already shared your main perspective on this topic. Thank you for your contribution!
         </AlertDescription>
       </Alert>
     );
@@ -154,9 +170,9 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
                 <Textarea
                   placeholder={
                     !user 
-                      ? "Please sign in to post." 
+                      ? "Please sign in to contribute to the debate." 
                       : !isVerified 
-                      ? "Please verify your ID to post."
+                      ? "Please verify your identity to participate."
                       : "Share your main argument or perspective on this topic..."
                   }
                   className="resize-none min-h-[120px]"
@@ -192,7 +208,7 @@ export function PostForm({ topic, onPostCreated }: PostFormProps) {
         )}
         {user && !isVerified && (
           <p className="mt-2 text-xs text-destructive">
-            You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate.
+            You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate in debates.
           </p>
         )}
         </div>

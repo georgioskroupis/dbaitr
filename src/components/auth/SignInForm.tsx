@@ -62,10 +62,13 @@ export function SignInForm() {
         router.push("/"); 
       }
     } catch (error: any) {
-      console.error("Sign in error:", error);
+      console.error("Detailed error: Sign in attempt failed:", error);
+      const specificErrorMessage = error.code ? 
+        (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' ? 'Incorrect email or password.' : error.message)
+        : (error.message || "An unknown error occurred.");
       toast({
         title: "Sign In Failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: `There was an issue signing you in. Common reasons include incorrect email/password or network problems. Please double-check your credentials and try again. The system reported: ${specificErrorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -132,3 +135,4 @@ export function SignInForm() {
     </Form>
   );
 }
+
