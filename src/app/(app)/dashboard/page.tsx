@@ -11,6 +11,7 @@ import { getTopics } from '@/lib/firestoreActions';
 import type { Topic } from '@/types';
 import { useAuth } from '@/context/AuthContext'; 
 import { useToast } from "@/hooks/use-toast";
+import { seedMultiTopicTestData } from '@/lib/seedDatabase';
 
 
 export default function DashboardPage() {
@@ -20,8 +21,49 @@ export default function DashboardPage() {
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
   const { toast } = useToast();
 
-  // Removed useEffect that redirected unauthenticated users.
-  // Dashboard is now publicly accessible.
+  // useEffect to attempt seeding if necessary (backup for AppBootstrapper)
+  useEffect(() => {
+    async function ensureSeededOnDashboard() {
+      // No need to wait for authLoading for this specific seed check, as data is global.
+      console.log('ℹ️ Dashboard: Checking/running multi-topic seed data function...');
+      try {
+        const result = await seedMultiTopicTestData();
+        console.log('📦 Dashboard seed function result:', result.message);
+        if (result.success) {
+          // Only toast if data was newly written by this call, or if specifically indicated a check passed.
+          // Avoid redundant toasts if AppBootstrapper already handled it.
+          if (result.message.includes("successfully written")) {
+             toast({
+                title: "Database Health Check",
+                description: "Ensured multi-topic debate data is available.",
+                variant: "default", // Use a less intrusive variant
+                duration: 5000,
+             });
+          } else if (result.message.includes("already contains")) {
+              console.log("📦 Dashboard: Multi-topic data confirmed to be present.");
+          }
+        } else { // Seeding failed
+          toast({
+            title: "Dashboard Data Check Failed",
+            description: `Could not ensure multi-topic seed data from dashboard: ${result.message}. Some topics might be missing.`,
+            variant: "destructive",
+            duration: 9000,
+          });
+        }
+      } catch (error: any) {
+          console.error('🔥 Dashboard: Error calling seedMultiTopicTestData function during dashboard load:', error);
+          toast({
+              title: "Dashboard Data Error",
+              description: `An error occurred during the dashboard's multi-topic data check: ${error.message || 'Unknown error.'}`,
+              variant: "destructive",
+              duration: 9000,
+          });
+      }
+    }
+    ensureSeededOnDashboard();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount. Toast is stable.
+
 
   useEffect(() => {
     async function fetchTopics() {
@@ -41,10 +83,11 @@ export default function DashboardPage() {
       }
     }
     // Fetch topics once authentication status is resolved, regardless of whether a user is logged in.
+    // This now also runs after the seed check above attempts to ensure data.
     if (!authLoading) {
         fetchTopics();
     }
-  }, [authLoading, toast]); // Removed `user` from dependency array as topics are public.
+  }, [authLoading, toast]); 
 
 
   // Display loading indicator while auth state or topics are loading.

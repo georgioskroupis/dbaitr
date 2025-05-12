@@ -266,31 +266,27 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
   try {
     const topicsCollectionRef = collection(db, 'topics');
     const topicsSnapshot = await getDocs(topicsCollectionRef);
-    if (!topicsSnapshot.empty) {
-      // Check if specific new topics already exist to avoid re-seeding only if *all* are present
-      const requiredTopicIds = ['topic_ai_regulation', 'topic_remote_work', 'topic_crypto_banking', 'topic_meat_ban'];
-      const existingTopicIds = topicsSnapshot.docs.map(doc => doc.id);
-      const allNewTopicsExist = requiredTopicIds.every(id => existingTopicIds.includes(id));
+    
+    const requiredTopicIds = ['topic_ai_regulation', 'topic_remote_work', 'topic_crypto_banking', 'topic_meat_ban'];
+    const existingTopicIds = topicsSnapshot.docs.map(doc => doc.id);
+    const allNewTopicsExist = requiredTopicIds.every(id => existingTopicIds.includes(id));
 
-      if (allNewTopicsExist) {
-        console.log('⚠️ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
-        return { success: true, message: 'Firestore already contains the new multi-topic dataset. Auto-seeding skipped.' };
-      }
-      console.log('ℹ️ Some new topics might be missing. Proceeding to seed/check multi-topic data.');
-    } else {
-      console.log('ℹ️ No existing topics found. Proceeding with multi-topic data seed.');
+    if (allNewTopicsExist && !topicsSnapshot.empty) { // Ensure topicsSnapshot isn't empty for this check to be meaningful
+      console.log('✅ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
+      return { success: true, message: 'Firestore already contains the new multi-topic dataset. Auto-seeding skipped.' };
     }
+    console.log('ℹ️ Not all required topics found or topics collection was empty. Proceeding with multi-topic data seed.');
+
 
     const batch = writeBatch(db);
-    const testUserId = 'user_test'; // Use a consistent user ID for simplicity as requested
+    const testUserId = 'user_test'; 
 
-    // Ensure test_user exists (or create/update)
     const userRef = doc(db, 'users', testUserId);
-    const userSnap = await getDoc(userRef);
+    const userSnap = await getDoc(userRef); // Use getDoc for a single document read
     if (!userSnap.exists()) {
       const userTestData: UserProfile = {
         uid: testUserId,
-        fullName: "Test User Prime", // Differentiate if old 'Test User' existed
+        fullName: "Test User Prime", 
         email: "test@example.com",
         kycVerified: true,
         createdAt: Timestamp.now().toDate().toISOString()
@@ -398,13 +394,12 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
       createdAt: Timestamp.now(),
       scoreFor: 1,
       scoreAgainst: 1,
-      scoreNeutral: 0, // Will be 1 if third statement is added
+      scoreNeutral: 0, 
       slug: 'should-crypto-replace-banking'
     });
 
     const stmtCryptoForId = 'stmt_crypto_for';
     const stmtCryptoAgainstId = 'stmt_crypto_against';
-    // const stmtCryptoNeutralId = 'stmt_crypto_neutral'; // Example if 3rd statement needed
     const qCryptoId = 'q_crypto_1';
 
     batch.set(doc(db, 'topics', topicCryptoId, 'statements', stmtCryptoForId), {
@@ -444,14 +439,13 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
       createdAt: Timestamp.now(),
       scoreFor: 1,
       scoreAgainst: 1,
-      scoreNeutral: 0, // Will be 1 if third statement is added
+      scoreNeutral: 0, 
       slug: 'should-meat-consumption-be-banned'
     });
 
-    const stmtMeatForId = 'stmt_meat_for';
-    const stmtMeatAgainstId = 'stmt_meat_against';
-    // const stmtMeatNeutralId = 'stmt_meat_neutral'; // Example if 3rd statement needed
-    const qMeatId = 'q_meat_1';
+    const stmtMeatForId = 'stmt_meat_for_ban'; // Changed ID to avoid conflict if old data existed
+    const stmtMeatAgainstId = 'stmt_meat_against_ban'; // Changed ID
+    const qMeatId = 'q_meat_ban_1'; // Changed ID
 
     batch.set(doc(db, 'topics', topicMeatBanId, 'statements', stmtMeatForId), {
       topicId: topicMeatBanId,
@@ -495,5 +489,3 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
     return { success: false, message: `❌ Error writing multi-topic sample data: ${errorMessage}` };
   }
 }
-
-    
