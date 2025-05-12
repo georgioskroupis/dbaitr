@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createTopic, getAllTopicTitles, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions"; // Renamed updateTopicWithAnalysis
+import { createTopic, getAllTopicTitles, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions";
 import { checkTopicSimilarity, type CheckTopicSimilarityOutput } from "@/ai/flows/prevent-duplicate-topics";
 import { generateTopicAnalysis } from "@/ai/flows/generate-topic-analysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ export function NewTopicForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, userProfile, kycVerified, loading: authLoading } = useAuth(); // Changed isVerified to kycVerified
+  const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
   const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
@@ -68,6 +68,11 @@ export function NewTopicForm() {
           setSimilarityResult(result);
         } catch (error) {
           console.error("Detailed error during topic similarity check (AI flow):", error);
+          toast({
+            title: "Similarity Check Error",
+            description: "Could not check topic similarity due to an AI service error. Please try again.",
+            variant: "destructive"
+          });
         } finally {
           setCheckingSimilarity(false);
         }
@@ -79,21 +84,28 @@ export function NewTopicForm() {
 
 
   async function onSubmit(values: NewTopicFormValues) {
+    if (authLoading) { // Wait for auth state to be resolved
+        toast({ title: "Please wait", description: "Authenticating...", variant: "default" });
+        return;
+    }
+
     if (!user || !userProfile) {
       toast({ 
         title: "Authentication Required", 
-        description: "Please sign in to create a topic. You will be redirected to the sign-in page. After signing in, you can return to create your topic.", 
-        variant: "destructive" 
+        description: "To create a new debate topic, you need to be signed in. Please sign in or create an account, and you'll be brought back here to complete your topic.", 
+        variant: "destructive",
+        duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
-    if (!kycVerified) { // Changed isVerified to kycVerified
+    if (!kycVerified) {
       toast({ 
         title: "Identity Verification Required", 
-        description: "To ensure a quality debate environment, please verify your ID before creating topics. You'll be redirected to the verification page.", 
-        variant: "destructive" 
+        description: "For quality and accountability in debates, identity verification (KYC) is needed to create new topics. Please complete the verification process. You'll be redirected to the verification page and can return here afterwards.", 
+        variant: "destructive",
+        duration: 7000,
       });
       router.push('/verify-identity'); 
       return;
@@ -111,18 +123,18 @@ export function NewTopicForm() {
 
     setLoading(true);
     try {
-      // creatorName is no longer passed to createTopic, it's derived from createdBy ID (user.uid)
       const newTopic = await createTopic(values.title, values.description, user.uid);
       
-      // Generate AI summary for the topic's description field
       generateTopicAnalysis({ topic: values.title })
         .then(analysisResult => {
           if (analysisResult.analysis && newTopic.id) {
-            // This function now updates the `description` field of the topic.
             updateTopicDescriptionWithAISummary(newTopic.id, analysisResult.analysis);
           }
         })
-        .catch(err => console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err));
+        .catch(err => {
+          console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err);
+          // Non-critical, don't bother user with a toast for this background task. Log is sufficient.
+        });
       
       toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
       router.push(`/topics/${newTopic.id}`);
@@ -195,7 +207,7 @@ export function NewTopicForm() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Initial Description (Optional)</FormLabel> {/* AI will generate a summary later */}
+                  <FormLabel>Initial Description (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Provide a short overview or context for your debate topic. This can be refined by AI later. (Max 500 characters)"

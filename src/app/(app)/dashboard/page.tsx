@@ -1,7 +1,7 @@
 
 "use client"; 
 
-import { useEffect, useState } from 'react'; // Combined React import
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TopicCard } from '@/components/topics/TopicCard';
@@ -10,61 +10,51 @@ import { PlusCircle, Loader2 } from 'lucide-react';
 import { getTopics } from '@/lib/firestoreActions';
 import type { Topic } from '@/types';
 import { useAuth } from '@/context/AuthContext'; 
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth(); 
   const router = useRouter();
-  const [topics, setTopics] = useState<Topic[]>([]); // Explicitly type useState
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/'); 
-    }
-  }, [user, authLoading, router]);
+  // Removed useEffect that redirected unauthenticated users.
+  // Dashboard is now publicly accessible.
 
   useEffect(() => {
     async function fetchTopics() {
-      if (user) { 
-        setIsLoadingTopics(true);
-        try {
-          const fetchedTopics = await getTopics();
-          setTopics(fetchedTopics);
-        } catch (error: any) {
-          console.error("Detailed error: Failed to fetch topics for the dashboard:", error);
-          toast({
-            title: "Error Loading Debate Topics",
-            description: `We couldn't load the debate topics at this time. This might be a network issue or a problem with our servers. Please try refreshing the page or check your internet connection. Error: ${error.message || 'Unknown error.'}`,
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoadingTopics(false);
-        }
+      setIsLoadingTopics(true);
+      try {
+        const fetchedTopics = await getTopics();
+        setTopics(fetchedTopics);
+      } catch (error: any) {
+        console.error("Detailed error: Failed to fetch topics for the dashboard:", error);
+        toast({
+          title: "Error Loading Debate Topics",
+          description: `We couldn't load the debate topics at this time. This might be a network issue or a problem with our servers. Please try refreshing the page or check your internet connection. Error: ${error.message || 'Unknown error.'}`,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingTopics(false);
       }
     }
-    if (!authLoading && user) {
+    // Fetch topics once authentication status is resolved, regardless of whether a user is logged in.
+    if (!authLoading) {
         fetchTopics();
     }
-  }, [user, authLoading, toast]); // Added toast to dependency array
+  }, [authLoading, toast]); // Removed `user` from dependency array as topics are public.
 
 
-  if (authLoading || (!user && !authLoading)) { 
+  // Display loading indicator while auth state or topics are loading.
+  if (authLoading || isLoadingTopics) { 
     return (
       <div className="flex min-h-[calc(100vh-150px)] flex-col items-center justify-center p-8">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Loading Dashboard...</p>
-      </div>
-    );
-  }
-  
-  if (isLoadingTopics) {
-     return (
-      <div className="flex min-h-[calc(100vh-150px)] flex-col items-center justify-center p-8">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-foreground">Loading Topics...</p>
+        <p className="mt-4 text-lg text-foreground">
+          {authLoading ? "Loading Dashboard..." : "Loading Topics..."}
+        </p>
       </div>
     );
   }
@@ -74,6 +64,7 @@ export default function DashboardPage() {
     <div className="container mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Debate Topics</h1>
+        {/* "Create New Topic" button will lead to /topics/new, which has its own auth/KYC checks */}
         <Button asChild>
           <Link href="/topics/new">
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -104,4 +95,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

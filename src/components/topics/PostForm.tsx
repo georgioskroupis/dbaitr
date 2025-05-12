@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Send, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
-import * as React from "react";
+import * => React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -13,30 +13,30 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createStatement, checkIfUserHasPostedStatement } from "@/lib/firestoreActions"; // Renamed
+import { createStatement, checkIfUserHasPostedStatement } from "@/lib/firestoreActions";
 import type { Topic } from "@/types";
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const formSchema = z.object({
-  content: z.string().min(10, "Statement must be at least 10 characters.").max(2000, "Statement must be at most 2000 characters."), // Changed from Post
+  content: z.string().min(10, "Statement must be at least 10 characters.").max(2000, "Statement must be at most 2000 characters."),
 });
 
-type StatementFormValues = z.infer<typeof formSchema>; // Changed from PostFormValues
+type StatementFormValues = z.infer<typeof formSchema>;
 
-interface StatementFormProps { // Changed from PostFormProps
+interface StatementFormProps {
   topic: Topic;
-  onStatementCreated?: () => void; // Changed from onPostCreated
+  onStatementCreated?: () => void;
 }
 
-export function PostForm({ topic, onStatementCreated }: StatementFormProps) { // Component name kept PostForm for now to avoid renaming the file in this step
+export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, kycVerified, loading: authLoading } = useAuth(); // Changed isVerified to kycVerified
+  const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
   const [loading, setLoading] = React.useState(false);
-  const [isCheckingStatus, setIsCheckingStatus] = React.useState(true); // Renamed
-  const [hasPostedStatement, setHasPostedStatement] = React.useState(false); // Renamed
+  const [isCheckingStatus, setIsCheckingStatus] = React.useState(true);
+  const [hasPostedStatement, setHasPostedStatement] = React.useState(false);
 
   const form = useForm<StatementFormValues>({
     resolver: zodResolver(formSchema),
@@ -44,81 +44,88 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
   });
 
   React.useEffect(() => {
-    async function checkStatementStatus() { // Renamed
+    async function checkStatementStatus() {
       if (user && topic.id) {
         setIsCheckingStatus(true);
         try {
-          const hasPosted = await checkIfUserHasPostedStatement(user.uid, topic.id); // Renamed
+          const hasPosted = await checkIfUserHasPostedStatement(user.uid, topic.id);
           setHasPostedStatement(hasPosted);
         } catch (error) {
           console.error(`Detailed error: Could not check if user ${user.uid} has posted a statement for topic ${topic.id}:`, error);
+          // Potentially inform user about this error
+          toast({
+            title: "Error Checking Statement Status",
+            description: "Could not determine if you've already posted. Please try refreshing.",
+            variant: "destructive"
+          });
           setHasPostedStatement(false); 
         } finally {
           setIsCheckingStatus(false);
         }
       } else {
         setIsCheckingStatus(false);
-        setHasPostedStatement(false);
+        setHasPostedStatement(false); // If no user, they haven't posted.
       }
     }
-    if (!authLoading) {
+    if (!authLoading) { // Only run when auth state is resolved
       checkStatementStatus();
     }
-  }, [user, topic.id, authLoading]);
+  }, [user, topic.id, authLoading, toast]);
 
 
   async function onSubmit(values: StatementFormValues) {
-    if (authLoading) return; 
+    if (authLoading) { // Explicitly wait for auth state resolution
+        toast({ title: "Please wait", description: "Verifying authentication status...", variant: "default" });
+        return;
+    }
 
     if (!user || !userProfile) {
       toast({ 
         title: "Authentication Required", 
-        description: "Please sign in to share your statement. You'll be redirected to sign in, and then you can come back to post.", 
-        variant: "destructive" 
+        description: "To share your statement, you need to be signed in. Please sign in or create an account, and you'll be returned here to post.", 
+        variant: "destructive",
+        duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
-    if (!kycVerified) { // Changed isVerified to kycVerified
+    if (!kycVerified) {
       toast({ 
         title: "Identity Verification Required", 
-        description: "To maintain a fair and accountable debate space, please verify your ID before posting. You will be redirected to the verification page.", 
-        variant: "destructive" 
+        description: "To ensure a fair and accountable debate, identity verification (KYC) is required to post statements. Please complete the verification. You'll be redirected and can return here afterwards.", 
+        variant: "destructive",
+        duration: 7000,
       });
       router.push('/verify-identity'); 
       return;
     }
     if (hasPostedStatement) {
       toast({ 
-        title: "Statement Already Submitted", // Renamed
+        title: "Statement Already Submitted",
         description: "You have already submitted your statement for this debate topic. Further interactions (like replies or Q&A) will be available in future updates.", 
-        variant: "default" 
+        variant: "default",
+        duration: 7000,
       });
       return;
     }
 
     setLoading(true);
     try {
-      // createStatement now handles AI classification and topic score updates.
-      // userName and userPhotoURL are not passed directly as they are not in Statement schema;
-      // they can be fetched using createdBy (user.uid).
       await createStatement(
         topic.id, 
         user.uid, 
         values.content
-        // userProfile.fullName, // Not passed directly
-        // userProfile.photoURL, // Not passed directly
       );
       
-      toast({ title: "Statement Submitted Successfully!", description: "Your contribution has been added to the debate." }); // Updated message
+      toast({ title: "Statement Submitted Successfully!", description: "Your contribution has been added to the debate." });
       form.reset(); 
       setHasPostedStatement(true); 
       if (onStatementCreated) onStatementCreated();
     } catch (error: any) {
       console.error("Detailed error: Failed to create statement. Values:", values, "Topic ID:", topic.id, "Error:", error);
       toast({ 
-        title: "Failed to Submit Statement", // Renamed
+        title: "Failed to Submit Statement",
         description: `Your statement could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the statement to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
         variant: "destructive" 
       });
@@ -131,7 +138,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
     return (
       <div className="p-6 rounded-lg border bg-card shadow-sm mt-6 flex items-center justify-center min-h-[200px]">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading your statement status...</p> {/* Renamed */}
+        <p className="ml-2 text-muted-foreground">Loading your statement status...</p>
       </div>
     );
   }
@@ -140,7 +147,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
     return (
       <Alert className="mt-6 border-primary/30 bg-primary/5 text-center">
         <MessageSquare className="h-5 w-5 text-primary mx-auto mb-2" />
-        <AlertTitle className="text-primary/90 font-semibold">Statement Submitted</AlertTitle> {/* Renamed */}
+        <AlertTitle className="text-primary/90 font-semibold">Statement Submitted</AlertTitle>
         <AlertDescription className="text-foreground/80">
           You have already shared your perspective on this topic. Thank you for your contribution!
         </AlertDescription>
@@ -163,14 +170,14 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
                   placeholder={
                     !user 
                       ? "Please sign in to contribute to the debate." 
-                      : !kycVerified // Changed
+                      : !kycVerified
                       ? "Please verify your identity to participate."
                       : "Share your main argument or perspective on this topic..."
                   }
                   className="resize-none min-h-[120px]"
                   rows={5}
                   {...field}
-                  disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus} // Changed
+                  disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus}
                 />
               </FormControl>
               <FormMessage />
@@ -180,14 +187,14 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
         <Button 
           type="submit" 
           className="mt-4 w-full sm:w-auto" 
-          disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus} // Changed
+          disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus}
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Send className="mr-2 h-4 w-4" />
           )}
-          Submit Statement {/* Renamed */}
+          Submit Statement
         </Button>
         
         {!user && (
@@ -198,7 +205,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) { //
             }}>Sign in</Button> to participate.
           </p>
         )}
-        {user && !kycVerified && ( // Changed
+        {user && !kycVerified && (
           <p className="mt-2 text-xs text-destructive">
             You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate in debates.
           </p>
