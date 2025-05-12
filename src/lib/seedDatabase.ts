@@ -3,237 +3,94 @@
 
 import { db } from '@/lib/firebase/config';
 import type { UserProfile, Topic, Statement, Question } from '@/types';
-import { collection, doc, setDoc, Timestamp, writeBatch } from 'firebase/firestore';
+import { doc, Timestamp, writeBatch } from 'firebase/firestore';
 
-const userIds = {
-  alice: 'seed_user_alice',
-  bob: 'seed_user_bob',
-  charlie: 'seed_user_charlie',
-};
-
-const topicIds = {
-  remoteWork: 'seed_topic_remote_work',
-  aiArt: 'seed_topic_ai_art',
-  marsColonization: 'seed_topic_mars_colonization',
-};
-
-const statementIds = {
-  remote_s1: 'seed_stmt_remote_01',
-  remote_s2: 'seed_stmt_remote_02',
-  aiArt_s1: 'seed_stmt_aiart_01',
-  aiArt_s2: 'seed_stmt_aiart_02',
-  mars_s1: 'seed_stmt_mars_01',
-  mars_s2: 'seed_stmt_mars_02',
-};
-
-const questionIds = {
-  remote_q1: 'seed_q_remote_01',
-  aiArt_q1: 'seed_q_aiart_01',
-  mars_q1: 'seed_q_mars_01',
-};
-
-export async function seedDatabase(): Promise<{ success: boolean; message: string }> {
+// This function seeds a specific set of test data as requested for a "strict Firestore write test".
+export async function seedTestData(): Promise<{ success: boolean; message: string }> {
   const batch = writeBatch(db);
 
+  const testUserId = 'user_test';
+  const testTopicId = 'topic_tiktok';
+  const statement1Id = 'statement1';
+  const statement2Id = 'statement2';
+  const question1Id = 'question1';
+
   try {
-    // 1. Create Users
-    const usersData: UserProfile[] = [
-      {
-        uid: userIds.alice,
-        fullName: 'Alice Wonderland',
-        email: 'alice@example.com',
-        kycVerified: true,
-        photoURL: `https://picsum.photos/seed/${userIds.alice}/200`,
-        createdAt: Timestamp.now(),
-      },
-      {
-        uid: userIds.bob,
-        fullName: 'Bob The Builder',
-        email: 'bob@example.com',
-        kycVerified: true,
-        photoURL: `https://picsum.photos/seed/${userIds.bob}/200`,
-        createdAt: Timestamp.now(),
-      },
-      {
-        uid: userIds.charlie,
-        fullName: 'Charlie Brown',
-        email: 'charlie@example.com',
-        kycVerified: true,
-        photoURL: `https://picsum.photos/seed/${userIds.charlie}/200`,
-        createdAt: Timestamp.now(),
-      },
-    ];
+    // STEP 1: Add test user
+    const userRef = doc(db, 'users', testUserId);
+    const userTestData: UserProfile = {
+      uid: testUserId,
+      fullName: "Test User",
+      email: "test@example.com",
+      kycVerified: true,
+      createdAt: Timestamp.now()
+    };
+    batch.set(userRef, userTestData);
 
-    usersData.forEach((user) => {
-      const userRef = doc(db, 'users', user.uid);
-      batch.set(userRef, user);
-    });
+    // STEP 2: Add topic manually
+    const topicRef = doc(db, 'topics', testTopicId);
+    // The 'id' field is not part of the Topic Firestore document data itself, it's the document ID.
+    // createdBy is a string (userId) as per the Topic type.
+    const topicTestData: Omit<Topic, 'id'> = {
+      title: "Should governments ban TikTok?",
+      description: "A debate over digital sovereignty, data privacy, and youth influence.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      scoreFor: 1,
+      scoreAgainst: 1,
+      scoreNeutral: 0,
+      slug: 'should-governments-ban-tiktok' // Added a slug for completeness
+    };
+    batch.set(topicRef, topicTestData);
 
-    // 2. Create Topics
-    const topicsData: Topic[] = [
-      {
-        id: topicIds.remoteWork,
-        title: 'The Future of Remote Work: A Permanent Shift or Passing Trend?',
-        description:
-          "The COVID-19 pandemic dramatically accelerated the adoption of remote work. This topic explores whether this shift is a permanent evolution in how we work, or if traditional office environments will make a significant comeback. Considerations include productivity, work-life balance, company culture, and technological infrastructure.",
-        createdBy: userIds.alice,
-        createdAt: Timestamp.now(),
-        scoreFor: 1,
-        scoreAgainst: 1,
-        scoreNeutral: 0,
-        slug: 'future-of-remote-work-permanent-shift-passing-trend',
-      },
-      {
-        id: topicIds.aiArt,
-        title: 'The Ethics of AI in Creative Arts: Innovation or Imitation?',
-        description:
-          "AI-powered tools are increasingly capable of generating sophisticated art, music, and literature. This debate delves into the ethical implications: Is AI a tool for human artists, a co-creator, or a replacement? We'll discuss originality, copyright, the value of human creativity, and the potential impact on creative industries.",
-        createdBy: userIds.bob,
-        createdAt: Timestamp.now(),
-        scoreFor: 1,
-        scoreAgainst: 1,
-        scoreNeutral: 0,
-        slug: 'ethics-of-ai-in-creative-arts-innovation-or-imitation',
-      },
-      {
-        id: topicIds.marsColonization,
-        title: 'Mars Colonization: A Necessary Step for Humanity or a Misguided Priority?',
-        description:
-          "The ambition to establish human colonies on Mars captures the imagination, promising a new frontier for exploration and a safeguard for humanity's future. However, it also raises questions about immense costs, technological challenges, ethical considerations of planetary protection, and whether resources should be prioritized for solving Earth's pressing problems.",
-        createdBy: userIds.charlie,
-        createdAt: Timestamp.now(),
-        scoreFor: 1,
-        scoreAgainst: 1,
-        scoreNeutral: 0,
-        slug: 'mars-colonization-necessary-step-misguided-priority',
-      },
-    ];
+    // STEP 3: Add two statements to the topic
+    const statement1Ref = doc(db, 'topics', testTopicId, 'statements', statement1Id);
+    // The 'id' field is not part of the Statement Firestore document data.
+    const statement1Data: Omit<Statement, 'id'> = {
+      topicId: testTopicId, // Explicitly include topicId as per Statement type
+      content: "TikTok enables foreign governments to subtly influence public opinion.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "for",
+      aiConfidence: 0.85, // Example confidence
+      lastEditedAt: Timestamp.now(),
+    };
+    batch.set(statement1Ref, statement1Data);
 
-    topicsData.forEach((topic) => {
-      const topicRef = doc(db, 'topics', topic.id);
-      batch.set(topicRef, topic);
-    });
+    const statement2Ref = doc(db, 'topics', testTopicId, 'statements', statement2Id);
+    const statement2Data: Omit<Statement, 'id'> = {
+      topicId: testTopicId, // Explicitly include topicId
+      content: "Banning TikTok undermines digital freedom. Users should choose what apps to use.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "against",
+      aiConfidence: 0.90, // Example confidence
+      lastEditedAt: Timestamp.now(),
+    };
+    batch.set(statement2Ref, statement2Data);
 
-    // 3. Create Statements
-    const statementsData: Statement[] = [
-      // Statements for Remote Work Topic
-      {
-        id: statementIds.remote_s1,
-        topicId: topicIds.remoteWork,
-        content:
-          "Remote work is undeniably the future. It offers unparalleled flexibility, slashes commute times, and broadens talent pools for companies. The productivity gains from focused, uninterrupted work at home are substantial, and employees consistently report better work-life integration. Resistance to this shift often stems from outdated management philosophies rather than objective concerns.",
-        createdBy: userIds.bob,
-        createdAt: Timestamp.now(),
-        position: 'for',
-        aiConfidence: 0.92,
-      },
-      {
-        id: statementIds.remote_s2,
-        topicId: topicIds.remoteWork,
-        content:
-          "While remote work has its benefits, a complete shift away from the office is detrimental. Spontaneous collaboration, mentorship for junior staff, and the development of a strong company culture are severely hampered. Hybrid models might offer a compromise, but the value of in-person interaction for innovation and team cohesion cannot be fully replicated remotely.",
-        createdBy: userIds.charlie,
-        createdAt: Timestamp.now(),
-        position: 'against',
-        aiConfidence: 0.88,
-      },
-      // Statements for AI Art Topic
-      {
-        id: statementIds.aiArt_s1,
-        topicId: topicIds.aiArt,
-        content:
-          "AI in art is an empowering evolution, not a threat. These tools democratize creation, allowing individuals without traditional artistic skills to bring their visions to life. The human element remains crucial in prompting, curating, and refining AI outputs. It's a new medium, much like photography was once viewed with suspicion by painters.",
-        createdBy: userIds.charlie,
-        createdAt: Timestamp.now(),
-        position: 'for',
-        aiConfidence: 0.95,
-      },
-      {
-        id: statementIds.aiArt_s2,
-        topicId: topicIds.aiArt,
-        content:
-          "The rise of AI-generated art raises serious concerns about originality and the devaluation of human skill. If art can be produced en masse by algorithms trained on existing human works, what becomes of the artist's unique voice and the laborious process of creation? We risk a future of derivative, soulless content.",
-        createdBy: userIds.alice,
-        createdAt: Timestamp.now(),
-        position: 'against',
-        aiConfidence: 0.90,
-      },
-      // Statements for Mars Colonization Topic
-      {
-        id: statementIds.mars_s1,
-        topicId: topicIds.marsColonization,
-        content:
-          "Colonizing Mars is an imperative for the long-term survival and progress of humanity. It acts as a vital insurance policy against terrestrial catastrophes and will drive technological innovation at an unprecedented scale, benefiting life on Earth in the process. The spirit of exploration is fundamental to our nature.",
-        createdBy: userIds.alice,
-        createdAt: Timestamp.now(),
-        position: 'for',
-        aiConfidence: 0.85,
-      },
-      {
-        id: statementIds.mars_s2,
-        topicId: topicIds.marsColonization,
-        content:
-          "The astronomical cost and resources required for Mars colonization are unjustifiable when Earth faces so many critical challenges like climate change, poverty, and disease. Our priority must be to safeguard and improve our home planet before embarking on such an ambitious and speculative extraterrestrial venture. It's an escapist fantasy for the privileged.",
-        createdBy: userIds.bob,
-        createdAt: Timestamp.now(),
-        position: 'against',
-        aiConfidence: 0.91,
-      },
-    ];
-
-    statementsData.forEach((statement) => {
-      const statementRef = doc(db, 'topics', statement.topicId, 'statements', statement.id);
-      batch.set(statementRef, statement);
-    });
-
-    // 4. Create Questions
-    const questionsData: Question[] = [
-      {
-        id: questionIds.remote_q1,
-        topicId: topicIds.remoteWork,
-        statementId: statementIds.remote_s1, // Question for Bob's "for" statement on remote work
-        content:
-          "You mention broadened talent pools. How do companies effectively manage and integrate a globally distributed workforce to ensure fair opportunities and avoid creating a two-tier system between remote and in-office employees?",
-        askedBy: userIds.alice,
-        createdAt: Timestamp.now(),
-        answered: false,
-      },
-      {
-        id: questionIds.aiArt_q1,
-        topicId: topicIds.aiArt,
-        statementId: statementIds.aiArt_s2, // Question for Alice's "against" statement on AI art
-        content:
-          "If an AI model is trained exclusively on public domain art or with explicit consent from artists for their work to be included in training data, would that mitigate some of your ethical concerns regarding originality and devaluation?",
-        askedBy: userIds.bob,
-        createdAt: Timestamp.now(),
-        answered: false,
-      },
-      {
-        id: questionIds.mars_q1,
-        topicId: topicIds.marsColonization,
-        statementId: statementIds.mars_s1, // Question for Alice's "for" statement on Mars
-        content:
-          "Considering the extreme radiation, low gravity, and psychological challenges of long-duration space travel and habitat, what are the most critical technological breakthroughs still needed before a self-sustaining Mars colony becomes a realistic possibility, not just an outpost?",
-        askedBy: userIds.charlie,
-        createdAt: Timestamp.now(),
-        answered: false,
-      },
-    ];
-
-    questionsData.forEach((question) => {
-      const questionRef = doc(db, 'topics', question.topicId, 'statements', question.statementId, 'questions', question.id);
-      batch.set(questionRef, question);
-    });
+    // STEP 4: Add a question under one of the statements
+    const question1Ref = doc(db, 'topics', testTopicId, 'statements', statement1Id, 'questions', question1Id);
+    // The 'id' field is not part of the Question Firestore document data.
+    const question1Data: Omit<Question, 'id'> = {
+      topicId: testTopicId, // Required by Question type
+      statementId: statement1Id, // Required by Question type
+      content: "What about similar practices by U.S. platforms?",
+      askedBy: testUserId,
+      createdAt: Timestamp.now(),
+      answered: false
+    };
+    batch.set(question1Ref, question1Data);
 
     await batch.commit();
-    console.log('Database seeded successfully!');
-    return { success: true, message: 'Database seeded successfully!' };
+    console.log('Test data successfully written to Firestore.');
+    return { success: true, message: '✅ Sample data successfully written to Firestore.' };
   } catch (error) {
-    console.error('Error seeding database:', error);
-    let errorMessage = 'An unknown error occurred.';
+    console.error('Error writing sample data:', error);
+    let errorMessage = 'An unknown error occurred during seeding.';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    return { success: false, message: `Error seeding database: ${errorMessage}` };
+    return { success: false, message: `❌ Error writing sample data: ${errorMessage}` };
   }
 }
