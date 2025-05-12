@@ -1,47 +1,47 @@
-import type { Timestamp } from 'firebase/firestore';
+
+import type { Timestamp as FirestoreTimestamp } from 'firebase/firestore'; // Keep for server-side operations if needed
 
 export interface UserProfile {
   uid: string;
   email: string | null;
-  fullName: string | null; // Changed from displayName
+  fullName: string | null;
   photoURL?: string | null;
-  kycVerified: boolean; // Changed from isVerified
-  // idDocumentUrl is removed as per new schema
-  createdAt: Timestamp;
-  updatedAt?: Timestamp; // Optional: for tracking updates
+  kycVerified: boolean;
+  createdAt: string; // Changed from Timestamp
+  updatedAt?: string; // Changed from Timestamp
 }
 
 export interface Topic {
   id: string;
-  title: string; // must be unique, AI-filtered
-  description: string; // AI-generated summary. Initially can be user-provided or empty.
+  title: string;
+  description: string;
   createdBy: string; // User ID (reference to users/{userId})
-  createdAt: Timestamp;
+  createdAt: string; // Changed from Timestamp
   scoreFor: number;
   scoreAgainst: number;
   scoreNeutral: number;
-  slug?: string; // Optional: URL-friendly version of the title
+  slug?: string;
 }
 
-export interface Statement { // Renamed from Post
+export interface Statement {
   id: string;
-  topicId: string; // Added to know which topic it belongs to when querying statements directly
+  topicId: string;
   content: string;
   createdBy: string; // User ID (reference to users/{userId})
-  createdAt: Timestamp;
-  position: 'for' | 'against' | 'neutral' | 'pending'; // Determined by AI. 'pending' can be an initial state.
-  lastEditedAt?: Timestamp;
-  aiConfidence?: number; // Optional confidence score from AI classification
+  createdAt: string; // Changed from Timestamp
+  position: 'for' | 'against' | 'neutral' | 'pending';
+  lastEditedAt?: string; // Changed from Timestamp
+  aiConfidence?: number;
 }
 
 export interface Question {
   id:string;
-  topicId: string; // To easily query all questions for a topic if needed
-  statementId: string; // Parent statement
+  topicId: string;
+  statementId: string;
   content: string;
   askedBy: string; // User ID (reference to users/{userId})
-  createdAt: Timestamp;
+  createdAt: string; // Changed from Timestamp
   answered: boolean;
   answer?: string;
-  answeredAt?: Timestamp;
+  answeredAt?: string; // Changed from Timestamp
 }

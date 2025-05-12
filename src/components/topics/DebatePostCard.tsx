@@ -1,18 +1,19 @@
-import type { Statement } from '@/types'; // Changed from Post to Statement
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Removed CardFooter for now
+
+import type { Statement } from '@/types';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThumbsUp, ThumbsDown, User, Info } from 'lucide-react'; // Added Info for Neutral
+import { ThumbsUp, ThumbsDown, User, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
-import * as React from 'react'; // Import React for useEffect and useState
+import * as React from 'react';
 import { getUserProfile } from '@/lib/firestoreActions';
 import type { UserProfile } from '@/types';
 
-interface DebateStatementCardProps { // Changed from DebatePostCardProps
-  statement: Statement; // Changed from post: Post
+interface DebateStatementCardProps {
+  statement: Statement;
 }
 
-export function DebatePostCard({ statement }: DebateStatementCardProps) { // Component name kept for now
+export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
 
   React.useEffect(() => {
@@ -24,11 +25,11 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) { // Com
     }
     fetchAuthor();
   }, [statement.createdBy]);
-  
-  const timeAgo = statement.createdAt ? formatDistanceToNow(new Date(statement.createdAt.seconds * 1000), { addSuffix: true }) : '';
-  
+
+  const timeAgo = statement.createdAt ? formatDistanceToNow(new Date(statement.createdAt), { addSuffix: true }) : '';
+
   const getInitials = (name?: string | null) => {
-    if (!name) return <User className="h-5 w-5" />; // Default icon if no name
+    if (!name) return <User className="h-5 w-5" />;
     return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   }
 
@@ -39,21 +40,21 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) { // Com
   let positionBadgeColor;
 
   switch (statement.position) {
-    case 'For':
+    case 'for': // Ensure consistency with AI flow output if it's lowercase
       positionIcon = <ThumbsUp className="h-3 w-3 mr-1" />;
       positionBadgeColor = 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-[hsl(var(--success-foreground))]';
       break;
-    case 'Against':
+    case 'against': // Ensure consistency
       positionIcon = <ThumbsDown className="h-3 w-3 mr-1" />;
       positionBadgeColor = 'bg-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/90 text-[hsl(var(--destructive-foreground))]';
       break;
-    case 'Neutral':
-      positionIcon = <Info className="h-3 w-3 mr-1" />; // Using Info icon for Neutral
-      positionBadgeColor = 'bg-muted hover:bg-muted/90 text-muted-foreground border border-border'; // Neutral color
+    case 'neutral': // Ensure consistency
+      positionIcon = <Info className="h-3 w-3 mr-1" />;
+      positionBadgeColor = 'bg-muted hover:bg-muted/90 text-muted-foreground border border-border';
       break;
     default: // 'pending' or other
       positionIcon = null;
-      positionBadgeColor = 'bg-gray-400 hover:bg-gray-500 text-white'; // Color for pending/unknown
+      positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black'; // Changed pending color for visibility
   }
 
   return (
@@ -70,7 +71,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) { // Com
           <p className="text-xs text-muted-foreground">{timeAgo}</p>
         </div>
         {statement.position && statement.position !== 'pending' && (
-          <Badge 
+          <Badge
             className={`ml-auto text-xs ${positionBadgeColor} font-medium uppercase tracking-wider`}
             style={{ letterSpacing: '0.5px' }}
           >
@@ -90,7 +91,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) { // Com
            <p className="text-xs text-muted-foreground mt-2">AI Confidence: {(statement.aiConfidence * 100).toFixed(0)}%</p>
         )}
       </CardContent>
-      {/* Q&A section will be added here later */}
     </Card>
   );
 }

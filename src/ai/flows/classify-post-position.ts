@@ -1,7 +1,8 @@
+
 'use server';
 
 /**
- * @fileOverview Classifies a user's post as either 'For', 'Against', or 'Neutral' regarding a given debate topic.
+ * @fileOverview Classifies a user's post as either 'for', 'against', or 'neutral' regarding a given debate topic.
  *
  * - classifyPostPosition - A function that classifies the post position.
  * - ClassifyPostPositionInput - The input type for the classifyPostPosition function.
@@ -20,9 +21,9 @@ export type ClassifyPostPositionInput = z.infer<typeof ClassifyPostPositionInput
 const ClassifyPostPositionOutputSchema = z.object({
   position:
     z
-      .enum(['For', 'Against', 'Neutral']) // Added 'Neutral'
-      .describe('The classified position of the post (For, Against, or Neutral).'),
-  confidence: z.number().describe('The confidence level of the classification (0-1).'),
+      .enum(['for', 'against', 'neutral']) // Changed to lowercase
+      .describe('The classified position of the post (for, against, or neutral).'),
+  confidence: z.number().min(0).max(1).describe('The confidence level of the classification (0-1).'),
 });
 export type ClassifyPostPositionOutput = z.infer<typeof ClassifyPostPositionOutputSchema>;
 
@@ -34,12 +35,12 @@ const prompt = ai.definePrompt({
   name: 'classifyPostPositionPrompt',
   input: {schema: ClassifyPostPositionInputSchema},
   output: {schema: ClassifyPostPositionOutputSchema},
-  prompt: `You are an AI that classifies user posts as "For", "Against", or "Neutral" regarding a given debate topic.\n
+  prompt: `You are an AI that classifies user posts as "for", "against", or "neutral" regarding a given debate topic.\n
   Debate Topic: {{{topic}}}\n  User Post: {{{post}}}\n
-  If the post clearly supports the topic, classify it as "For".
-  If the post clearly opposes the topic, classify it as "Against".
-  If the post is impartial, expresses no clear stance, asks a question without taking a side, or is off-topic, classify it as "Neutral".
-  Also, provide a confidence level (0-1) for your classification.\n\n  Output in JSON format:\n  {\n    "position": "For" | "Against" | "Neutral",\n    "confidence": number (0-1)\n  }`,
+  If the post clearly supports the topic, classify it as "for".
+  If the post clearly opposes the topic, classify it as "against".
+  If the post is impartial, expresses no clear stance, asks a question without taking a side, or is off-topic, classify it as "neutral".
+  Also, provide a confidence level (0-1) for your classification.\n\n  Output in JSON format:\n  {\n    "position": "for" | "against" | "neutral",\n    "confidence": number (0-1)\n  }`,
 });
 
 const classifyPostPositionFlow = ai.defineFlow(
@@ -50,9 +51,8 @@ const classifyPostPositionFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    // Ensure the output conforms, especially the enum.
-    // If AI returns something not in enum, Zod parsing in definePrompt output would usually error.
-    // Here we trust the AI and schema definition.
-    return output!; 
+    // The Zod schema in definePrompt will validate the output format including the enum.
+    // If the AI returns an invalid enum value, an error will be thrown by Genkit during response parsing.
+    return output!;
   }
 );

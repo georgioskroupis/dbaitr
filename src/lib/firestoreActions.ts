@@ -3,28 +3,48 @@
 
 import { auth, db } from '@/lib/firebase/config';
 import type { Topic, Statement, UserProfile, Question } from '@/types';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import { classifyPostPosition } from '@/ai/flows/classify-post-position'; // Assuming this will be updated for 'neutral'
+import { classifyPostPosition } from '@/ai/flows/classify-post-position';
+
+// Helper to convert Firestore data with Timestamps to data with ISO strings
+const convertTimestampsToISO = (timestampFields: string[], data: Record<string, any>): Record<string, any> => {
+  const convertedData = { ...data };
+  timestampFields.forEach(field => {
+    if (data[field] && data[field] instanceof Timestamp) {
+      convertedData[field] = (data[field] as Timestamp).toDate().toISOString();
+    } else if (data[field] && typeof data[field] === 'object' && 'seconds' in data[field] && 'nanoseconds' in data[field]) {
+      // Handle cases where it might already be partially serialized by Next.js internal mechanisms (less likely for this error but good to be aware)
+      convertedData[field] = new Timestamp(data[field].seconds, data[field].nanoseconds).toDate().toISOString();
+    }
+  });
+  return convertedData;
+};
+
 
 export async function createUserProfile(userId: string, email: string, fullName: string | null): Promise<UserProfile> {
   const userProfileRef = doc(db, "users", userId);
-  const userProfileData: UserProfile = {
+  const userProfileData = { // Firestore Timestamps are fine for writing
     uid: userId,
     email,
     fullName: fullName || email?.split('@')[0] || 'Anonymous User',
-    kycVerified: false, // Default to not verified
+    kycVerified: false,
     createdAt: Timestamp.now(),
   };
   await setDoc(userProfileRef, userProfileData);
-  return userProfileData;
+  // For the returned object, ensure it matches client-side type
+  return {
+    ...userProfileData,
+    createdAt: userProfileData.createdAt.toDate().toISOString(),
+  } as UserProfile;
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const userProfileRef = doc(db, "users", userId);
   const docSnap = await getDoc(userProfileRef);
   if (docSnap.exists()) {
-    return docSnap.data() as UserProfile;
+    const data = docSnap.data();
+    return convertTimestampsToISO(['createdAt', 'updatedAt'], data) as UserProfile;
   }
   return null;
 }
@@ -32,139 +52,138 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 export async function updateUserVerificationStatus(userId: string, idDocumentUrl: string): Promise<void> {
   const userProfileRef = doc(db, "users", userId);
   await updateDoc(userProfileRef, {
-    kycVerified: true, // Simulate verification upon upload for now
-    // idDocumentUrl: idDocumentUrl, // No longer in UserProfile schema per new design
+    kycVerified: true,
     updatedAt: serverTimestamp(),
   });
-  revalidatePath('/(app)/verify-identity'); 
+  revalidatePath('/(app)/verify-identity');
   revalidatePath('/(app)/dashboard');
-  revalidatePath('/'); 
+  revalidatePath('/');
 }
 
 
 export async function createTopic(title: string, initialDescription: string | undefined, userId: string): Promise<Topic> {
   const topicsCollection = collection(db, "topics");
-  
-  // Basic slug generation (can be improved)
   const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
-  const newTopicData = {
+  const newTopicServerData = { // Data for Firestore
     title,
-    description: initialDescription || '', // AI will update this later
+    description: initialDescription || '',
     createdBy: userId,
-    createdAt: serverTimestamp(),
+    createdAt: serverTimestamp(), // FieldValue for server
     scoreFor: 0,
     scoreAgainst: 0,
     scoreNeutral: 0,
     slug: slug,
   };
-  const newTopicRef = await addDoc(topicsCollection, newTopicData);
-  
+  const newTopicRef = await addDoc(topicsCollection, newTopicServerData);
+
   revalidatePath('/(app)/dashboard');
   revalidatePath('/(app)/topics/new');
   revalidatePath('/');
-  
-  return { 
-    id: newTopicRef.id, 
-    ...newTopicData, 
-    createdAt: Timestamp.now() // serverTimestamp() resolves on server, approximate for return
+
+  // For the returned object, create an approximation that matches client-side type
+  return {
+    id: newTopicRef.id,
+    title,
+    description: initialDescription || '',
+    createdBy: userId,
+    createdAt: new Date().toISOString(), // Approximation for immediate client use
+    scoreFor: 0,
+    scoreAgainst: 0,
+    scoreNeutral: 0,
+    slug: slug,
   } as Topic;
 }
 
-// Renamed from createPost to createStatement
 export async function createStatement(topicId: string, userId: string, content: string, userName?: string, userPhotoURL?: string): Promise<Statement> {
   const topicRef = doc(db, "topics", topicId);
   const topicSnap = await getDoc(topicRef);
   if (!topicSnap.exists()) {
     throw new Error("Topic not found");
   }
-  const topicData = topicSnap.data() as Topic;
+  const topicData = topicSnap.data() as Topic; // Assuming Topic type here is Firestore-like, not client-like
 
-  // 1. Call AI to classify the statement content
-  // Assuming classifyPostPosition flow is updated to return 'for', 'against', or 'neutral'
   const classificationResult = await classifyPostPosition({ topic: topicData.title, post: content });
-  const position = classificationResult.position as 'for' | 'against' | 'neutral'; // Cast needed if enum has more values
+  const position = classificationResult.position as 'for' | 'against' | 'neutral';
   const aiConfidence = classificationResult.confidence;
 
-  // 2. Add statement to Firestore and update topic scores in a transaction
   const statementsCollection = collection(db, "topics", topicId, "statements");
-  let newStatementRef;
+  let newStatementRefId: string | null = null;
 
   await runTransaction(db, async (transaction) => {
-    // Get current topic scores
     const currentTopicDoc = await transaction.get(topicRef);
     if (!currentTopicDoc.exists()) {
       throw "Topic does not exist!";
     }
     const currentTopicData = currentTopicDoc.data();
-    const newScores = {
-      scoreFor: currentTopicData.scoreFor,
-      scoreAgainst: currentTopicData.scoreAgainst,
-      scoreNeutral: currentTopicData.scoreNeutral,
+    const newScores: { [key: string]: any } = {
+      scoreFor: currentTopicData.scoreFor || 0,
+      scoreAgainst: currentTopicData.scoreAgainst || 0,
+      scoreNeutral: currentTopicData.scoreNeutral || 0,
     };
 
     if (position === 'for') newScores.scoreFor += 1;
     else if (position === 'against') newScores.scoreAgainst += 1;
     else if (position === 'neutral') newScores.scoreNeutral += 1;
-    
+
     transaction.update(topicRef, newScores);
 
-    // Add the new statement
-    // Firestore generates ID for new doc, so we can't get newStatementRef.id inside transaction easily
-    // We'll add it and then fetch it or just return the data
-    const statementData = {
+    const statementServerData = {
       topicId,
-      userId,
-      // userName: userName || 'Anonymous', // Not in new Statement schema, createdBy has user info
-      // userPhotoURL: userPhotoURL || '', // Not in new Statement schema
+      createdBy: userId, // Changed from userId to createdBy
       content,
       position,
       aiConfidence,
-      createdAt: serverTimestamp(), // serverTimestamp() for accurate creation time
+      createdAt: serverTimestamp(),
       lastEditedAt: serverTimestamp(),
     };
-    // To get the ID, we have to add it outside transaction or use a hack.
-    // For simplicity, we'll add it here. If transaction fails, this write is wasted.
-    // A better way is to generate ID client-side or use a placeholder then update.
-    // However, addDoc is simple. Let's assume we get ref here.
-    // This is not ideal for atomicity, but simpler for now.
-    // A more robust solution would be to create statement doc first with pending state,
-    // then have a cloud function handle AI + score update.
-    // Given the constraints of server actions, we do it sequentially.
-    newStatementRef = await addDoc(statementsCollection, statementData);
+    // Create a new doc ref for statement within transaction to get its ID
+    const tempStatementRef = doc(statementsCollection);
+    newStatementRefId = tempStatementRef.id;
+    transaction.set(tempStatementRef, statementServerData);
   });
 
   revalidatePath(`/(app)/topics/${topicId}`);
-  revalidatePath('/(app)/dashboard'); 
+  revalidatePath('/(app)/dashboard');
 
-  if (!newStatementRef) {
+  if (!newStatementRefId) {
     throw new Error("Failed to create statement reference within transaction.");
   }
 
-  return { 
-    id: newStatementRef.id, 
+  return {
+    id: newStatementRefId,
     topicId,
     content,
     createdBy: userId,
     position,
     aiConfidence,
-    createdAt: Timestamp.now(), // Placeholder for serverTimestamp
-    lastEditedAt: Timestamp.now(), // Placeholder
+    createdAt: new Date().toISOString(), // Approximation
+    lastEditedAt: new Date().toISOString(), // Approximation
   };
 }
 
 export async function getTopics(): Promise<Topic[]> {
   const topicsCollection = collection(db, "topics");
-  const q = query(topicsCollection, orderBy("createdAt", "desc")); 
+  const q = query(topicsCollection, orderBy("createdAt", "desc"));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+  return querySnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...convertTimestampsToISO(['createdAt'], data),
+    } as Topic;
+  });
 }
 
 export async function getTopicById(topicId: string): Promise<Topic | null> {
   const topicRef = doc(db, "topics", topicId);
   const docSnap = await getDoc(topicRef);
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Topic;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...convertTimestampsToISO(['createdAt'], data),
+    } as Topic;
   }
   return null;
 }
@@ -175,26 +194,34 @@ export async function getTopicByTitle(title: string): Promise<Topic | null> {
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) {
     const docSnap = querySnapshot.docs[0];
-    return { id: docSnap.id, ...docSnap.data() } as Topic;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...convertTimestampsToISO(['createdAt'], data),
+    } as Topic;
   }
   return null;
 }
 
-// Renamed from getPostsForTopic to getStatementsForTopic
 export async function getStatementsForTopic(topicId: string): Promise<Statement[]> {
   const statementsCollection = collection(db, "topics", topicId, "statements");
   const q = query(statementsCollection, orderBy("createdAt", "asc"));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Statement));
+  return querySnapshot.docs.map(docSnapshot => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      ...convertTimestampsToISO(['createdAt', 'lastEditedAt'], data),
+    } as Statement;
+  });
 }
 
-// Renamed from checkIfUserHasPostedMainStatement
 export async function checkIfUserHasPostedStatement(userId: string, topicId: string): Promise<boolean> {
   const statementsCollection = collection(db, "topics", topicId, "statements");
   const q = query(
     statementsCollection,
     where("createdBy", "==", userId),
-    limit(1) // User can only have one statement per topic
+    limit(1)
   );
   const querySnapshot = await getDocs(q);
   return !querySnapshot.empty;
@@ -202,12 +229,11 @@ export async function checkIfUserHasPostedStatement(userId: string, topicId: str
 
 export async function getAllTopicTitles(): Promise<string[]> {
   const topicsCollection = collection(db, "topics");
-  const q = query(topicsCollection, orderBy("createdAt", "desc"), limit(500)); 
+  const q = query(topicsCollection, orderBy("createdAt", "desc"), limit(500));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => (doc.data() as Topic).title);
 }
 
-// Updated to reflect that topic.description is the AI summary
 export async function updateTopicDescriptionWithAISummary(topicId: string, summary: string): Promise<void> {
   const topicRef = doc(db, "topics", topicId);
   await updateDoc(topicRef, {
@@ -216,11 +242,9 @@ export async function updateTopicDescriptionWithAISummary(topicId: string, summa
   revalidatePath(`/(app)/topics/${topicId}`);
 }
 
-// New functions for Questions
-
 export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
   const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
-  const newQuestionData = {
+  const newQuestionServerData = {
     topicId,
     statementId,
     content,
@@ -228,13 +252,17 @@ export async function createQuestion(topicId: string, statementId: string, conte
     createdAt: serverTimestamp(),
     answered: false,
   };
-  const newQuestionRef = await addDoc(questionsCollection, newQuestionData);
-  revalidatePath(`/(app)/topics/${topicId}`); // Revalidate the whole topic page
-  
-  return { 
-    id: newQuestionRef.id, 
-    ...newQuestionData,
-    createdAt: Timestamp.now() // Placeholder
+  const newQuestionRef = await addDoc(questionsCollection, newQuestionServerData);
+  revalidatePath(`/(app)/topics/${topicId}`);
+
+  return {
+    id: newQuestionRef.id,
+    topicId,
+    statementId,
+    content,
+    askedBy,
+    createdAt: new Date().toISOString(), // Approximation
+    answered: false,
   } as Question;
 }
 
@@ -242,7 +270,13 @@ export async function getQuestionsForStatement(topicId: string, statementId: str
   const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
   const q = query(questionsCollection, orderBy("createdAt", "asc"));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Question));
+  return querySnapshot.docs.map(docSnapshot => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      ...convertTimestampsToISO(['createdAt', 'answeredAt'], data),
+    } as Question;
+  });
 }
 
 export async function answerQuestion(topicId: string, statementId: string, questionId: string, answer: string): Promise<void> {
@@ -255,12 +289,11 @@ export async function answerQuestion(topicId: string, statementId: string, quest
   revalidatePath(`/(app)/topics/${topicId}`);
 }
 
-// Function to update a statement's position and topic scores (e.g., if re-classified or edited)
 export async function updateStatementPosition(
-  topicId: string, 
-  statementId: string, 
+  topicId: string,
+  statementId: string,
   newPosition: 'for' | 'against' | 'neutral',
-  oldPosition?: 'for' | 'against' | 'neutral' | 'pending' // Optional, if known, to correctly adjust scores
+  oldPosition?: 'for' | 'against' | 'neutral' | 'pending'
 ): Promise<void> {
   const topicRef = doc(db, "topics", topicId);
   const statementRef = doc(db, "topics", topicId, "statements", statementId);
@@ -275,27 +308,31 @@ export async function updateStatementPosition(
 
     const topicData = topicDoc.data();
     const statementData = statementDoc.data();
-    
+
     const actualOldPosition = oldPosition || statementData.position as 'for' | 'against' | 'neutral' | 'pending';
 
-    if (actualOldPosition === newPosition) {
-      // If position hasn't changed, only update statement's lastEditedAt or confidence if needed.
-      // For this function, we assume position *is* changing or needs recording.
-      transaction.update(statementRef, { position: newPosition, lastEditedAt: serverTimestamp() });
-      return; 
+    if (actualOldPosition === newPosition && statementData.position !== 'pending') { // also check if it's not a pending to classified change
+      transaction.update(statementRef, { lastEditedAt: serverTimestamp() }); // Just update edit time if position is same and not pending
+      return;
     }
-    
-    const scoresUpdate: { [key: string]: number } = {};
-    
-    // Decrement old score if it was a valid scoring position
-    if (actualOldPosition === 'for') scoresUpdate.scoreFor = (topicData.scoreFor || 0) - 1;
-    else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = (topicData.scoreAgainst || 0) - 1;
-    else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = (topicData.scoreNeutral || 0) - 1;
 
-    // Increment new score
-    if (newPosition === 'for') scoresUpdate.scoreFor = (scoresUpdate.scoreFor !== undefined ? scoresUpdate.scoreFor : (topicData.scoreFor || 0)) + 1;
-    else if (newPosition === 'against') scoresUpdate.scoreAgainst = (scoresUpdate.scoreAgainst !== undefined ? scoresUpdate.scoreAgainst : (topicData.scoreAgainst || 0)) + 1;
-    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = (scoresUpdate.scoreNeutral !== undefined ? scoresUpdate.scoreNeutral : (topicData.scoreNeutral || 0)) + 1;
+    const scoresUpdate: { [key: string]: FieldValue | number } = {};
+
+    if (actualOldPosition !== 'pending') { // Only decrement if it was a scoring position
+        if (actualOldPosition === 'for') scoresUpdate.scoreFor = (topicData.scoreFor || 0) - 1;
+        else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = (topicData.scoreAgainst || 0) - 1;
+        else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = (topicData.scoreNeutral || 0) - 1;
+    }
+
+
+    if (newPosition === 'for') scoresUpdate.scoreFor = ( (scoresUpdate.scoreFor !== undefined && typeof scoresUpdate.scoreFor === 'number') ? scoresUpdate.scoreFor : (topicData.scoreFor || 0)) + 1;
+    else if (newPosition === 'against') scoresUpdate.scoreAgainst = ( (scoresUpdate.scoreAgainst !== undefined && typeof scoresUpdate.scoreAgainst === 'number') ? scoresUpdate.scoreAgainst : (topicData.scoreAgainst || 0)) + 1;
+    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = ( (scoresUpdate.scoreNeutral !== undefined && typeof scoresUpdate.scoreNeutral === 'number') ? scoresUpdate.scoreNeutral : (topicData.scoreNeutral || 0)) + 1;
+    
+    // Ensure scores don't go below zero
+    if (typeof scoresUpdate.scoreFor === 'number' && scoresUpdate.scoreFor < 0) scoresUpdate.scoreFor = 0;
+    if (typeof scoresUpdate.scoreAgainst === 'number' && scoresUpdate.scoreAgainst < 0) scoresUpdate.scoreAgainst = 0;
+    if (typeof scoresUpdate.scoreNeutral === 'number' && scoresUpdate.scoreNeutral < 0) scoresUpdate.scoreNeutral = 0;
     
     transaction.update(topicRef, scoresUpdate);
     transaction.update(statementRef, { position: newPosition, lastEditedAt: serverTimestamp() });
