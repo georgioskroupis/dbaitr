@@ -8,6 +8,7 @@ import { Badge } from '../ui/badge';
 import * as React from 'react';
 import { getUserProfile } from '@/lib/firestoreActions';
 import type { UserProfile } from '@/types';
+import { format } from 'date-fns';
 
 
 interface TopicCardProps {
@@ -27,7 +28,7 @@ export function TopicCard({ topic }: TopicCardProps) {
     fetchCreator();
   }, [topic.createdBy]);
 
-  const formattedDate = topic.createdAt ? new Date(topic.createdAt).toLocaleDateString() : 'N/A';
+  const formattedDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
   const totalStatements = (topic.scoreFor || 0) + (topic.scoreAgainst || 0) + (topic.scoreNeutral || 0);
 
@@ -77,3 +78,4 @@ export function TopicCard({ topic }: TopicCardProps) {
     </Card>
   );
 }
+

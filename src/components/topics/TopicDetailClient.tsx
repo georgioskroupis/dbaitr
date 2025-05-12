@@ -14,6 +14,7 @@ import { Terminal } from "lucide-react";
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types';
+import { format } from 'date-fns';
 
 
 interface TopicDetailClientProps {
@@ -105,7 +106,7 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
 
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
-  const topicCreatedAtDate = topic.createdAt ? new Date(topic.createdAt).toLocaleDateString() : 'N/A';
+  const topicCreatedAtDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
 
 
   return (
@@ -157,3 +158,4 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
     </div>
   );
 }
+
