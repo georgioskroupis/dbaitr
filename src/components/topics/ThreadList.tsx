@@ -34,8 +34,8 @@ export function ThreadList({ threads, statementId, topicId, statementAuthorId, i
 
   // Build a tree structure for rendering, or handle flat list rendering in ThreadItem with levels
   // For simplicity, we'll pass all nodes and let ThreadItem figure out its children
-  // Root nodes are those with parentId === null
-  const rootNodes = threads.filter(node => node.parentId === null).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // Root nodes are those with parentId === null or undefined (or missing)
+  const rootNodes = threads.filter(node => !node.parentId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   
   // Log received threads and identified root nodes for debugging
   console.log(`[ThreadList] For statement ${statementId} - Received ${threads.length} total threads. Identified ${rootNodes.length} root nodes. Threads:`, JSON.parse(JSON.stringify(threads)));
@@ -65,3 +65,4 @@ export function ThreadList({ threads, statementId, topicId, statementAuthorId, i
     </div>
   );
 }
+
