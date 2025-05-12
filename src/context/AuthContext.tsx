@@ -25,11 +25,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // setLoading(true) here ensures we are in loading state when auth check begins
+    // It was previously inside onAuthStateChanged, which might be too late if initial check is fast.
+    // However, the onAuthStateChanged callback itself manages loading for async operations within.
+    // Let's keep initial setLoading(true) before the listener for clarity that an auth check is pending.
+    
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
+      setLoading(true); // Ensure loading is true while processing auth state
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Set up a real-time listener for user profile changes
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -37,25 +41,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             setUserProfile(null); 
           }
-          // Ensure loading is set to false after profile is fetched or listener updates
-          // This might need to be coordinated if auth state changes rapidly
-          if (loading) setLoading(false); 
+          setLoading(false); // Profile loaded or confirmed not to exist
         }, (error) => {
           console.error("Error listening to user profile:", error);
           setUserProfile(null);
-          if (loading) setLoading(false);
+          setLoading(false); // Error occurred, stop loading
         });
-        // Return this inner unsubscribe when the auth state changes or component unmounts
         return () => unsubscribeProfile(); 
       } else {
         setUser(null);
         setUserProfile(null);
-        setLoading(false);
+        setLoading(false); // No user, stop loading
       }
     });
-    // This outer unsubscribe is for the auth state listener
     return () => unsubscribeAuth();
-  }, [loading]); // Added loading to dependency array to manage its state carefully
+  }, []); // Empty dependency array: runs once on mount, cleans up on unmount.
   
   const kycVerified = !!userProfile?.kycVerified; // Changed from isVerified
 

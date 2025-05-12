@@ -14,7 +14,9 @@ interface TopicPageProps {
 export const dynamic = 'force-dynamic';
 
 export default async function TopicPage({ params }: TopicPageProps) {
-  const topicId = params.topicId;
+  // Apply the fix for params access as per user instruction
+  const resolvedParams = await params;
+  const topicId = resolvedParams.topicId;
   
   const topic = await getTopicById(topicId);
   

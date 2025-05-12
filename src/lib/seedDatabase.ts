@@ -11,7 +11,8 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     // Check if topics collection already has data
     const topicsSnapshot = await getDocs(collection(db, 'topics'));
     if (!topicsSnapshot.empty) {
-      console.log('⚠️ Firestore already seeded with topics. Skipping auto-seed.');
+      console.log('⚠️ Firestore already contains topic data. Auto-seeding skipped.');
+      // Important: Return a success message that indicates data exists, so AppBootstrapper can set the flag.
       return { success: true, message: 'Firestore already contains topic data. Auto-seeding skipped.' };
     }
     console.log('ℹ️ No existing topics found. Proceeding with initial data seed.');
@@ -33,16 +34,16 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
       fullName: "Test User",
       email: "test@example.com",
       kycVerified: true,
-      createdAt: Timestamp.now()
+      createdAt: Timestamp.now().toDate().toISOString() // Ensure it's a string for the type
     };
     batch.set(userRef, userTestData);
 
     // STEP 2: Add TikTok topic manually
     const topicRefTikTok = doc(db, 'topics', testTopicIdTikTok);
-    const topicTestDataTikTok: Omit<Topic, 'id'> = {
+    const topicTestDataTikTok: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = { // Use Timestamp for writing
       title: "Should governments ban TikTok?",
       description: "A debate over digital sovereignty, data privacy, and youth influence.",
-      createdBy: testUserId,
+      createdBy: testUserId, // Store as string ID
       createdAt: Timestamp.now(),
       scoreFor: 1,
       scoreAgainst: 1,
@@ -53,7 +54,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
 
     // STEP 3: Add two statements to the TikTok topic
     const statement1RefTikTok = doc(db, 'topics', testTopicIdTikTok, 'statements', statement1IdTikTok);
-    const statement1DataTikTok: Omit<Statement, 'id'> = {
+    const statement1DataTikTok: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: testTopicIdTikTok,
       content: "TikTok enables foreign governments to subtly influence public opinion.",
       createdBy: testUserId,
@@ -65,7 +66,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statement1RefTikTok, statement1DataTikTok);
 
     const statement2RefTikTok = doc(db, 'topics', testTopicIdTikTok, 'statements', statement2IdTikTok);
-    const statement2DataTikTok: Omit<Statement, 'id'> = {
+    const statement2DataTikTok: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: testTopicIdTikTok,
       content: "Banning TikTok undermines digital freedom. Users should choose what apps to use.",
       createdBy: testUserId,
@@ -78,7 +79,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
 
     // STEP 4: Add a question under one of the TikTok statements
     const question1RefTikTok = doc(db, 'topics', testTopicIdTikTok, 'statements', statement1IdTikTok, 'questions', question1IdTikTok);
-    const question1DataTikTok: Omit<Question, 'id'> = {
+    const question1DataTikTok: Omit<Question, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       topicId: testTopicIdTikTok,
       statementId: statement1IdTikTok,
       content: "What about similar practices by U.S. platforms?",
@@ -98,7 +99,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     const questionAIJobsId = 'q_ai_jobs_1';
 
     const topicRefAIJobs = doc(db, 'topics', topicIdAIJobs);
-    const topicDataAIJobs: Omit<Topic, 'id'> = {
+    const topicDataAIJobs: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       title: "Should AI be allowed to replace human jobs?",
       description: "Examining the economic and societal impacts of AI replacing human labor in various sectors.",
       createdBy: testUserId,
@@ -111,7 +112,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(topicRefAIJobs, topicDataAIJobs);
 
     const statementAIJobsForRef = doc(db, 'topics', topicIdAIJobs, 'statements', statementAIJobsForId);
-    const statementAIJobsForData: Omit<Statement, 'id'> = {
+    const statementAIJobsForData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdAIJobs,
       content: "Efficiency and consistency matter. AI in logistics and customer service has already proven its worth, streamlining operations and reducing errors.",
       createdBy: testUserId,
@@ -123,7 +124,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementAIJobsForRef, statementAIJobsForData);
 
     const statementAIJobsAgainstRef = doc(db, 'topics', topicIdAIJobs, 'statements', statementAIJobsAgainstId);
-    const statementAIJobsAgainstData: Omit<Statement, 'id'> = {
+    const statementAIJobsAgainstData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdAIJobs,
       content: "Replacing people with AI erodes dignity. Work isn't just economic — it's part of identity and community. We risk widespread social displacement.",
       createdBy: testUserId,
@@ -135,7 +136,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementAIJobsAgainstRef, statementAIJobsAgainstData);
 
     const questionAIJobsRef = doc(db, 'topics', topicIdAIJobs, 'statements', statementAIJobsForId, 'questions', questionAIJobsId);
-    const questionAIJobsData: Omit<Question, 'id'> = {
+    const questionAIJobsData: Omit<Question, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       topicId: topicIdAIJobs,
       statementId: statementAIJobsForId,
       content: "Do you have examples where AI improved job satisfaction overall, rather than just company profits?",
@@ -153,7 +154,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     const questionMeatId = 'q_meat_1';
 
     const topicRefEatingMeat = doc(db, 'topics', topicIdEatingMeat);
-    const topicDataEatingMeat: Omit<Topic, 'id'> = {
+    const topicDataEatingMeat: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       title: "Is it ethical to eat meat in 2025?",
       description: "Debating the morality of meat consumption in an era of advanced food technology and heightened environmental awareness.",
       createdBy: testUserId,
@@ -166,7 +167,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(topicRefEatingMeat, topicDataEatingMeat);
 
     const statementMeatForRef = doc(db, 'topics', topicIdEatingMeat, 'statements', statementMeatForId);
-    const statementMeatForData: Omit<Statement, 'id'> = {
+    const statementMeatForData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdEatingMeat,
       content: "We’ve evolved to eat meat; it's a natural part of the human diet. Ethical farming and emerging lab-grown alternatives mitigate most concerns about animal welfare and environmental impact.",
       createdBy: testUserId,
@@ -178,7 +179,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementMeatForRef, statementMeatForData);
 
     const statementMeatAgainstRef = doc(db, 'topics', topicIdEatingMeat, 'statements', statementMeatAgainstId);
-    const statementMeatAgainstData: Omit<Statement, 'id'> = {
+    const statementMeatAgainstData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdEatingMeat,
       content: "With viable plant-based and cultivated meat alternatives increasingly available, the continued large-scale suffering of sentient animals for food is no longer ethically justifiable.",
       createdBy: testUserId,
@@ -190,7 +191,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementMeatAgainstRef, statementMeatAgainstData);
 
     const questionMeatRef = doc(db, 'topics', topicIdEatingMeat, 'statements', statementMeatAgainstId, 'questions', questionMeatId);
-    const questionMeatData: Omit<Question, 'id'> = {
+    const questionMeatData: Omit<Question, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       topicId: topicIdEatingMeat,
       statementId: statementMeatAgainstId,
       content: "What about cultures that rely on livestock for survival and have done so sustainably for centuries? Is a global moratorium on meat ethical for them?",
@@ -207,7 +208,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     const questionSocialId = 'q_social_1';
 
     const topicRefSocialCensorship = doc(db, 'topics', topicIdSocialCensorship);
-    const topicDataSocialCensorship: Omit<Topic, 'id'> = {
+    const topicDataSocialCensorship: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       title: "Should social media platforms censor misinformation?",
       description: "Exploring the balance between free speech and the responsibility of platforms to curb the spread of harmful or false information.",
       createdBy: testUserId,
@@ -220,7 +221,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(topicRefSocialCensorship, topicDataSocialCensorship);
 
     const statementSocialForRef = doc(db, 'topics', topicIdSocialCensorship, 'statements', statementSocialForId);
-    const statementSocialForData: Omit<Statement, 'id'> = {
+    const statementSocialForData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdSocialCensorship,
       content: "Unchecked misinformation can destabilize democracies and endanger public health. Social media platforms have a moral and ethical responsibility to actively curate and censor harmful content.",
       createdBy: testUserId,
@@ -232,7 +233,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementSocialForRef, statementSocialForData);
 
     const statementSocialAgainstRef = doc(db, 'topics', topicIdSocialCensorship, 'statements', statementSocialAgainstId);
-    const statementSocialAgainstData: Omit<Statement, 'id'> = {
+    const statementSocialAgainstData: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: topicIdSocialCensorship,
       content: "Censorship, even with good intentions, is a slippery slope and more dangerous in the long run than falsehoods. The public should be empowered to discern truth, not have it dictated by platforms.",
       createdBy: testUserId,
@@ -244,7 +245,7 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     batch.set(statementSocialAgainstRef, statementSocialAgainstData);
 
     const questionSocialRef = doc(db, 'topics', topicIdSocialCensorship, 'statements', statementSocialForId, 'questions', questionSocialId);
-    const questionSocialData: Omit<Question, 'id'> = {
+    const questionSocialData: Omit<Question, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       topicId: topicIdSocialCensorship,
       statementId: statementSocialForId,
       content: "How do we define 'misinformation' and 'harmful content' consistently and without inherent political or ideological bias, especially at a global scale?",
@@ -268,4 +269,3 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     return { success: false, message: `❌ Error writing sample data: ${errorMessage}` };
   }
 }
-
