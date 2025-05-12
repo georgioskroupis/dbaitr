@@ -6,26 +6,19 @@ import type { UserProfile, Topic, Statement, Question } from '@/types';
 import { doc, Timestamp, writeBatch, collection, getDocs } from 'firebase/firestore';
 
 // This function seeds a specific set of test data as requested for a "strict Firestore write test".
-export async function seedTestData(): Promise<{ success: boolean; message: string }> {
+// The old seedTestData function is kept for reference or potential future use but is no longer the primary export.
+async function oldSeedTestData(): Promise<{ success: boolean; message: string }> {
   try {
     // Check if topics collection already has data
     const topicsSnapshot = await getDocs(collection(db, 'topics'));
     if (!topicsSnapshot.empty) {
-      console.log('⚠️ Firestore already contains topic data. Auto-seeding skipped.');
-      // Important: Return a success message that indicates data exists, so AppBootstrapper can set the flag.
-      return { success: true, message: 'Firestore already contains topic data. Auto-seeding skipped.' };
+      console.log('⚠️ Firestore already contains topic data. Auto-seeding skipped (oldSeedTestData).');
+      return { success: true, message: 'Firestore already contains topic data. Auto-seeding skipped (oldSeedTestData).' };
     }
-    console.log('ℹ️ No existing topics found. Proceeding with initial data seed.');
+    console.log('ℹ️ No existing topics found. Proceeding with initial data seed (oldSeedTestData).');
 
     const batch = writeBatch(db);
-
     const testUserId = 'user_test';
-
-    // --- EXISTING TEST DATA (TIKTOK TOPIC) ---
-    const testTopicIdTikTok = 'topic_tiktok';
-    const statement1IdTikTok = 'statement1_tiktok';
-    const statement2IdTikTok = 'statement2_tiktok';
-    const question1IdTikTok = 'question1_tiktok';
 
     // STEP 1: Add test user
     const userRef = doc(db, 'users', testUserId);
@@ -34,16 +27,17 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
       fullName: "Test User",
       email: "test@example.com",
       kycVerified: true,
-      createdAt: Timestamp.now().toDate().toISOString() // Ensure it's a string for the type
+      createdAt: Timestamp.now().toDate().toISOString()
     };
     batch.set(userRef, userTestData);
 
     // STEP 2: Add TikTok topic manually
+    const testTopicIdTikTok = 'topic_tiktok';
     const topicRefTikTok = doc(db, 'topics', testTopicIdTikTok);
-    const topicTestDataTikTok: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = { // Use Timestamp for writing
+    const topicTestDataTikTok: Omit<Topic, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       title: "Should governments ban TikTok?",
       description: "A debate over digital sovereignty, data privacy, and youth influence.",
-      createdBy: testUserId, // Store as string ID
+      createdBy: testUserId,
       createdAt: Timestamp.now(),
       scoreFor: 1,
       scoreAgainst: 1,
@@ -51,8 +45,11 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
       slug: 'should-governments-ban-tiktok'
     };
     batch.set(topicRefTikTok, topicTestDataTikTok);
+    
+    const statement1IdTikTok = 'statement1_tiktok';
+    const statement2IdTikTok = 'statement2_tiktok';
+    const question1IdTikTok = 'question1_tiktok';
 
-    // STEP 3: Add two statements to the TikTok topic
     const statement1RefTikTok = doc(db, 'topics', testTopicIdTikTok, 'statements', statement1IdTikTok);
     const statement1DataTikTok: Omit<Statement, 'id' | 'createdAt' | 'lastEditedAt'> & { createdAt: Timestamp, lastEditedAt: Timestamp } = {
       topicId: testTopicIdTikTok,
@@ -77,7 +74,6 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     };
     batch.set(statement2RefTikTok, statement2DataTikTok);
 
-    // STEP 4: Add a question under one of the TikTok statements
     const question1RefTikTok = doc(db, 'topics', testTopicIdTikTok, 'statements', statement1IdTikTok, 'questions', question1IdTikTok);
     const question1DataTikTok: Omit<Question, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
       topicId: testTopicIdTikTok,
@@ -88,9 +84,6 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
       answered: false
     };
     batch.set(question1RefTikTok, question1DataTikTok);
-
-
-    // --- NEW TEST DATA ---
 
     // TOPIC 1: AI and Jobs
     const topicIdAIJobs = 'topic_ai_jobs';
@@ -145,7 +138,6 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
       answered: false,
     };
     batch.set(questionAIJobsRef, questionAIJobsData);
-
 
     // TOPIC 2: Eating Meat
     const topicIdEatingMeat = 'topic_eating_meat';
@@ -255,17 +247,253 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     };
     batch.set(questionSocialRef, questionSocialData);
 
-    console.log('⏳ Committing test data batch...');
+    console.log('⏳ Committing test data batch (oldSeedTestData)...');
     await batch.commit();
-    console.log('✅ Test data batch committed.');
+    console.log('✅ Test data batch committed (oldSeedTestData).');
     
-    return { success: true, message: '✅ Sample data including new topics successfully written to Firestore.' };
+    return { success: true, message: '✅ Sample data including new topics successfully written to Firestore (oldSeedTestData).' };
   } catch (error) {
-    console.error('Error writing sample data:', error);
-    let errorMessage = 'An unknown error occurred during seeding.';
+    console.error('Error writing sample data (oldSeedTestData):', error);
+    let errorMessage = 'An unknown error occurred during seeding (oldSeedTestData).';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    return { success: false, message: `❌ Error writing sample data: ${errorMessage}` };
+    return { success: false, message: `❌ Error writing sample data: ${errorMessage} (oldSeedTestData)` };
   }
 }
+
+export async function seedMultiTopicTestData(): Promise<{ success: boolean; message: string }> {
+  try {
+    const topicsCollectionRef = collection(db, 'topics');
+    const topicsSnapshot = await getDocs(topicsCollectionRef);
+    if (!topicsSnapshot.empty) {
+      // Check if specific new topics already exist to avoid re-seeding only if *all* are present
+      const requiredTopicIds = ['topic_ai_regulation', 'topic_remote_work', 'topic_crypto_banking', 'topic_meat_ban'];
+      const existingTopicIds = topicsSnapshot.docs.map(doc => doc.id);
+      const allNewTopicsExist = requiredTopicIds.every(id => existingTopicIds.includes(id));
+
+      if (allNewTopicsExist) {
+        console.log('⚠️ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
+        return { success: true, message: 'Firestore already contains the new multi-topic dataset. Auto-seeding skipped.' };
+      }
+      console.log('ℹ️ Some new topics might be missing. Proceeding to seed/check multi-topic data.');
+    } else {
+      console.log('ℹ️ No existing topics found. Proceeding with multi-topic data seed.');
+    }
+
+    const batch = writeBatch(db);
+    const testUserId = 'user_test'; // Use a consistent user ID for simplicity as requested
+
+    // Ensure test_user exists (or create/update)
+    const userRef = doc(db, 'users', testUserId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      const userTestData: UserProfile = {
+        uid: testUserId,
+        fullName: "Test User Prime", // Differentiate if old 'Test User' existed
+        email: "test@example.com",
+        kycVerified: true,
+        createdAt: Timestamp.now().toDate().toISOString()
+      };
+      batch.set(userRef, userTestData);
+    }
+
+    // Topic 1: AI Regulation
+    const topicAiRegId = 'topic_ai_regulation';
+    const topicAiRegRef = doc(db, 'topics', topicAiRegId);
+    batch.set(topicAiRegRef, {
+      title: "Should AI be regulated globally?",
+      description: "A critical examination of the need for international AI governance to mitigate risks while fostering innovation.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      scoreFor: 1,
+      scoreAgainst: 1,
+      scoreNeutral: 0,
+      slug: 'should-ai-be-regulated-globally'
+    });
+
+    const stmtAiRegForId = 'stmt_aireg_for';
+    const stmtAiRegAgainstId = 'stmt_aireg_against';
+    const qAiRegId = 'q_aireg_1';
+
+    batch.set(doc(db, 'topics', topicAiRegId, 'statements', stmtAiRegForId), {
+      topicId: topicAiRegId,
+      content: "Without unified regulation, AI development will spiral out of ethical control. We need robust, globally-coordinated guardrails immediately to prevent dystopian outcomes and ensure AI serves humanity, not the other way around. The potential for misuse in autonomous weaponry alone demands a global consensus.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "for",
+      aiConfidence: 0.88,
+      lastEditedAt: Timestamp.now()
+    });
+    batch.set(doc(db, 'topics', topicAiRegId, 'statements', stmtAiRegForId, 'questions', qAiRegId), {
+      topicId: topicAiRegId,
+      statementId: stmtAiRegForId,
+      content: "How would such global enforcement realistically work across diverse sovereign nations with competing interests and varying technological capacities?",
+      askedBy: testUserId,
+      createdAt: Timestamp.now(),
+      answered: false
+    });
+    batch.set(doc(db, 'topics', topicAiRegId, 'statements', stmtAiRegAgainstId), {
+      topicId: topicAiRegId,
+      content: "Global AI regulation? Seriously? That just sounds like a one-way ticket to bureaucratic hell, strangling the very innovation we need. Let the market and developers figure it out; heavy-handed global rules will only benefit lumbering giants and crush startups.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "against",
+      aiConfidence: 0.91,
+      lastEditedAt: Timestamp.now()
+    });
+
+    // Topic 2: Remote Work
+    const topicRemoteWorkId = 'topic_remote_work';
+    const topicRemoteWorkRef = doc(db, 'topics', topicRemoteWorkId);
+    batch.set(topicRemoteWorkRef, {
+      title: "Is remote work here to stay?",
+      description: "Exploring the long-term viability and societal impact of remote work post-pandemic, balancing flexibility with productivity.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      scoreFor: 1,
+      scoreAgainst: 1,
+      scoreNeutral: 0,
+      slug: 'is-remote-work-here-to-stay'
+    });
+
+    const stmtRemoteForId = 'stmt_remote_for';
+    const stmtRemoteAgainstId = 'stmt_remote_against';
+    const qRemoteId = 'q_remote_1';
+
+    batch.set(doc(db, 'topics', topicRemoteWorkId, 'statements', stmtRemoteForId), {
+      topicId: topicRemoteWorkId,
+      content: "Remote work unequivocally empowers employees by offering unparalleled flexibility, significantly reduces commuter emissions aiding our planet, and fosters a demonstrably better work-life balance. The data from numerous studies supports this shift as a net positive for both individuals and organizations.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "for",
+      aiConfidence: 0.93,
+      lastEditedAt: Timestamp.now()
+    });
+    batch.set(doc(db, 'topics', topicRemoteWorkId, 'statements', stmtRemoteForId, 'questions', qRemoteId), {
+      topicId: topicRemoteWorkId,
+      statementId: stmtRemoteForId,
+      content: "While individual benefits are clear, what about the potential for a 'hybrid-halftime' scenario where companies mandate some office days, effectively diluting the full advantages of remote work?",
+      askedBy: testUserId,
+      createdAt: Timestamp.now(),
+      answered: false
+    });
+    batch.set(doc(db, 'topics', topicRemoteWorkId, 'statements', stmtRemoteAgainstId), {
+      topicId: topicRemoteWorkId,
+      content: "This whole remote work thing is just killing office culture! We're losing that spark, that random chat by the water cooler that leads to genius. Humans thrive on connection, real, face-to-face connection, not just staring at screens in lonely rooms. It's just not the same.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "against",
+      aiConfidence: 0.85,
+      lastEditedAt: Timestamp.now()
+    });
+
+    // Topic 3: Crypto vs Traditional Banking
+    const topicCryptoId = 'topic_crypto_banking';
+    const topicCryptoRef = doc(db, 'topics', topicCryptoId);
+    batch.set(topicCryptoRef, {
+      title: "Should cryptocurrencies replace traditional banking?",
+      description: "A deep dive into whether decentralized cryptocurrencies offer a viable, secure, and equitable alternative to the established traditional banking system.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      scoreFor: 1,
+      scoreAgainst: 1,
+      scoreNeutral: 0, // Will be 1 if third statement is added
+      slug: 'should-crypto-replace-banking'
+    });
+
+    const stmtCryptoForId = 'stmt_crypto_for';
+    const stmtCryptoAgainstId = 'stmt_crypto_against';
+    // const stmtCryptoNeutralId = 'stmt_crypto_neutral'; // Example if 3rd statement needed
+    const qCryptoId = 'q_crypto_1';
+
+    batch.set(doc(db, 'topics', topicCryptoId, 'statements', stmtCryptoForId), {
+      topicId: topicCryptoId,
+      content: "Damn right crypto should replace banks! They've been rigging the game for centuries, printing money outta thin air and screwing the little guy. Crypto gives power back to the people, where it belongs. It's our only shot at financial freedom from these dinosaurs.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "for",
+      aiConfidence: 0.78,
+      lastEditedAt: Timestamp.now()
+    });
+     batch.set(doc(db, 'topics', topicCryptoId, 'statements', stmtCryptoForId, 'questions', qCryptoId), {
+      topicId: topicCryptoId,
+      statementId: stmtCryptoForId,
+      content: "Considering the current regulatory vacuum and the technical literacy required, what specific, actionable safeguards would need to be universally adopted for crypto to function reliably and protect consumers at a global scale?",
+      askedBy: testUserId,
+      createdAt: Timestamp.now(),
+      answered: false
+    });
+    batch.set(doc(db, 'topics', topicCryptoId, 'statements', stmtCryptoAgainstId), {
+      topicId: topicCryptoId,
+      content: "The assertion that cryptocurrencies are prepared to supplant traditional banking systems is demonstrably flawed. The inherent volatility, pervasive instances of fraud, and a stark lack of robust consumer protection mechanisms render them currently unfit for such a critical societal role. A pragmatic analysis reveals significant systemic risks.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "against",
+      aiConfidence: 0.94,
+      lastEditedAt: Timestamp.now()
+    });
+
+    // Topic 4: Meat Consumption Ban
+    const topicMeatBanId = 'topic_meat_ban';
+    const topicMeatBanRef = doc(db, 'topics', topicMeatBanId);
+    batch.set(topicMeatBanRef, {
+      title: "Should meat consumption be banned to fight climate change?",
+      description: "Assessing the controversial proposal of banning meat consumption as a drastic measure to combat climate change, versus promoting sustainable alternatives.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      scoreFor: 1,
+      scoreAgainst: 1,
+      scoreNeutral: 0, // Will be 1 if third statement is added
+      slug: 'should-meat-consumption-be-banned'
+    });
+
+    const stmtMeatForId = 'stmt_meat_for';
+    const stmtMeatAgainstId = 'stmt_meat_against';
+    // const stmtMeatNeutralId = 'stmt_meat_neutral'; // Example if 3rd statement needed
+    const qMeatId = 'q_meat_1';
+
+    batch.set(doc(db, 'topics', topicMeatBanId, 'statements', stmtMeatForId), {
+      topicId: topicMeatBanId,
+      content: "The science is undeniable: raising livestock is a monumental contributor to greenhouse gas emissions and deforestation. For the sake of our planet's future, it is imperative that we evolve our diets and transition away from meat consumption. It's not just a choice, it's a responsibility.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "for",
+      aiConfidence: 0.90,
+      lastEditedAt: Timestamp.now()
+    });
+    batch.set(doc(db, 'topics', topicMeatBanId, 'statements', stmtMeatForId, 'questions', qMeatId), {
+      topicId: topicMeatBanId,
+      statementId: stmtMeatForId,
+      content: "Instead of an outright ban, which could face immense cultural and economic resistance, couldn't we achieve similar environmental benefits by heavily promoting and subsidizing plant-based diets and sustainable agriculture, making them more accessible and appealing?",
+      askedBy: testUserId,
+      createdAt: Timestamp.now(),
+      answered: false
+    });
+    batch.set(doc(db, 'topics', topicMeatBanId, 'statements', stmtMeatAgainstId), {
+      topicId: topicMeatBanId,
+      content: "Ban meat? That's just another example of out-of-touch elites trying to impose their worldview on everyone else. My culture, my traditions, they're built around meat. Not everyone can, or frankly wants to, go vegan. This isn't about climate, it's about control and disrespecting heritage.",
+      createdBy: testUserId,
+      createdAt: Timestamp.now(),
+      position: "against",
+      aiConfidence: 0.87,
+      lastEditedAt: Timestamp.now()
+    });
+    
+    console.log('⏳ Committing multi-topic test data batch...');
+    await batch.commit();
+    console.log('✅ Multi-topic test data batch committed.');
+    
+    return { success: true, message: '✅ New multi-topic sample data successfully written to Firestore.' };
+
+  } catch (error) {
+    console.error('Error writing multi-topic sample data:', error);
+    let errorMessage = 'An unknown error occurred during multi-topic seeding.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return { success: false, message: `❌ Error writing multi-topic sample data: ${errorMessage}` };
+  }
+}
+
+    

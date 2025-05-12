@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { seedTestData } from "@/lib/seedDatabase"; // Updated to use the generic seedTestData function
+import { seedMultiTopicTestData } from "@/lib/seedDatabase"; // Updated to use the new seed function
 import { Loader2, DatabaseZap } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default function SeedFirestorePage() {
   const handleSeedData = async () => {
     setIsLoading(true);
     try {
-      const result = await seedTestData(); // Call the seeding function
+      const result = await seedMultiTopicTestData(); // Call the new seeding function
       if (result.success) {
         toast({
           title: "Success!",
@@ -52,10 +52,10 @@ export default function SeedFirestorePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
             <DatabaseZap className="h-7 w-7 text-primary" />
-            Firestore Test Data Seeder
+            Firestore Multi-Topic Data Seeder
           </CardTitle>
           <CardDescription>
-            This tool will write a predefined set of test documents to your Firestore database. 
+            This tool will write a predefined set of 4 controversial debate topics (AI Regulation, Remote Work, Crypto Banking, Meat Ban) and associated data to your Firestore database. 
             It's designed for development and testing to ensure Firestore connectivity and schema alignment.
           </CardDescription>
         </CardHeader>
@@ -75,12 +75,12 @@ export default function SeedFirestorePage() {
             ) : (
               <DatabaseZap className="mr-2 h-5 w-5" />
             )}
-            Seed Firestore with Test Data
+            Seed Firestore with Multi-Topic Data
           </Button>
            <p className="mt-4 text-xs text-muted-foreground text-center px-2">
-            The test data includes: 1 user (user_test), 4 topics (TikTok bans, AI & Jobs, Ethical Meat, Social Media Censorship), 
+            The test data includes: 1 user (user_test), 4 new topics (AI Regulation, Remote Work, Crypto Banking, Meat Ban), 
             each with 2 statements (one 'for', one 'against'), and 1 question under one statement per topic.
-            Check Firestore console after seeding.
+            This may also include previously seeded data if not cleared. Check Firestore console after seeding.
           </p>
         </CardContent>
       </Card>
@@ -88,3 +88,4 @@ export default function SeedFirestorePage() {
   );
 }
 
+    
