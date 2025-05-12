@@ -7,7 +7,7 @@ import QueryProvider from '@/context/QueryProvider';
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '700'], // Light, Regular, Medium, Bold
+  weight: ['300', '400', '500', '600', '700'], // Light, Regular, Medium, SemiBold, Bold
   variable: '--font-poppins',
 });
 
@@ -64,4 +64,3 @@ export default function RootLayout({
     </html>
   );
 }
-

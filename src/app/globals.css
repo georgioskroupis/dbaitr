@@ -119,8 +119,8 @@
 }
 
 .auth-background-glow {
-  background-image: url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
-  background-size: cover;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
@@ -129,12 +129,14 @@
   overflow: hidden; /* Contain potential overflow from background image if not perfectly sized */
 }
 
+
 /* Ensure input fields in dark theme have the correct background and border on auth pages */
 .dark .auth-background-glow input[type="email"],
 .dark .auth-background-glow input[type="password"],
 .dark .auth-background-glow input[type="text"] {
   background-color: #111111; /* Input background: #111111 */
   border-color: #333333; /* Input border: #333333 */
+  color: hsl(var(--foreground)); /* Ensure input text color is foreground */
 }
 
 .dark .auth-background-glow input[type="email"]:focus,
@@ -146,7 +148,7 @@
 
 /* Placeholder style for auth inputs */
 .dark .auth-background-glow input::placeholder {
-  color: #777777;
+  color: #CCCCCC; /* Updated placeholder color */
   font-weight: 500; /* Poppins Medium */
 }
 
