@@ -82,8 +82,11 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     };
     batch.set(question1Ref, question1Data);
 
+    console.log('⏳ Committing test data batch...');
     await batch.commit();
-    console.log('Test data successfully written to Firestore.');
+    console.log('✅ Test data batch committed.');
+    
+    console.log('Test data successfully written to Firestore.'); // This was already present, keeping it for consistency with previous state.
     return { success: true, message: '✅ Sample data successfully written to Firestore.' };
   } catch (error) {
     console.error('Error writing sample data:', error);
@@ -94,3 +97,4 @@ export async function seedTestData(): Promise<{ success: boolean; message: strin
     return { success: false, message: `❌ Error writing sample data: ${errorMessage}` };
   }
 }
+
