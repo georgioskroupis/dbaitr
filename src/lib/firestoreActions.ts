@@ -1,4 +1,3 @@
-
 "use server";
 
 import { auth, db } from '@/lib/firebase/config';
@@ -97,13 +96,18 @@ export async function createTopic(title: string, initialDescription: string | un
 
 export async function createStatement(topicId: string, userId: string, content: string, userName?: string, userPhotoURL?: string): Promise<Statement> {
   const topicRef = doc(db, "topics", topicId);
+  
+  // Get topic title for AI classification (outside transaction for external call)
   const topicSnap = await getDoc(topicRef);
   if (!topicSnap.exists()) {
-    throw new Error("Topic not found");
+    throw new Error("Topic not found, cannot classify statement.");
   }
-  const topicData = topicSnap.data() as Topic; // Assuming Topic type here is Firestore-like, not client-like
+  const topicDataForClassification = topicSnap.data();
+  if (!topicDataForClassification || !topicDataForClassification.title) {
+    throw new Error("Topic data is invalid, cannot retrieve title for classification.");
+  }
 
-  const classificationResult = await classifyPostPosition({ topic: topicData.title, post: content });
+  const classificationResult = await classifyPostPosition({ topic: topicDataForClassification.title, post: content });
   const position = classificationResult.position as 'for' | 'against' | 'neutral';
   const aiConfidence = classificationResult.confidence;
 
@@ -113,34 +117,41 @@ export async function createStatement(topicId: string, userId: string, content: 
   await runTransaction(db, async (transaction) => {
     const currentTopicDoc = await transaction.get(topicRef);
     if (!currentTopicDoc.exists()) {
-      throw "Topic does not exist!";
+      throw new Error("Topic does not exist inside transaction!");
     }
-    const currentTopicData = currentTopicDoc.data();
-    const newScores: { [key: string]: any } = {
-      scoreFor: currentTopicData.scoreFor || 0,
-      scoreAgainst: currentTopicData.scoreAgainst || 0,
-      scoreNeutral: currentTopicData.scoreNeutral || 0,
-    };
 
-    if (position === 'for') newScores.scoreFor += 1;
-    else if (position === 'against') newScores.scoreAgainst += 1;
-    else if (position === 'neutral') newScores.scoreNeutral += 1;
-
-    transaction.update(topicRef, newScores);
+    // Prepare the update object for topic scores using FieldValue.increment
+    const topicScoreUpdateData: { [key: string]: FieldValue } = {};
+    if (position === 'for') {
+      topicScoreUpdateData.scoreFor = FieldValue.increment(1);
+    } else if (position === 'against') {
+      topicScoreUpdateData.scoreAgainst = FieldValue.increment(1);
+    } else if (position === 'neutral') {
+      topicScoreUpdateData.scoreNeutral = FieldValue.increment(1);
+    } else {
+      // This case should ideally not happen if AI classification is robust
+      // and returns one of 'for', 'against', 'neutral'.
+      console.warn(`createStatement: Unhandled position '${position}' for score update. Scores will not be incremented for this statement.`);
+    }
+    
+    // Update topic scores if a valid position was determined
+    if (Object.keys(topicScoreUpdateData).length > 0) {
+        transaction.update(topicRef, topicScoreUpdateData);
+    }
 
     const statementServerData = {
       topicId,
-      createdBy: userId, // Changed from userId to createdBy
+      createdBy: userId, 
       content,
       position,
       aiConfidence,
       createdAt: serverTimestamp(),
       lastEditedAt: serverTimestamp(),
     };
-    // Create a new doc ref for statement within transaction to get its ID
-    const tempStatementRef = doc(statementsCollection);
+    
+    const tempStatementRef = doc(statementsCollection); // Create a new doc ref for statement to get its ID
     newStatementRefId = tempStatementRef.id;
-    transaction.set(tempStatementRef, statementServerData);
+    transaction.set(tempStatementRef, statementServerData); // Set the statement data
   });
 
   revalidatePath(`/(app)/topics/${topicId}`);
@@ -150,6 +161,7 @@ export async function createStatement(topicId: string, userId: string, content: 
     throw new Error("Failed to create statement reference within transaction.");
   }
 
+  // For the returned object, create an approximation that matches client-side type
   return {
     id: newStatementRefId,
     topicId,
@@ -273,20 +285,15 @@ export async function updateStatementPosition(
     const scoresUpdate: { [key: string]: FieldValue | number } = {};
 
     if (actualOldPosition !== 'pending') { // Only decrement if it was a scoring position
-        if (actualOldPosition === 'for') scoresUpdate.scoreFor = (topicData.scoreFor || 0) - 1;
-        else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = (topicData.scoreAgainst || 0) - 1;
-        else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = (topicData.scoreNeutral || 0) - 1;
+        if (actualOldPosition === 'for') scoresUpdate.scoreFor = FieldValue.increment(-1); // Use increment for decrement
+        else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = FieldValue.increment(-1);
+        else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = FieldValue.increment(-1);
     }
 
 
-    if (newPosition === 'for') scoresUpdate.scoreFor = ( (scoresUpdate.scoreFor !== undefined && typeof scoresUpdate.scoreFor === 'number') ? scoresUpdate.scoreFor : (topicData.scoreFor || 0)) + 1;
-    else if (newPosition === 'against') scoresUpdate.scoreAgainst = ( (scoresUpdate.scoreAgainst !== undefined && typeof scoresUpdate.scoreAgainst === 'number') ? scoresUpdate.scoreAgainst : (topicData.scoreAgainst || 0)) + 1;
-    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = ( (scoresUpdate.scoreNeutral !== undefined && typeof scoresUpdate.scoreNeutral === 'number') ? scoresUpdate.scoreNeutral : (topicData.scoreNeutral || 0)) + 1;
-    
-    // Ensure scores don't go below zero
-    if (typeof scoresUpdate.scoreFor === 'number' && scoresUpdate.scoreFor < 0) scoresUpdate.scoreFor = 0;
-    if (typeof scoresUpdate.scoreAgainst === 'number' && scoresUpdate.scoreAgainst < 0) scoresUpdate.scoreAgainst = 0;
-    if (typeof scoresUpdate.scoreNeutral === 'number' && scoresUpdate.scoreNeutral < 0) scoresUpdate.scoreNeutral = 0;
+    if (newPosition === 'for') scoresUpdate.scoreFor = FieldValue.increment(1);
+    else if (newPosition === 'against') scoresUpdate.scoreAgainst = FieldValue.increment(1);
+    else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = FieldValue.increment(1);
     
     transaction.update(topicRef, scoresUpdate);
     transaction.update(statementRef, { position: newPosition, lastEditedAt: serverTimestamp() });
@@ -377,8 +384,8 @@ export async function getUserQuestionCountForStatement(userId: string, statement
     const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
     const q = query(threadsCollection, 
         where("createdBy", "==", userId), 
-        where("statementId", "==", statementId), // Ensure count is per statement
-        where("topicId", "==", topicId),       // Ensure count is per topic (redundant if statementId is global)
+        where("statementId", "==", statementId), 
+        where("topicId", "==", topicId),       
         where("type", "==", "question")
     );
     const snapshot = await getDocs(q);
@@ -437,3 +444,5 @@ export async function answerQuestion(topicId: string, statementId: string, quest
   revalidatePath(`/(app)/topics/${topicId}`);
 }
 // End Old Question/Answer System
+
+    
