@@ -64,7 +64,7 @@
     --success: 145 100% 39%; /* Success Green #00C853 */
     --success-foreground: 0 0% 0%; /* Black text on success green for contrast */
     --border: 0 0% 20%; /* #333333 (e.g. input border) */
-    --input: 0 0% 20%; /* Shadcn variable for input border, matches --border */
+    --input: 0 0% 20%; /* Shadcn variable for input border, matches --border for dark. Background for input fields: #111111 */
     /* Input background uses general --background or specific styling if needed */
     --ring: 355 79% 65%; /* Brighter/Lighter Red for focus rings */
     
@@ -91,32 +91,98 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans; /* Ensure Poppins is applied via font-sans */
-    /* Line height from style guide */
-    line-height: 1.5;
+    @apply bg-background text-foreground font-sans; 
+    line-height: 1.5; /* Body text line height */
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sans; /* Ensure Poppins is applied to headings */
-    letter-spacing: -0.025em; /* Slight negative letter spacing for headers */
+    @apply font-sans; 
+    letter-spacing: -0.025em; /* Default slight negative letter spacing for headers */
+    line-height: 1.2; /* Default heading line height */
   }
-  h1 {
-    @apply text-4xl font-bold; /* 40px */
-    line-height: 1.2;
-    letter-spacing: -0.0125em; /* -0.5px approx for 40px */
+  h1 { /* 40px */
+    @apply text-4xl font-bold; 
+    letter-spacing: -0.0125em; /* -0.5px for 40px */
+  }
+  h2 { /* 32px */
+    @apply text-3xl font-semibold; 
+    letter-spacing: -0.0078125em; /* -0.25px for 32px */
+  }
+  h3 { /* 24px */
+    @apply text-2xl font-medium;
+  }
+  /* Body text default 16px (1rem) is font-normal (400) by Tailwind base and Poppins import */
+  
+  /* Subtext/Footnotes 12px */
+  .text-subtext { /* Poppins Light (300) or Regular (400) */
+    @apply text-xs font-light; 
+  }
+}
 
-  }
-  h2 {
-    @apply text-3xl font-semibold; /* 32px */
-    line-height: 1.2;
-    letter-spacing: -0.0078125em; /* -0.25px approx for 32px */
-  }
-  h3 {
-    @apply text-2xl font-medium; /* 24px */
-    line-height: 1.2;
-  }
-  /* Body text default 16px (1rem) is handled by Tailwind base */
-  /* Subtext/Footnotes 12px (0.75rem) */
-  .text-subtext {
-    @apply text-xs font-light; /* 12px light */
-  }
+.auth-background-glow {
+  background: linear-gradient(135deg, hsl(var(--background)) 0%, #1a0000 100%); /* #1a0000 is a very dark red */
+  position: relative;
+  overflow: hidden; /* Contain glows */
+}
+
+.auth-background-glow::before,
+.auth-background-glow::after {
+  content: '';
+  position: absolute;
+  width: 600px; /* Increased size of glow */
+  height: 600px; /* Increased size of glow */
+  border-radius: 50%;
+  opacity: 0.1; /* Adjusted intensity for subtlety */
+  pointer-events: none; 
+  z-index: 0; /* Behind content */
+  filter: blur(50px); /* Added blur for softer glow */
+}
+
+.auth-background-glow::before {
+  background: radial-gradient(ellipse at center, hsl(var(--primary)) 0%, transparent 60%);
+  top: -20%; 
+  left: -20%;
+  animation: pulseGlow1 12s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+}
+
+.auth-background-glow::after {
+  background: radial-gradient(ellipse at center, hsl(var(--primary)) 0%, transparent 60%);
+  bottom: -20%; 
+  right: -20%;
+  animation: pulseGlow2 15s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+}
+
+@keyframes pulseGlow1 {
+  0% { transform: scale(0.8) translate(-10%, -10%); opacity: 0.08; }
+  100% { transform: scale(1.2) translate(10%, 10%); opacity: 0.12; }
+}
+
+@keyframes pulseGlow2 {
+  0% { transform: scale(0.8) translate(10%, 10%); opacity: 0.1; }
+  100% { transform: scale(1.2) translate(-10%, -10%); opacity: 0.15; }
+}
+
+/* Ensure input fields in dark theme have the correct background and border */
+.dark .auth-background-glow input[type="email"],
+.dark .auth-background-glow input[type="password"],
+.dark .auth-background-glow input[type="text"] {
+  background-color: #111111; /* Input background: #111111 */
+  border-color: #333333; /* Input border: #333333 */
+}
+
+.dark .auth-background-glow input[type="email"]:focus,
+.dark .auth-background-glow input[type="password"]:focus,
+.dark .auth-background-glow input[type="text"]:focus {
+  border-color: hsl(var(--primary)); /* Focus state: red (#E63946) */
+  box-shadow: 0 0 0 2px hsl(var(--ring)); /* Consistent with ShadCN focus ring */
+}
+
+/* Placeholder style for auth inputs */
+.dark .auth-background-glow input::placeholder {
+  color: #777777;
+  font-weight: 500; /* Poppins Medium */
+}
+
+/* Card background for auth form container */
+.dark .auth-background-glow .bg-card {
+  background-color: #121212; /* Card background #121212 */
 }

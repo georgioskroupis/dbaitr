@@ -17,7 +17,7 @@ export default {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
-  				DEFAULT: 'hsl(var(--card))',
+  				DEFAULT: 'hsl(var(--card))', // #121212 in dark
   				foreground: 'hsl(var(--card-foreground))'
   			},
   			popover: {
@@ -25,7 +25,7 @@ export default {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
+  				DEFAULT: 'hsl(var(--primary))', // #E63946
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
@@ -33,24 +33,24 @@ export default {
   				foreground: 'hsl(var(--secondary-foreground))'
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
+  				DEFAULT: 'hsl(var(--muted))', // #111111 for input background in dark
+  				foreground: 'hsl(var(--muted-foreground))' // #888888 or #777777 for placeholders
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
+  				DEFAULT: 'hsl(var(--accent))', // #E63946
   				foreground: 'hsl(var(--accent-foreground))'
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
+  				DEFAULT: 'hsl(var(--destructive))', // #D50000
   				foreground: 'hsl(var(--destructive-foreground))'
   			},
         success: {
-          DEFAULT: 'hsl(var(--success))',
+          DEFAULT: 'hsl(var(--success))', // #00C853
           foreground: 'hsl(var(--success-foreground))'
         },
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
+  			border: 'hsl(var(--border))', // #333333 for input border in dark
+  			input: 'hsl(var(--input))', // #333333 for input border in dark (matches --border)
+  			ring: 'hsl(var(--ring))', // Accent Red #E63946 for focus rings (or slightly lighter --ring: 355 79% 65%;)
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
