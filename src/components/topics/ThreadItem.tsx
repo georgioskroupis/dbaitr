@@ -8,17 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { getUserProfile, getUserQuestionCountForStatement } from '@/lib/firestoreActions';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, User, CornerDownRight, Edit3 } from 'lucide-react';
+import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle } from 'lucide-react';
 import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface ThreadItemProps {
   node: ThreadNode;
-  statementAuthorId: string;
-  allNodes: ThreadNode[]; // All nodes for the current statement, to find children
+  statementAuthorId: string; // UID of the author of the root statement
+  allNodes: ThreadNode[]; 
   level: number;
-  onThreadUpdate: () => void; // To refresh the list after a new post
+  onThreadUpdate: () => void; 
 }
 
 export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadUpdate }: ThreadItemProps) {
@@ -26,11 +26,13 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
   const { toast } = useToast();
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
   const [showReplyForm, setShowReplyForm] = React.useState(false);
-  const [userQuestionCount, setUserQuestionCount] = React.useState(0);
+  const [userQuestionCountOnStatement, setUserQuestionCountOnStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
 
   const children = allNodes.filter(n => n.parentId === node.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const hasResponse = node.type === 'question' && children.some(child => child.type === 'response');
+  
+  // A question has a response if one of its direct children is of type 'response'
+  const hasResponse = node.type === 'question' && children.some(childNode => childNode.type === 'response' && childNode.parentId === node.id);
 
   React.useEffect(() => {
     async function fetchAuthor() {
@@ -44,20 +46,28 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
 
   React.useEffect(() => {
     async function fetchUserQuestionCount() {
-        if (user && !authLoading) {
+        if (user && !authLoading) { // Only fetch if user is loaded
             setIsLoadingQuestionCount(true);
             try {
+                // This count is for the entire statement's thread, for *this* user
                 const count = await getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId);
-                setUserQuestionCount(count);
+                setUserQuestionCountOnStatement(count);
             } catch (error) {
-                console.error("Error fetching user question count in ThreadItem:", error);
+                console.error("Error fetching user question count in ThreadItem for statement:", node.statementId, error);
+                // Handle error, maybe toast
             } finally {
                 setIsLoadingQuestionCount(false);
             }
+        } else if (!authLoading && !user) {
+          setIsLoadingQuestionCount(false);
+          setUserQuestionCountOnStatement(0);
         }
     }
-    fetchUserQuestionCount();
-  }, [user, authLoading, node.statementId, node.topicId]);
+    // Fetch count if user is attempting to ask a question OR if it's a question node to determine reply eligibility
+    if (node.type === 'response' || node.type === 'question') {
+       fetchUserQuestionCount();
+    }
+  }, [user, authLoading, node.statementId, node.topicId, node.type]);
 
 
   const timeAgo = node.createdAt ? formatDistanceToNow(new Date(node.createdAt), { addSuffix: true }) : '';
@@ -69,15 +79,34 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
     return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   };
 
-  const canAskQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCount < 3;
-  const canReply = user && user.uid === statementAuthorId && kycVerified && !hasResponse;
+  // User can ask a follow-up question if logged in, KYC verified, and under question limit for this statement's thread
+  const canAskFollowUpQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountOnStatement < 3;
+  // Statement author can reply to a question if logged in, KYC verified, and the question doesn't already have a response
+  const canReplyToQuestion = user && kycVerified && user.uid === statementAuthorId && !hasResponse;
+
 
   const handleFormSuccess = () => {
     setShowReplyForm(false);
-    onThreadUpdate();
+    onThreadUpdate(); // Refresh the entire thread list from DebatePostCard
+    // Re-fetch user question count if a question was posted
+    if (user && (showReplyFormForTypeRef.current === 'question')) { // Check the type for which the form was shown
+        setIsLoadingQuestionCount(true);
+        getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId)
+            .then(count => setUserQuestionCountOnStatement(count))
+            .finally(() => setIsLoadingQuestionCount(false));
+    }
   };
+  
+  // Ref to store the type of form that was opened
+  const showReplyFormForTypeRef = React.useRef<'question' | 'response' | null>(null);
 
-  const cardBg = node.type === 'question' ? 'bg-card/70' : 'bg-secondary/30'; // Differentiate question and response
+  const toggleReplyForm = (type: 'question' | 'response') => {
+    showReplyFormForTypeRef.current = type;
+    setShowReplyForm(prev => !prev);
+  }
+
+
+  const cardBg = node.type === 'question' ? 'bg-card/70' : 'bg-secondary/30';
   const borderClass = level > 0 ? 'border-l-2 border-primary/30 pl-3' : '';
 
   return (
@@ -105,31 +134,36 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
         </CardContent>
         {!authLoading && user && kycVerified && (
             <CardFooter className="p-3 pt-1 flex justify-end">
-                {node.type === 'question' && canReply && (
-                <Button variant="outline" size="sm" onClick={() => setShowReplyForm(!showReplyForm)}>
-                    <CornerDownRight className="h-3 w-3 mr-1" /> Reply to Question
-                </Button>
+                {node.type === 'question' && canReplyToQuestion && (
+                    <Button variant="outline" size="sm" onClick={() => toggleReplyForm('response')}>
+                        <CornerDownRight className="h-3 w-3 mr-1" /> Reply to Question
+                    </Button>
                 )}
-                {node.type === 'response' && canAskQuestion && (
-                <Button variant="outline" size="sm" onClick={() => setShowReplyForm(!showReplyForm)}>
-                    <MessageSquare className="h-3 w-3 mr-1" /> Ask Follow-up
-                </Button>
+                {node.type === 'response' && canAskFollowUpQuestion && (
+                    <Button variant="outline" size="sm" onClick={() => toggleReplyForm('question')}>
+                        <MessageSquare className="h-3 w-3 mr-1" /> Ask Follow-up
+                    </Button>
+                )}
+                 {node.type === 'response' && !isLoadingQuestionCount && userQuestionCountOnStatement >= 3 && (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                        <AlertCircle className="h-3 w-3 mr-1 text-yellow-500" /> You've reached your question limit for this statement.
+                    </div>
                 )}
           </CardFooter>
         )}
       </Card>
 
-      {showReplyForm && user && (
+      {showReplyForm && user && showReplyFormForTypeRef.current && (
         <div className="mt-1 pl-2">
           <ThreadPostForm
             topicId={node.topicId}
             statementId={node.statementId}
-            statementAuthorId={statementAuthorId}
-            parentId={node.id}
-            type={node.type === 'question' ? 'response' : 'question'}
+            statementAuthorId={statementAuthorId} // Needed for permission checks if type='response'
+            parentId={node.id} // The current node is the parent for the new post
+            type={showReplyFormForTypeRef.current} // Type of node being created
             onSuccess={handleFormSuccess}
-            placeholderText={node.type === 'question' ? 'Your response to this question...' : 'Ask a follow-up question...'}
-            submitButtonText={node.type === 'question' ? 'Post Response' : 'Ask Question'}
+            placeholderText={showReplyFormForTypeRef.current === 'response' ? 'Your response to this question...' : 'Ask a follow-up question...'}
+            submitButtonText={showReplyFormForTypeRef.current === 'response' ? 'Post Response' : 'Ask Question'}
           />
         </div>
       )}

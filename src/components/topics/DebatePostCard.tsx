@@ -26,7 +26,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [threads, setThreads] = React.useState<ThreadNode[]>([]);
   const [isLoadingThreads, setIsLoadingThreads] = React.useState(true);
   const [showRootQuestionForm, setShowRootQuestionForm] = React.useState(false);
-  const [userQuestionCount, setUserQuestionCount] = React.useState(0);
+  const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
 
   const fetchThreads = React.useCallback(async () => {
@@ -61,16 +61,18 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         if (user && !authLoading) { // Ensure user is loaded
             setIsLoadingQuestionCount(true);
             try {
+                // Fetch count for this specific statement
                 const count = await getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId);
-                setUserQuestionCount(count);
+                setUserQuestionCountForThisStatement(count);
             } catch (error) {
                 console.error("Error fetching user question count in DebatePostCard:", error);
+                // Optionally toast error or handle silently
             } finally {
                 setIsLoadingQuestionCount(false);
             }
-        } else if (!authLoading && !user) { // User is definitively not logged in
+        } else if (!authLoading && !user) { 
             setIsLoadingQuestionCount(false);
-            setUserQuestionCount(0); // Or handle as appropriate
+            setUserQuestionCountForThisStatement(0); 
         }
     }
     fetchUserQuestionCount();
@@ -105,7 +107,20 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
-  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCount < 3;
+  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountForThisStatement < 3;
+
+  const handleRootQuestionSuccess = () => {
+    setShowRootQuestionForm(false);
+    fetchThreads(); // Refresh threads
+    // Re-fetch user question count after successfully posting a root question
+    if (user) {
+      setIsLoadingQuestionCount(true);
+      getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId)
+        .then(count => setUserQuestionCountForThisStatement(count))
+        .finally(() => setIsLoadingQuestionCount(false));
+    }
+  };
+
 
   return (
     <Card className="mb-6 bg-card/80 shadow-lg">
@@ -160,13 +175,10 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             <ThreadPostForm
               topicId={statement.topicId}
               statementId={statement.id}
-              statementAuthorId={statement.createdBy}
+              statementAuthorId={statement.createdBy} 
               parentId={null} // Root question
               type="question"
-              onSuccess={() => {
-                setShowRootQuestionForm(false);
-                fetchThreads(); // Refresh threads
-              }}
+              onSuccess={handleRootQuestionSuccess}
             />
           </div>
         )}
@@ -177,7 +189,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             threads={threads} 
             statementId={statement.id}
             topicId={statement.topicId}
-            statementAuthorId={statement.createdBy}
+            statementAuthorId={statement.createdBy} // Pass statementAuthorId
             isLoading={isLoadingThreads}
             onThreadUpdate={fetchThreads}
         />

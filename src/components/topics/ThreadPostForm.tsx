@@ -25,10 +25,10 @@ type ThreadFormValues = z.infer<typeof formSchema>;
 interface ThreadPostFormProps {
   topicId: string;
   statementId: string;
-  statementAuthorId: string;
-  parentId: string | null;
-  type: 'question' | 'response';
-  onSuccess: () => void; // Callback to refresh thread list
+  statementAuthorId: string; // UID of the author of the root statement
+  parentId: string | null;    // ID of parent ThreadNode, or null if root question for statement
+  type: 'question' | 'response'; // Type of node THIS FORM WILL CREATE
+  onSuccess: () => void; 
   placeholderText?: string;
   submitButtonText?: string;
 }
@@ -38,7 +38,7 @@ export function ThreadPostForm({
   statementId, 
   statementAuthorId, 
   parentId, 
-  type, 
+  type, // This is the type of node being created
   onSuccess,
   placeholderText,
   submitButtonText
@@ -47,7 +47,8 @@ export function ThreadPostForm({
   const { toast } = useToast();
   const { user, kycVerified, loading: authLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [questionCount, setQuestionCount] = React.useState(0);
+  // This count is for the user's questions on the current statement's overall thread
+  const [currentUserQuestionCount, setCurrentUserQuestionCount] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(type === 'question');
 
   const form = useForm<ThreadFormValues>({
@@ -57,25 +58,25 @@ export function ThreadPostForm({
 
   React.useEffect(() => {
     async function fetchQuestionCount() {
-      if (user && type === 'question') {
+      if (user && !authLoading) { // Only fetch if user is loaded
+        // Always fetch, as it's used to disable "Ask Question" even if this form is for a "response"
         setIsLoadingQuestionCount(true);
         try {
           const count = await getUserQuestionCountForStatement(user.uid, statementId, topicId);
-          setQuestionCount(count);
+          setCurrentUserQuestionCount(count);
         } catch (error) {
-          console.error("Failed to fetch user question count:", error);
-          toast({ title: "Error", description: "Could not verify your question limit.", variant: "destructive" });
+          console.error("Failed to fetch user question count for statement:", statementId, error);
+          toast({ title: "Error", description: "Could not verify your question limit for this statement.", variant: "destructive" });
         } finally {
           setIsLoadingQuestionCount(false);
         }
-      } else {
+      } else if (!authLoading && !user) {
         setIsLoadingQuestionCount(false);
+        setCurrentUserQuestionCount(0);
       }
     }
-    if (!authLoading) {
-        fetchQuestionCount();
-    }
-  }, [user, type, statementId, topicId, authLoading, toast]);
+    fetchQuestionCount();
+  }, [user, statementId, topicId, authLoading, toast]);
 
 
   async function onSubmit(values: ThreadFormValues) {
@@ -86,7 +87,7 @@ export function ThreadPostForm({
 
     if (!user) {
       toast({ title: "Authentication Required", description: "Please sign in to post.", variant: "destructive" });
-      router.push(`/sign-in?redirect=${window.location.pathname}`);
+      router.push(`/sign-in?redirect=${window.location.pathname}${window.location.search}`);
       return;
     }
     if (!kycVerified) {
@@ -95,7 +96,8 @@ export function ThreadPostForm({
       return;
     }
 
-    if (type === 'question' && questionCount >= 3) {
+    // Specific checks based on the type of node being created
+    if (type === 'question' && currentUserQuestionCount >= 3) {
       toast({ title: "Question Limit Reached", description: "You have already asked 3 questions in this statement's thread.", variant: "destructive" });
       return;
     }
@@ -104,26 +106,27 @@ export function ThreadPostForm({
       toast({ title: "Permission Denied", description: "Only the statement author can reply directly to questions.", variant: "destructive" });
       return;
     }
+    // Server-side will also check if the parent question (if type is 'response') already has a response.
 
     setIsSubmitting(true);
     try {
       await createThreadNode({
         topicId,
         statementId,
-        statementAuthorId,
+        statementAuthorId, // Pass this for server-side check if type is 'response'
         parentId,
         content: values.content,
         createdBy: user.uid,
-        type,
+        type, // The type of node being created
       });
       toast({ title: `${type === 'question' ? 'Question' : 'Response'} Submitted!`, description: "Your contribution has been added." });
       form.reset();
-      if (type === 'question') setQuestionCount(prev => prev + 1);
-      onSuccess();
+      // No need to update currentUserQuestionCount here, onSuccess will trigger parent re-fetch
+      onSuccess(); 
     } catch (error: any) {
       console.error(`Error submitting thread node (type: ${type}):`, error);
       toast({
-        title: `Failed to Submit ${type === 'question' ? 'Question' : 'Response'}`,
+        title: `Failed to Submit ${type.charAt(0).toUpperCase() + type.slice(1)}`,
         description: error.message || "An unexpected error occurred.",
         variant: "destructive",
       });
@@ -137,7 +140,7 @@ export function ThreadPostForm({
     : "Provide your response...";
   const defaultSubmitText = type === 'question' ? "Ask Question" : "Post Response";
 
-  const isDisabled = isSubmitting || authLoading || isLoadingQuestionCount || (type === 'question' && questionCount >= 3);
+  const isDisabled = isSubmitting || authLoading || isLoadingQuestionCount || (type === 'question' && currentUserQuestionCount >= 3);
 
   return (
     <Form {...form}>
@@ -154,7 +157,7 @@ export function ThreadPostForm({
                   className="resize-none min-h-[80px] text-sm"
                   rows={3}
                   {...field}
-                  disabled={isDisabled}
+                  disabled={isDisabled || !user || !kycVerified} // Also disable if no user/kyc
                 />
               </FormControl>
               <FormMessage />
@@ -162,19 +165,33 @@ export function ThreadPostForm({
           )}
         />
         <div className="flex justify-end items-center gap-2">
-            {type === 'question' && !isLoadingQuestionCount && (
+            {type === 'question' && !isLoadingQuestionCount && user && kycVerified && (
                  <p className="text-xs text-muted-foreground">
-                    Questions asked: {questionCount}/3
+                    Questions asked for this statement: {currentUserQuestionCount}/3
                 </p>
             )}
-            {(isLoadingQuestionCount || authLoading) && type === 'question' && (
+            {(isLoadingQuestionCount && type === 'question') && ( // Show loader only when relevant for question count
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
-          <Button type="submit" size="sm" disabled={isDisabled}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button 
+            type="submit" 
+            size="sm" 
+            disabled={isDisabled || !user || !kycVerified}
+          >
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             {submitButtonText || defaultSubmitText}
           </Button>
         </div>
+         {!authLoading && !user && (
+            <p className="text-xs text-destructive text-right">
+                Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push(`/sign-in?redirect=${window.location.pathname}${window.location.search}`)}>sign in</Button> to participate.
+            </p>
+        )}
+        {!authLoading && user && !kycVerified && (
+            <p className="text-xs text-destructive text-right">
+                Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push('/verify-identity')}>verify your ID</Button> to participate.
+            </p>
+        )}
       </form>
     </Form>
   );

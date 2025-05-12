@@ -242,55 +242,6 @@ export async function updateTopicDescriptionWithAISummary(topicId: string, summa
   revalidatePath(`/(app)/topics/${topicId}`);
 }
 
-// Old Question/Answer System - to be deprecated or refactored for new ThreadNode system
-export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
-  const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
-  const newQuestionServerData = {
-    topicId,
-    statementId,
-    content,
-    askedBy,
-    createdAt: serverTimestamp(),
-    answered: false,
-  };
-  const newQuestionRef = await addDoc(questionsCollection, newQuestionServerData);
-  revalidatePath(`/(app)/topics/${topicId}`);
-
-  return {
-    id: newQuestionRef.id,
-    topicId,
-    statementId,
-    content,
-    askedBy,
-    createdAt: new Date().toISOString(), // Approximation
-    answered: false,
-  } as Question;
-}
-
-export async function getQuestionsForStatement(topicId: string, statementId: string): Promise<Question[]> {
-  const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
-  const q = query(questionsCollection, orderBy("createdAt", "asc"));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnapshot => {
-    const data = docSnapshot.data();
-    return {
-      id: docSnapshot.id,
-      ...convertTimestampsToISO(['createdAt', 'answeredAt'], data),
-    } as Question;
-  });
-}
-
-export async function answerQuestion(topicId: string, statementId: string, questionId: string, answer: string): Promise<void> {
-  const questionRef = doc(db, "topics", topicId, "statements", statementId, "questions", questionId);
-  await updateDoc(questionRef, {
-    answer: answer,
-    answered: true,
-    answeredAt: serverTimestamp(),
-  });
-  revalidatePath(`/(app)/topics/${topicId}`);
-}
-// End Old Question/Answer System
-
 
 export async function updateStatementPosition(
   topicId: string,
@@ -358,27 +309,31 @@ export async function createThreadNode(data: {
   const { topicId, statementId, statementAuthorId, parentId, content, createdBy, type } = data;
   const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
 
-  // Validation
+  // Constraint 1: User question limit (3 per statement thread for questions of type 'question').
   if (type === 'question') {
-    const q = query(threadsCollection, where("createdBy", "==", createdBy), where("statementId", "==", statementId), where("type", "==", "question"));
-    const userQuestionsSnapshot = await getDocs(q);
-    if (userQuestionsSnapshot.docs.length >= 3) {
+    const userQuestionCount = await getUserQuestionCountForStatement(createdBy, statementId, topicId);
+    if (userQuestionCount >= 3) {
       throw new Error("User has reached the maximum of 3 questions for this statement's thread.");
     }
-  } else if (type === 'response') {
+  }
+  
+  // Constraint 2: Only statement author can create ThreadNode of type 'response'.
+  if (type === 'response') {
     if (createdBy !== statementAuthorId) {
       throw new Error("Only the statement author can respond to questions in this thread.");
     }
-    if (!parentId) {
-        throw new Error("Responses must have a parent question.");
+    // Constraint 3: A ThreadNode of type: 'question' can only have one direct child ThreadNode of type: 'response'.
+    // This means if parentId is a question, check if it already has a response.
+    if (!parentId) { // Should not happen for a response, but defensive check
+        throw new Error("Responses must have a parent question node.");
     }
-    // Check if this parent question already has a response
     const q = query(threadsCollection, where("parentId", "==", parentId), where("type", "==", "response"));
     const existingResponsesSnapshot = await getDocs(q);
     if (!existingResponsesSnapshot.empty) {
         throw new Error("This question has already been answered by the statement author.");
     }
   }
+
 
   const newThreadNodeServerData = {
     topicId,
@@ -391,9 +346,8 @@ export async function createThreadNode(data: {
   };
 
   const newThreadNodeRef = await addDoc(threadsCollection, newThreadNodeServerData);
-  revalidatePath(`/(app)/topics/${topicId}`); // Revalidate the topic page to show new thread node
+  revalidatePath(`/(app)/topics/${topicId}`); 
 
-  // For the returned object, ensure it matches client-side type
   return {
     id: newThreadNodeRef.id,
     topicId,
@@ -402,7 +356,7 @@ export async function createThreadNode(data: {
     content,
     createdBy,
     type,
-    createdAt: new Date().toISOString(), // Approximation for immediate client use
+    createdAt: new Date().toISOString(), 
   } as ThreadNode;
 }
 
@@ -423,9 +377,63 @@ export async function getUserQuestionCountForStatement(userId: string, statement
     const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
     const q = query(threadsCollection, 
         where("createdBy", "==", userId), 
-        where("statementId", "==", statementId), 
+        where("statementId", "==", statementId), // Ensure count is per statement
+        where("topicId", "==", topicId),       // Ensure count is per topic (redundant if statementId is global)
         where("type", "==", "question")
     );
     const snapshot = await getDocs(q);
     return snapshot.size;
 }
+
+// Deprecated - remove or refactor if this specific old schema is ever needed.
+// Old Question/Answer System - to be deprecated or refactored for new ThreadNode system
+export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
+  console.warn("DEPRECATED: createQuestion is called. Use createThreadNode instead.");
+  const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
+  const newQuestionServerData = {
+    topicId,
+    statementId,
+    content,
+    askedBy,
+    createdAt: serverTimestamp(),
+    answered: false,
+  };
+  const newQuestionRef = await addDoc(questionsCollection, newQuestionServerData);
+  revalidatePath(`/(app)/topics/${topicId}`);
+
+  return {
+    id: newQuestionRef.id,
+    topicId,
+    statementId,
+    content,
+    askedBy,
+    createdAt: new Date().toISOString(), // Approximation
+    answered: false,
+  } as Question;
+}
+
+export async function getQuestionsForStatement(topicId: string, statementId: string): Promise<Question[]> {
+  console.warn("DEPRECATED: getQuestionsForStatement is called. Use getThreadsForStatement instead.");
+  const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
+  const q = query(questionsCollection, orderBy("createdAt", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnapshot => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      ...convertTimestampsToISO(['createdAt', 'answeredAt'], data),
+    } as Question;
+  });
+}
+
+export async function answerQuestion(topicId: string, statementId: string, questionId: string, answer: string): Promise<void> {
+  console.warn("DEPRECATED: answerQuestion is called. Use createThreadNode (type: 'response') instead.");
+  const questionRef = doc(db, "topics", topicId, "statements", statementId, "questions", questionId);
+  await updateDoc(questionRef, {
+    answer: answer,
+    answered: true,
+    answeredAt: serverTimestamp(),
+  });
+  revalidatePath(`/(app)/topics/${topicId}`);
+}
+// End Old Question/Answer System
