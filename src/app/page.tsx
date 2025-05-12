@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { Logo } from '@/components/layout/Logo';
 
 export default function HomePage() {
   const { user, loading, isVerified } = useAuth();
@@ -25,7 +26,8 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <Logo width={180} href="/" />
+      <Loader2 className="h-12 w-12 animate-spin text-primary mt-8" />
       <p className="mt-4 text-lg text-foreground">Loading db8...</p>
     </div>
   );

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Home, PlusSquare, MessageSquare as AppIcon, Search as SearchIcon } from 'lucide-react'; // Changed AppIcon to MessageSquare
+import { Home, PlusSquare } from 'lucide-react'; 
 import {
   SidebarProvider,
   Sidebar,
@@ -15,17 +15,14 @@ import {
 } from '@/components/ui/sidebar'; 
 import { UserNav } from '@/components/layout/UserNav';
 import { Logo } from '@/components/layout/Logo';
-// Button and Input are not used here directly anymore for search
-// import { Button } from '@/components/ui/button';
-// import { Input } from '@/components/ui/input';
+
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon">
         <SidebarHeader className="p-4">
-          {/* Logo now has its own text, showText is not needed. iconSize adjusts SVG height. */}
-          <Logo iconSize={8} /> 
+          <Logo width={100} /> 
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
@@ -44,7 +41,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </SidebarContent>
         <SidebarFooter className="p-4">
            {/* Example: Settings or Logout could be here */}
-           {/* For now, UserNav in header handles logout */}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -52,25 +48,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-4">
             <SidebarTrigger className="md:hidden" /> {/* Mobile trigger */}
             <div className="hidden md:block">
-             {/* Use AppIcon for a simple icon representation in header, if needed, or full Logo */}
-             {/* Using full logo for consistency, iconSize adjusts height */}
-             <Logo iconSize={7}/>
+             <Logo width={80}/>
             </div>
           </div>
           
           <div className="flex flex-1 items-center justify-end gap-4">
-            {/* Optional: Global search
-            <form className="ml-auto flex-1 sm:flex-initial">
-              <div className="relative">
-                <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search topics..."
-                  className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px]"
-                />
-              </div>
-            </form>
-            */}
             <UserNav />
           </div>
         </header>

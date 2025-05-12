@@ -14,6 +14,26 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: 'db8 - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis and KYC verification.',
+  openGraph: {
+    title: 'db8 - AI Powered Debates',
+    description: 'Engage in structured debates with AI analysis and KYC verification.',
+    images: [
+      {
+        url: '/assets/images/db8-logo.png', // Assumes db8-logo.png is in public/assets/images
+        width: 1080, // Actual width of the logo image
+        height: 1080, // Actual height of the logo image
+        alt: 'db8 Logo',
+      },
+    ],
+    siteName: 'db8',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'db8 - AI Powered Debates',
+    description: 'Engage in structured debates with AI analysis and KYC verification.',
+    images: ['/assets/images/db8-logo.png'], // Assumes db8-logo.png is in public/assets/images
+  },
 };
 
 export default function RootLayout({
