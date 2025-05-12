@@ -1,3 +1,4 @@
+
 import { getTopicById, getStatementsForTopic } from '@/lib/firestoreActions'; // Renamed getPostsForTopic
 import { TopicDetailClient } from '@/components/topics/TopicDetailClient';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,7 +15,6 @@ interface TopicPageProps {
 export const dynamic = 'force-dynamic';
 
 export default async function TopicPage({ params }: TopicPageProps) {
-  // Apply the fix for params access as per user instruction
   const resolvedParams = await params;
   const topicId = resolvedParams.topicId;
   
@@ -34,12 +34,12 @@ export default async function TopicPage({ params }: TopicPageProps) {
   }
 
   // Fetch statements for the topic
-  const statements = await getStatementsForTopic(topicId); // Renamed from posts
+  const statements = await getStatementsForTopic(topicId); 
 
   return (
     <div className="container mx-auto py-6">
-      {/* Pass statements as initialStatements */}
-      <TopicDetailClient initialTopic={topic} initialPosts={statements} /> 
+      {/* Pass statements as initialStatements, this name is consistent with TopicDetailClient previous prop name for posts */}
+      <TopicDetailClient initialTopic={topic} initialStatements={statements} /> 
     </div>
   );
 }

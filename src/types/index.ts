@@ -45,3 +45,14 @@ export interface Question {
   answer?: string;
   answeredAt?: string; // Changed from Timestamp
 }
+
+export interface ThreadNode {
+  id: string;
+  parentId: string | null; // ID of the parent ThreadNode, or null if root question for statement
+  statementId: string; // ID of the root statement this thread belongs to
+  topicId: string;
+  content: string;
+  createdBy: string; // User ID of the author of this node
+  createdAt: string; // ISOString timestamp
+  type: 'question' | 'response';
+}

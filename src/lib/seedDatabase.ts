@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/firebase/config';
 import type { UserProfile, Topic, Statement, Question } from '@/types';
-import { doc, Timestamp, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, Timestamp, writeBatch, collection, getDocs, getDoc } from 'firebase/firestore';
 
 // This function seeds a specific set of test data as requested for a "strict Firestore write test".
 // The old seedTestData function is kept for reference or potential future use but is no longer the primary export.

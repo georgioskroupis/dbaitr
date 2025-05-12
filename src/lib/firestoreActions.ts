@@ -2,7 +2,7 @@
 "use server";
 
 import { auth, db } from '@/lib/firebase/config';
-import type { Topic, Statement, UserProfile, Question } from '@/types';
+import type { Topic, Statement, UserProfile, Question, ThreadNode } from '@/types';
 import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
@@ -242,6 +242,7 @@ export async function updateTopicDescriptionWithAISummary(topicId: string, summa
   revalidatePath(`/(app)/topics/${topicId}`);
 }
 
+// Old Question/Answer System - to be deprecated or refactored for new ThreadNode system
 export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
   const questionsCollection = collection(db, "topics", topicId, "statements", statementId, "questions");
   const newQuestionServerData = {
@@ -288,6 +289,8 @@ export async function answerQuestion(topicId: string, statementId: string, quest
   });
   revalidatePath(`/(app)/topics/${topicId}`);
 }
+// End Old Question/Answer System
+
 
 export async function updateStatementPosition(
   topicId: string,
@@ -339,4 +342,90 @@ export async function updateStatementPosition(
   });
 
   revalidatePath(`/(app)/topics/${topicId}`);
+}
+
+
+// New ThreadNode System
+export async function createThreadNode(data: {
+  topicId: string;
+  statementId: string;
+  statementAuthorId: string; // Author of the root statement
+  parentId: string | null; // ID of parent ThreadNode, or null if root question for statement
+  content: string;
+  createdBy: string; // UID of user creating this node
+  type: 'question' | 'response';
+}): Promise<ThreadNode> {
+  const { topicId, statementId, statementAuthorId, parentId, content, createdBy, type } = data;
+  const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
+
+  // Validation
+  if (type === 'question') {
+    const q = query(threadsCollection, where("createdBy", "==", createdBy), where("statementId", "==", statementId), where("type", "==", "question"));
+    const userQuestionsSnapshot = await getDocs(q);
+    if (userQuestionsSnapshot.docs.length >= 3) {
+      throw new Error("User has reached the maximum of 3 questions for this statement's thread.");
+    }
+  } else if (type === 'response') {
+    if (createdBy !== statementAuthorId) {
+      throw new Error("Only the statement author can respond to questions in this thread.");
+    }
+    if (!parentId) {
+        throw new Error("Responses must have a parent question.");
+    }
+    // Check if this parent question already has a response
+    const q = query(threadsCollection, where("parentId", "==", parentId), where("type", "==", "response"));
+    const existingResponsesSnapshot = await getDocs(q);
+    if (!existingResponsesSnapshot.empty) {
+        throw new Error("This question has already been answered by the statement author.");
+    }
+  }
+
+  const newThreadNodeServerData = {
+    topicId,
+    statementId,
+    parentId,
+    content,
+    createdBy,
+    type,
+    createdAt: serverTimestamp(),
+  };
+
+  const newThreadNodeRef = await addDoc(threadsCollection, newThreadNodeServerData);
+  revalidatePath(`/(app)/topics/${topicId}`); // Revalidate the topic page to show new thread node
+
+  // For the returned object, ensure it matches client-side type
+  return {
+    id: newThreadNodeRef.id,
+    topicId,
+    statementId,
+    parentId,
+    content,
+    createdBy,
+    type,
+    createdAt: new Date().toISOString(), // Approximation for immediate client use
+  } as ThreadNode;
+}
+
+export async function getThreadsForStatement(topicId: string, statementId: string): Promise<ThreadNode[]> {
+  const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
+  const q = query(threadsCollection, orderBy("createdAt", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnapshot => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      ...convertTimestampsToISO(['createdAt'], data),
+    } as ThreadNode;
+  });
+}
+
+export async function getUserQuestionCountForStatement(userId: string, statementId: string, topicId: string): Promise<number> {
+    const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
+    const q = query(threadsCollection, 
+        where("createdBy", "==", userId), 
+        where("statementId", "==", statementId), 
+        where("type", "==", "question")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.size;
 }

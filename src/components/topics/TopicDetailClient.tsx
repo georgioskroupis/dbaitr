@@ -10,25 +10,41 @@ import { useEffect, useState, useCallback } from 'react';
 import { getStatementsForTopic, getTopicById, updateTopicDescriptionWithAISummary, getUserProfile } from '@/lib/firestoreActions';
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from "lucide-react";
+import { Terminal, Loader2 } from "lucide-react";
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns'; // Ensure parseISO is imported
 
 
 interface TopicDetailClientProps {
   initialTopic: Topic;
-  initialPosts: StatementType[];
+  initialStatements: StatementType[]; // Changed from initialPosts
 }
 
-export function TopicDetailClient({ initialTopic, initialPosts: initialStatements }: TopicDetailClientProps) {
+export function TopicDetailClient({ initialTopic, initialStatements }: TopicDetailClientProps) {
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const [statements, setStatements] = useState<StatementType[]>(initialStatements);
   const [isLoadingTopicDetails, setIsLoadingTopicDetails] = useState<boolean>(!initialTopic.description);
   const [isLoadingStatements, setIsLoadingStatements] = useState<boolean>(false);
   const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
+  
+  const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialTopic?.createdAt) {
+      const date = parseISO(initialTopic.createdAt);
+      if (isValid(date)) {
+        setClientTopicCreatedAtDate(format(date, 'MM/dd/yyyy'));
+      } else {
+        setClientTopicCreatedAtDate('N/A');
+      }
+    } else {
+      setClientTopicCreatedAtDate('N/A');
+    }
+  }, [initialTopic?.createdAt]);
+
 
   useEffect(() => {
     async function fetchCreator() {
@@ -37,8 +53,10 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
         setCreatorProfile(profile);
       }
     }
-    fetchCreator();
-  }, [topic.createdBy]);
+    if (topic?.createdBy) { // Ensure createdBy is present
+        fetchCreator();
+    }
+  }, [topic?.createdBy]);
 
   useEffect(() => {
     async function fetchAiSummary() {
@@ -67,28 +85,26 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
          setIsLoadingTopicDetails(false);
       }
     }
-    if (topic?.id && topic?.title) { // Ensure topic ID and title are present
+    if (topic?.id && topic?.title) { 
         fetchAiSummary();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic?.id, topic?.title, toast]); // Removed topic.description from deps to avoid loop if AI summary is empty
+  }, [topic?.id, topic?.title, toast]); 
 
   const refreshData = useCallback(async () => {
+    if (!topic?.id) return; // Guard against missing topic ID
     setIsLoadingStatements(true);
-    setIsLoadingTopicDetails(true); // Also set topic details to loading as scores might change
+    setIsLoadingTopicDetails(true); 
     try {
-      const [updatedStatements, updatedTopic] = await Promise.all([
+      const [updatedStatements, updatedTopicResult] = await Promise.all([
         getStatementsForTopic(topic.id),
         getTopicById(topic.id)
       ]);
       setStatements(updatedStatements);
-      if (updatedTopic) {
-        // If AI summary was being fetched for the updatedTopic and it's still empty, don't overwrite
-        // local state if it already got populated by the AI fetch.
-        // This is a bit tricky, main thing is updatedTopic has new scores.
+      if (updatedTopicResult) {
         setTopic(prev => ({
-          ...updatedTopic,
-          description: updatedTopic.description || prev.description // Preserve fetched AI description if new one is empty
+          ...updatedTopicResult,
+          description: updatedTopicResult.description || prev.description 
         }));
       }
     } catch (error: any) {
@@ -102,20 +118,30 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
       setIsLoadingStatements(false);
       setIsLoadingTopicDetails(false);
     }
-  }, [topic.id, topic.title, toast]);
+  }, [topic?.id, topic?.title, toast]);
 
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
-  const topicCreatedAtDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
+
+  if (!topic) { // Should not happen if initialTopic is always provided, but good check
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-3 text-lg">Loading topic data...</p>
+      </div>
+    );
+  }
 
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2">{topic.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          Created by {creatorNameDisplay} on {topicCreatedAtDate}
-        </p>
+         {clientTopicCreatedAtDate && (
+            <p className="text-sm text-muted-foreground">
+                Created by {creatorNameDisplay} on {clientTopicCreatedAtDate}
+            </p>
+        )}
         <TopicAnalysis analysis={topic.description} isLoading={isLoadingTopicDetails && !topic.description} />
       </div>
 
@@ -151,11 +177,10 @@ export function TopicDetailClient({ initialTopic, initialPosts: initialStatement
           )}
         </div>
         <div className="md:col-span-1 space-y-6">
-           <PositionTally topic={topic} isLoading={isLoadingTopicDetails} /> {/* isLoadingTopicDetails covers score loading */}
+           <PositionTally topic={topic} isLoading={isLoadingTopicDetails} /> 
            <PostForm topic={topic} onStatementCreated={refreshData} />
         </div>
       </div>
     </div>
   );
 }
-
