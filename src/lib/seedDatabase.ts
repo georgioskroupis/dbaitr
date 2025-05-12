@@ -1,9 +1,10 @@
+
 'use server';
 
 import { db } from '@/lib/firebase/config';
 import type { UserProfile, Topic, Statement, Question, ThreadNode } from '@/types'; // Added ThreadNode
 import { doc, Timestamp, writeBatch, collection, getDocs, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { createThreadNode } from './firestoreActions'; // Import createThreadNode
+import { createStatement, createThreadNode } from './firestoreActions'; // Import createStatement and createThreadNode
 
 // This function seeds a specific set of test data as requested for a "strict Firestore write test".
 // The old seedTestData function is kept for reference or potential future use but is no longer the primary export.
@@ -27,14 +28,18 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
 
     // STEP 1: Add test user
     const userRef = doc(db, 'users', testUserId);
-    const userTestData: UserProfile = {
-      uid: testUserId,
-      fullName: "Test User (Old Seed)",
-      email: "test-old@example.com",
-      kycVerified: true,
-      createdAt: Timestamp.now().toDate().toISOString()
-    };
-    batch.set(userRef, userTestData);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+        const userTestData: UserProfile = {
+        uid: testUserId,
+        fullName: "Test User (Old Seed)",
+        email: "test-old@example.com",
+        kycVerified: true,
+        createdAt: Timestamp.now().toDate().toISOString()
+        };
+        batch.set(userRef, userTestData);
+    }
+    
 
     // STEP 2: Add Topics to Batch
     const topicTikTokHardcodedId = 'topic_tiktok';
@@ -44,12 +49,14 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       description: "A debate over digital sovereignty, data privacy, and youth influence.",
       createdBy: testUserId,
       createdAt: Timestamp.now(),
-      scoreFor: 0, // Will be updated by statements
+      scoreFor: 0, 
       scoreAgainst: 0,
       scoreNeutral: 0,
       slug: 'should-governments-ban-tiktok'
     };
-    batch.set(topicRefTikTok, topicTestDataTikTok);
+    if (!(await getDoc(topicRefTikTok)).exists()) {
+        batch.set(topicRefTikTok, topicTestDataTikTok);
+    }
     
     const topicAIJobsHardcodedId = 'topic_ai_jobs';
     const topicRefAIJobs = doc(db, 'topics', topicAIJobsHardcodedId);
@@ -61,7 +68,9 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0,
       slug: 'should-ai-replace-human-jobs'
     };
-    batch.set(topicRefAIJobs, topicDataAIJobs);
+    if (!(await getDoc(topicRefAIJobs)).exists()) {
+        batch.set(topicRefAIJobs, topicDataAIJobs);
+    }
 
     const topicEatingMeatHardcodedId = 'topic_eating_meat';
     const topicRefEatingMeat = doc(db, 'topics', topicEatingMeatHardcodedId);
@@ -73,7 +82,9 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0,
       slug: 'is-it-ethical-to-eat-meat-2025-old'
     };
-    batch.set(topicRefEatingMeat, topicDataEatingMeat);
+     if (!(await getDoc(topicRefEatingMeat)).exists()) {
+        batch.set(topicRefEatingMeat, topicDataEatingMeat);
+    }
 
     const topicSocialCensorshipHardcodedId = 'topic_social_censorship';
     const topicRefSocialCensorship = doc(db, 'topics', topicSocialCensorshipHardcodedId);
@@ -85,75 +96,100 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0,
       slug: 'should-social-media-censor-misinformation-old'
     };
-    batch.set(topicRefSocialCensorship, topicDataSocialCensorship);
+    if (!(await getDoc(topicRefSocialCensorship)).exists()) {
+        batch.set(topicRefSocialCensorship, topicDataSocialCensorship);
+    }
 
     console.log('⏳ Committing test data batch (oldSeedTestData for users, topics)...');
     await batch.commit();
     console.log('✅ Test data batch committed (oldSeedTestData for users, topics).');
 
-    // STEP 3: Add Statements sequentially and get their IDs
-    let statement1IdTikTokDyn: string, statementAIJobsForIdDyn: string, statementMeatAgainstOldIdDyn: string, statementSocialForOldIdDyn: string;
+    // STEP 3: Add Statements sequentially using createStatement and get their IDs
+    let statement1TikTokDyn: string, statementAIJobsForIdDyn: string, statementMeatAgainstOldIdDyn: string, statementSocialForOldIdDyn: string;
 
     // For TikTok Topic
-    const statement1DataTikTok = {
-      topicId: topicTikTokHardcodedId, content: "TikTok enables foreign governments to subtly influence public opinion.", createdBy: testUserId, createdAt: Timestamp.now(), position: "for" as const, aiConfidence: 0.85, lastEditedAt: Timestamp.now(),
-    };
-    const statement1RefTikTok = await addDoc(collection(db, 'topics', topicTikTokHardcodedId, 'statements'), statement1DataTikTok);
-    statement1IdTikTokDyn = statement1RefTikTok.id;
-    await addDoc(collection(db, 'topics', topicTikTokHardcodedId, 'statements'), {
-      topicId: topicTikTokHardcodedId, content: "Banning TikTok undermines digital freedom. Users should choose what apps to use.", createdBy: testUserId, createdAt: Timestamp.now(), position: "against" as const, aiConfidence: 0.90, lastEditedAt: Timestamp.now(),
-    });
+    const createdStatement1TikTok = await createStatement(
+      topicTikTokHardcodedId, 
+      testUserId, 
+      "TikTok enables foreign governments to subtly influence public opinion."
+    );
+    statement1TikTokDyn = createdStatement1TikTok.id;
+    
+    await createStatement(
+      topicTikTokHardcodedId,
+      testUserId,
+      "Banning TikTok undermines digital freedom. Users should choose what apps to use."
+    );
     
     // For AI Jobs Topic
-    const statementAIJobsForData = {
-      topicId: topicAIJobsHardcodedId, content: "Efficiency and consistency matter. AI in logistics and customer service has already proven its worth, streamlining operations and reducing errors.", createdBy: testUserId, createdAt: Timestamp.now(), position: "for" as const, aiConfidence: 0.92, lastEditedAt: Timestamp.now(),
-    };
-    const statementAIJobsForRef = await addDoc(collection(db, 'topics', topicAIJobsHardcodedId, 'statements'), statementAIJobsForData);
-    statementAIJobsForIdDyn = statementAIJobsForRef.id;
-    await addDoc(collection(db, 'topics', topicAIJobsHardcodedId, 'statements'), {
-      topicId: topicAIJobsHardcodedId, content: "Replacing people with AI erodes dignity. Work isn't just economic — it's part of identity and community. We risk widespread social displacement.", createdBy: testUserId, createdAt: Timestamp.now(), position: "against" as const, aiConfidence: 0.88, lastEditedAt: Timestamp.now(),
-    });
+    const createdStatementAIJobsFor = await createStatement(
+      topicAIJobsHardcodedId,
+      testUserId,
+      "Efficiency and consistency matter. AI in logistics and customer service has already proven its worth, streamlining operations and reducing errors."
+    );
+    statementAIJobsForIdDyn = createdStatementAIJobsFor.id;
+
+    await createStatement(
+      topicAIJobsHardcodedId,
+      testUserId,
+      "Replacing people with AI erodes dignity. Work isn't just economic — it's part of identity and community. We risk widespread social displacement."
+    );
 
     // For Eating Meat Topic
-    await addDoc(collection(db, 'topics', topicEatingMeatHardcodedId, 'statements'), {
-      topicId: topicEatingMeatHardcodedId, content: "We’ve evolved to eat meat; it's a natural part of the human diet. Ethical farming and emerging lab-grown alternatives mitigate most concerns about animal welfare and environmental impact.", createdBy: testUserId, createdAt: Timestamp.now(), position: "for" as const, aiConfidence: 0.79, lastEditedAt: Timestamp.now(),
-    });
-    const statementMeatAgainstData = {
-      topicId: topicEatingMeatHardcodedId, content: "With viable plant-based and cultivated meat alternatives increasingly available, the continued large-scale suffering of sentient animals for food is no longer ethically justifiable.", createdBy: testUserId, createdAt: Timestamp.now(), position: "against" as const, aiConfidence: 0.95, lastEditedAt: Timestamp.now(),
-    };
-    const statementMeatAgainstRef = await addDoc(collection(db, 'topics', topicEatingMeatHardcodedId, 'statements'), statementMeatAgainstData);
-    statementMeatAgainstOldIdDyn = statementMeatAgainstRef.id;
+    await createStatement(
+      topicEatingMeatHardcodedId,
+      testUserId,
+      "We’ve evolved to eat meat; it's a natural part of the human diet. Ethical farming and emerging lab-grown alternatives mitigate most concerns about animal welfare and environmental impact."
+    );
+    const createdStatementMeatAgainst = await createStatement(
+      topicEatingMeatHardcodedId,
+      testUserId,
+      "With viable plant-based and cultivated meat alternatives increasingly available, the continued large-scale suffering of sentient animals for food is no longer ethically justifiable."
+    );
+    statementMeatAgainstOldIdDyn = createdStatementMeatAgainst.id;
 
     // For Social Censorship Topic
-    const statementSocialForData = {
-      topicId: topicSocialCensorshipHardcodedId, content: "Unchecked misinformation can destabilize democracies and endanger public health. Social media platforms have a moral and ethical responsibility to actively curate and censor harmful content.", createdBy: testUserId, createdAt: Timestamp.now(), position: "for" as const, aiConfidence: 0.85, lastEditedAt: Timestamp.now(),
-    };
-    const statementSocialForRef = await addDoc(collection(db, 'topics', topicSocialCensorshipHardcodedId, 'statements'), statementSocialForData);
-    statementSocialForOldIdDyn = statementSocialForRef.id;
-    await addDoc(collection(db, 'topics', topicSocialCensorshipHardcodedId, 'statements'), {
-      topicId: topicSocialCensorshipHardcodedId, content: "Censorship, even with good intentions, is a slippery slope and more dangerous in the long run than falsehoods. The public should be empowered to discern truth, not have it dictated by platforms.", createdBy: testUserId, createdAt: Timestamp.now(), position: "against" as const, aiConfidence: 0.91, lastEditedAt: Timestamp.now(),
-    });
-    console.log('✅ Statements seeded sequentially with dynamic IDs (oldSeedTestData).');
+    const createdStatementSocialFor = await createStatement(
+      topicSocialCensorshipHardcodedId,
+      testUserId,
+      "Unchecked misinformation can destabilize democracies and endanger public health. Social media platforms have a moral and ethical responsibility to actively curate and censor harmful content."
+    );
+    statementSocialForOldIdDyn = createdStatementSocialFor.id;
+
+    await createStatement(
+      topicSocialCensorshipHardcodedId,
+      testUserId,
+      "Censorship, even with good intentions, is a slippery slope and more dangerous in the long run than falsehoods. The public should be empowered to discern truth, not have it dictated by platforms."
+    );
+    console.log('✅ Statements seeded sequentially via createStatement (oldSeedTestData).');
 
 
     // Seed questions using createThreadNode with dynamic statement IDs
     console.log('⏳ Seeding questions via createThreadNode (oldSeedTestData)...');
-    await createThreadNode({
-      topicId: topicTikTokHardcodedId, statementId: statement1IdTikTokDyn, statementAuthorId: testUserId,
-      parentId: null, content: "What about similar practices by U.S. platforms?", createdBy: testUserId, type: 'question'
-    });
-    await createThreadNode({
-      topicId: topicAIJobsHardcodedId, statementId: statementAIJobsForIdDyn, statementAuthorId: testUserId,
-      parentId: null, content: "Do you have examples where AI improved job satisfaction overall, rather than just company profits?", createdBy: testUserId, type: 'question'
-    });
-    await createThreadNode({
-      topicId: topicEatingMeatHardcodedId, statementId: statementMeatAgainstOldIdDyn, statementAuthorId: testUserId,
-      parentId: null, content: "What about cultures that rely on livestock for survival and have done so sustainably for centuries? Is a global moratorium on meat ethical for them?", createdBy: testUserId, type: 'question'
-    });
-    await createThreadNode({
-      topicId: topicSocialCensorshipHardcodedId, statementId: statementSocialForOldIdDyn, statementAuthorId: testUserId,
-      parentId: null, content: "How do we define 'misinformation' and 'harmful content' consistently and without inherent political or ideological bias, especially at a global scale?", createdBy: testUserId, type: 'question'
-    });
+    if (statement1TikTokDyn) {
+        await createThreadNode({
+        topicId: topicTikTokHardcodedId, statementId: statement1TikTokDyn, statementAuthorId: testUserId,
+        parentId: null, content: "What about similar practices by U.S. platforms?", createdBy: testUserId, type: 'question'
+        });
+    }
+    if (statementAIJobsForIdDyn) {
+        await createThreadNode({
+        topicId: topicAIJobsHardcodedId, statementId: statementAIJobsForIdDyn, statementAuthorId: testUserId,
+        parentId: null, content: "Do you have examples where AI improved job satisfaction overall, rather than just company profits?", createdBy: testUserId, type: 'question'
+        });
+    }
+    if (statementMeatAgainstOldIdDyn) {
+        await createThreadNode({
+        topicId: topicEatingMeatHardcodedId, statementId: statementMeatAgainstOldIdDyn, statementAuthorId: testUserId,
+        parentId: null, content: "What about cultures that rely on livestock for survival and have done so sustainably for centuries? Is a global moratorium on meat ethical for them?", createdBy: testUserId, type: 'question'
+        });
+    }
+    if (statementSocialForOldIdDyn) {
+        await createThreadNode({
+        topicId: topicSocialCensorshipHardcodedId, statementId: statementSocialForOldIdDyn, statementAuthorId: testUserId,
+        parentId: null, content: "How do we define 'misinformation' and 'harmful content' consistently and without inherent political or ideological bias, especially at a global scale?", createdBy: testUserId, type: 'question'
+        });
+    }
     console.log('✅ Questions seeded via createThreadNode (oldSeedTestData).');
     
     return { success: true, message: '✅ Sample data including new topics successfully written to Firestore (oldSeedTestData).' };
@@ -174,9 +210,25 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
     
     const requiredTopicHardcodedIds = ['topic_ai_regulation', 'topic_remote_work', 'topic_crypto_banking', 'topic_meat_ban'];
     const existingTopicIdsFromDB = topicsSnapshot.docs.map(doc => doc.id);
-    const allNewTopicsExist = requiredTopicHardcodedIds.every(id => existingTopicIdsFromDB.includes(id));
+    
+    let allRequiredTopicsExist = requiredTopicHardcodedIds.every(id => existingTopicIdsFromDB.includes(id));
+    
+    // Additionally check if topics actually exist in DB by fetching them.
+    // This handles cases where IDs might be in a local cache but not yet in DB or deleted.
+    if (allRequiredTopicsExist) {
+        let stillAllExist = true;
+        for (const topicId of requiredTopicHardcodedIds) {
+            const topicDoc = await getDoc(doc(db, 'topics', topicId));
+            if (!topicDoc.exists()) {
+                stillAllExist = false;
+                break;
+            }
+        }
+        allRequiredTopicsExist = stillAllExist;
+    }
 
-    if (allNewTopicsExist && !topicsSnapshot.empty) {
+
+    if (allRequiredTopicsExist && !topicsSnapshot.empty) { // Check if topicsSnapshot is not empty as an additional guard
       console.log('✅ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
       return { success: true, message: 'Firestore already contains the new multi-topic dataset. Auto-seeding skipped.' };
     }
@@ -207,16 +259,25 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
     ];
 
     for (const topic of topicsToSeed) {
-      if (!existingTopicIdsFromDB.includes(topic.id)) {
-        const topicRef = doc(db, 'topics', topic.id);
-        batch.set(topicRef, {
+      // Check if this specific topic exists before batching a write for it
+      const currentTopicRef = doc(db, 'topics', topic.id);
+      const currentTopicSnap = await getDoc(currentTopicRef);
+      if (!currentTopicSnap.exists()) {
+        batch.set(currentTopicRef, {
           title: topic.title,
           description: topic.description,
           createdBy: testUserId,
           createdAt: Timestamp.now(),
-          scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0, // Scores start at 0
+          scoreFor: 0, scoreAgainst: 0, scoreNeutral: 0, 
           slug: topic.slug
         });
+      } else {
+        // If topic exists, ensure its scores are reset if we are about to re-seed statements.
+        // This is important if createStatement runs and assumes scores start from 0.
+        // However, createStatement itself should fetch current scores and update them incrementally.
+        // For simplicity and idempotency, we'll let createStatement handle score updates.
+        // We could update a 'lastSeeded' timestamp here if needed.
+        console.log(`Topic ${topic.id} already exists. Scores will be updated by createStatement calls if statements are re-seeded.`);
       }
     }
     
@@ -226,56 +287,51 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
 
     // Statements and Questions Data (to be created sequentially after topics)
     const statementsAndQuestions = [
-      { // AI Regulation
+      { 
         topicId: 'topic_ai_regulation',
         statements: [
-          { content: "Without unified regulation, AI development will spiral out of ethical control. We need robust, globally-coordinated guardrails immediately to prevent dystopian outcomes and ensure AI serves humanity, not the other way around. The potential for misuse in autonomous weaponry alone demands a global consensus.", position: "for" as const, aiConfidence: 0.88, question: "How would such global enforcement realistically work across diverse sovereign nations with competing interests and varying technological capacities?" },
-          { content: "Global AI regulation? Seriously? That just sounds like a one-way ticket to bureaucratic hell, strangling the very innovation we need. Let the market and developers figure it out; heavy-handed global rules will only benefit lumbering giants and crush startups.", position: "against" as const, aiConfidence: 0.91 }
+          { content: "Without unified regulation, AI development will spiral out of ethical control. We need robust, globally-coordinated guardrails immediately to prevent dystopian outcomes and ensure AI serves humanity, not the other way around. The potential for misuse in autonomous weaponry alone demands a global consensus.", question: "How would such global enforcement realistically work across diverse sovereign nations with competing interests and varying technological capacities?" },
+          { content: "Global AI regulation? Seriously? That just sounds like a one-way ticket to bureaucratic hell, strangling the very innovation we need. Let the market and developers figure it out; heavy-handed global rules will only benefit lumbering giants and crush startups."}
         ]
       },
-      { // Remote Work
+      { 
         topicId: 'topic_remote_work',
         statements: [
-          { content: "Remote work unequivocally empowers employees by offering unparalleled flexibility, significantly reduces commuter emissions aiding our planet, and fosters a demonstrably better work-life balance. The data from numerous studies supports this shift as a net positive for both individuals and organizations.", position: "for" as const, aiConfidence: 0.93, question: "While individual benefits are clear, what about the potential for a 'hybrid-halftime' scenario where companies mandate some office days, effectively diluting the full advantages of remote work?" },
-          { content: "This whole remote work thing is just killing office culture! We're losing that spark, that random chat by the water cooler that leads to genius. Humans thrive on connection, real, face-to-face connection, not just staring at screens in lonely rooms. It's just not the same.", position: "against" as const, aiConfidence: 0.85 }
+          { content: "Remote work unequivocally empowers employees by offering unparalleled flexibility, significantly reduces commuter emissions aiding our planet, and fosters a demonstrably better work-life balance. The data from numerous studies supports this shift as a net positive for both individuals and organizations.", question: "While individual benefits are clear, what about the potential for a 'hybrid-halftime' scenario where companies mandate some office days, effectively diluting the full advantages of remote work?" },
+          { content: "This whole remote work thing is just killing office culture! We're losing that spark, that random chat by the water cooler that leads to genius. Humans thrive on connection, real, face-to-face connection, not just staring at screens in lonely rooms. It's just not the same."}
         ]
       },
-      { // Crypto Banking
+      { 
         topicId: 'topic_crypto_banking',
         statements: [
-          { content: "Damn right crypto should replace banks! They've been rigging the game for centuries, printing money outta thin air and screwing the little guy. Crypto gives power back to the people, where it belongs. It's our only shot at financial freedom from these dinosaurs.", position: "for" as const, aiConfidence: 0.78, question: "Considering the current regulatory vacuum and the technical literacy required, what specific, actionable safeguards would need to be universally adopted for crypto to function reliably and protect consumers at a global scale?" },
-          { content: "The assertion that cryptocurrencies are prepared to supplant traditional banking systems is demonstrably flawed. The inherent volatility, pervasive instances of fraud, and a stark lack of robust consumer protection mechanisms render them currently unfit for such a critical societal role. A pragmatic analysis reveals significant systemic risks.", position: "against" as const, aiConfidence: 0.94 }
+          { content: "Damn right crypto should replace banks! They've been rigging the game for centuries, printing money outta thin air and screwing the little guy. Crypto gives power back to the people, where it belongs. It's our only shot at financial freedom from these dinosaurs.", question: "Considering the current regulatory vacuum and the technical literacy required, what specific, actionable safeguards would need to be universally adopted for crypto to function reliably and protect consumers at a global scale?" },
+          { content: "The assertion that cryptocurrencies are prepared to supplant traditional banking systems is demonstrably flawed. The inherent volatility, pervasive instances of fraud, and a stark lack of robust consumer protection mechanisms render them currently unfit for such a critical societal role. A pragmatic analysis reveals significant systemic risks."}
         ]
       },
-      { // Meat Ban
+      { 
         topicId: 'topic_meat_ban',
         statements: [
-          { content: "The science is undeniable: raising livestock is a monumental contributor to greenhouse gas emissions and deforestation. For the sake of our planet's future, it is imperative that we evolve our diets and transition away from meat consumption. It's not just a choice, it's a responsibility.", position: "for" as const, aiConfidence: 0.90, question: "Instead of an outright ban, which could face immense cultural and economic resistance, couldn't we achieve similar environmental benefits by heavily promoting and subsidizing plant-based diets and sustainable agriculture, making them more accessible and appealing?" },
-          { content: "Ban meat? That's just another example of out-of-touch elites trying to impose their worldview on everyone else. My culture, my traditions, they're built around meat. Not everyone can, or frankly wants to, go vegan. This isn't about climate, it's about control and disrespecting heritage.", position: "against" as const, aiConfidence: 0.87 }
+          { content: "The science is undeniable: raising livestock is a monumental contributor to greenhouse gas emissions and deforestation. For the sake of our planet's future, it is imperative that we evolve our diets and transition away from meat consumption. It's not just a choice, it's a responsibility.", question: "Instead of an outright ban, which could face immense cultural and economic resistance, couldn't we achieve similar environmental benefits by heavily promoting and subsidizing plant-based diets and sustainable agriculture, making them more accessible and appealing?" },
+          { content: "Ban meat? That's just another example of out-of-touch elites trying to impose their worldview on everyone else. My culture, my traditions, they're built around meat. Not everyone can, or frankly wants to, go vegan. This isn't about climate, it's about control and disrespecting heritage."}
         ]
       }
     ];
 
-    console.log('⏳ Seeding statements and questions sequentially for multi-topic data...');
+    console.log('⏳ Seeding statements and questions sequentially for multi-topic data using createStatement...');
     for (const topicData of statementsAndQuestions) {
       for (const stmt of topicData.statements) {
-        const statementData = {
-          topicId: topicData.topicId,
-          content: stmt.content,
-          createdBy: testUserId,
-          createdAt: Timestamp.now(), // Using Timestamp.now() as per existing structure
-          position: stmt.position,
-          aiConfidence: stmt.aiConfidence,
-          lastEditedAt: Timestamp.now()
-        };
-        const statementRef = await addDoc(collection(db, 'topics', topicData.topicId, 'statements'), statementData);
-        const dynamicStatementId = statementRef.id;
-        console.log(`📝 Statement created with ID: ${dynamicStatementId} for topic ${topicData.topicId}`);
+        const createdStatement = await createStatement(
+          topicData.topicId,
+          testUserId,
+          stmt.content
+        );
+        const dynamicStatementId = createdStatement.id;
+        console.log(`📝 Statement created with ID: ${dynamicStatementId} for topic ${topicData.topicId}. Position: ${createdStatement.position}`);
 
         if (stmt.question) {
           await createThreadNode({
             topicId: topicData.topicId,
-            statementId: dynamicStatementId, // Use the dynamic ID here
+            statementId: dynamicStatementId, 
             statementAuthorId: testUserId, 
             parentId: null,
             content: stmt.question,
