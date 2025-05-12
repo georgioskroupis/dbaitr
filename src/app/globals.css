@@ -134,13 +134,20 @@
 
 .auth-background-glow {
   background-image: url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
-  background-size: contain;
+  background-size: 100% auto; /* Stretch to fit screen width */
   background-position: center center;
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-color: #000000; /* Fallback color */
   position: relative;
   overflow: hidden; /* Contain potential overflow from background image if not perfectly sized */
+}
+
+@media (max-width: 768px) {
+  .auth-background-glow {
+    background-size: cover; /* Cover for mobile for better framing */
+    background-position: top center; /* Adjust focus for mobile if needed */
+  }
 }
 
 
