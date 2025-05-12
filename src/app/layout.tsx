@@ -1,13 +1,15 @@
+
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/AuthContext';
 import QueryProvider from '@/context/QueryProvider';
+import AppBootstrapper from '@/components/AppBootstrapper'; // Import the AppBootstrapper
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '700'], // Updated weights
+  weight: ['300', '400', '500', '700'],
   variable: '--font-poppins',
 });
 
@@ -21,7 +23,6 @@ export const metadata: Metadata = {
     icon: [
       { url: FAVICON_URL, type: 'image/png' },
     ],
-    // apple: '/apple-touch-icon.png', // Example: if you have an apple touch icon
   },
   openGraph: {
     title: 'db8 - AI Powered Debates',
@@ -29,8 +30,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: LOGO_URL, 
-        width: 1200, // Provide actual or estimated dimensions for OG images
-        height: 630, // Standard OG image aspect ratio is 1.91:1
+        width: 1200,
+        height: 630,
         alt: 'db8 Logo',
       },
     ],
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
     description: 'Engage in structured debates with AI analysis and KYC verification.',
     images: [LOGO_URL], 
   },
-  manifest: '/manifest.json', // If you have a PWA manifest
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -54,6 +55,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${poppins.variable} antialiased font-sans`}>
+        <AppBootstrapper /> {/* Add the AppBootstrapper here */}
         <QueryProvider>
           <AuthProvider>
             {children}
