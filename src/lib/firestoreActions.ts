@@ -1,3 +1,4 @@
+
 "use server";
 
 import { auth, db } from '@/lib/firebase/config';
@@ -95,6 +96,8 @@ export async function createTopic(title: string, initialDescription: string | un
 }
 
 export async function createStatement(topicId: string, userId: string, content: string, userName?: string, userPhotoURL?: string): Promise<Statement> {
+  console.log("[createStatement] Called with:", { topicId, userId, content });
+
   const topicRef = doc(db, "topics", topicId);
   
   // Get topic title for AI classification (outside transaction for external call)
@@ -107,9 +110,27 @@ export async function createStatement(topicId: string, userId: string, content: 
     throw new Error("Topic data is invalid, cannot retrieve title for classification.");
   }
 
-  const classificationResult = await classifyPostPosition({ topic: topicDataForClassification.title, post: content });
-  const position = classificationResult.position as 'for' | 'against' | 'neutral';
+  console.log("[createStatement] Calling classifyPostPosition with:", {
+    topicTitle: topicDataForClassification.title,
+    post: content,
+  });
+
+  let classificationResult;
+  try {
+    classificationResult = await classifyPostPosition({ topic: topicDataForClassification.title, post: content });
+    console.log("[createStatement] Classification result:", classificationResult);
+  } catch (err) {
+    console.error("[createStatement] AI classification failed:", err);
+    throw new Error("AI classification failed. Cannot continue creating statement.");
+  }
+  
+  const position = classificationResult.position;
   const aiConfidence = classificationResult.confidence;
+
+  if (!['for', 'against', 'neutral'].includes(position)) {
+    console.error("[createStatement] Invalid position returned by AI:", position);
+    throw new Error("Invalid classification result. Statement creation aborted.");
+  }
 
   const statementsCollection = collection(db, "topics", topicId, "statements");
   let newStatementRefId: string | null = null;
@@ -160,6 +181,8 @@ export async function createStatement(topicId: string, userId: string, content: 
   if (!newStatementRefId) {
     throw new Error("Failed to create statement reference within transaction.");
   }
+  
+  console.log("[createStatement] Statement successfully created with ID:", newStatementRefId);
 
   // For the returned object, create an approximation that matches client-side type
   return {
