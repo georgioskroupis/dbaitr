@@ -10,7 +10,7 @@ interface LogoProps {
 
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-logo.png?alt=media&token=ccea3f69-32c3-4960-9b5f-afa56e963347";
 
-export function Logo({ className, width = 160, href = "/dashboard" }: LogoProps) {
+export function Logo({ className, width = 160, href = "/" }: LogoProps) { // Changed default href to "/"
   // Assuming the logo db8-logo.png is square. Height will be equal to width.
   // For the given logo, it's not square, so we need to calculate height based on aspect ratio or set a fixed height.
   // Let's assume an approximate aspect ratio or set a reasonable height.
