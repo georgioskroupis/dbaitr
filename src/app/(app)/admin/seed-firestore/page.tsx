@@ -78,8 +78,8 @@ export default function SeedFirestorePage() {
             Seed Firestore with Test Data
           </Button>
            <p className="mt-4 text-xs text-muted-foreground text-center px-2">
-            The test data includes: 1 user (user_test), 1 topic (topic_tiktok concerning government bans), 
-            2 statements (one 'for', one 'against'), and 1 question under the 'for' statement.
+            The test data includes: 1 user (user_test), 4 topics (TikTok bans, AI & Jobs, Ethical Meat, Social Media Censorship), 
+            each with 2 statements (one 'for', one 'against'), and 1 question under one statement per topic.
             Check Firestore console after seeding.
           </p>
         </CardContent>
@@ -87,3 +87,4 @@ export default function SeedFirestorePage() {
     </div>
   );
 }
+
