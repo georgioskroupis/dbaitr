@@ -4,7 +4,7 @@ export default function SignInPage() {
   return (
     <>
       <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight text-foreground">
-        Welcome Back to ArguMate
+        Welcome Back to db8
       </h2>
       <SignInForm />
     </>

@@ -26,7 +26,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      <p className="mt-4 text-lg text-foreground">Loading ArguMate...</p>
+      <p className="mt-4 text-lg text-foreground">Loading db8...</p>
     </div>
   );
 }

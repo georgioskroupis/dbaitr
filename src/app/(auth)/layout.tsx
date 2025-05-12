@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { BotMessageSquare } from 'lucide-react';
+import { Landmark } from 'lucide-react'; // Changed from BotMessageSquare
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex flex-col items-center">
         <Link href="/" className="flex items-center gap-2 text-primary hover:text-primary/90">
-          <BotMessageSquare className="h-10 w-10" />
-          <h1 className="text-4xl font-bold">ArguMate</h1>
+          <Landmark className="h-10 w-10" /> {/* Changed icon */}
+          <h1 className="text-4xl font-bold">db8</h1> {/* Changed text */}
         </Link>
         <p className="mt-2 text-muted-foreground">AI Powered Debates</p>
       </div>
@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {children}
       </div>
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} ArguMate. All rights reserved.
+        &copy; {new Date().getFullYear()} db8. All rights reserved. {/* Changed text */}
       </p>
     </div>
   );

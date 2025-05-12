@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ArguMate - AI Powered Debates',
+  title: 'db8 - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis and KYC verification.',
 };
 

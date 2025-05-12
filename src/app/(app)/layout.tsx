@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Home, PlusSquare, Settings, LogOut, BotMessageSquare, Search as SearchIcon } from 'lucide-react';
+import { Home, PlusSquare, Settings, LogOut, Landmark as AppIcon, Search as SearchIcon } from 'lucide-react'; // Updated AppIcon
 import {
   SidebarProvider,
   Sidebar,
@@ -12,7 +12,7 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
-} from '@/components/ui/sidebar'; // Assuming this is the custom sidebar component from user's files
+} from '@/components/ui/sidebar'; 
 import { UserNav } from '@/components/layout/UserNav';
 import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
          <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} ArguMate - AI Powered Debates
+          © {new Date().getFullYear()} db8 - AI Powered Debates
         </footer>
       </SidebarInset>
     </SidebarProvider>
