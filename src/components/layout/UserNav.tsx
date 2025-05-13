@@ -2,7 +2,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus } from "lucide-react"; // Added LogIn, UserPlus
+import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award } from "lucide-react"; // Added Award
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,7 +30,7 @@ export function UserNav() {
     try {
       await signOut(auth);
       toast({ title: "Signed out successfully." });
-      router.push("/sign-in"); // Redirect to sign-in after logout
+      router.push("/"); // Redirect to homepage after logout
     } catch (error: any) {
       console.error("Detailed error: Sign out failed:", error);
       toast({ 
@@ -51,20 +51,12 @@ export function UserNav() {
 
   if (!user) {
     return (
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/sign-in">
-            <LogIn className="mr-2 h-4 w-4" />
-            Sign In
-          </Link>
-        </Button>
-        <Button variant="default" size="sm" asChild>
-          <Link href="/sign-up">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Sign Up
-          </Link>
-        </Button>
-      </div>
+      <Button variant="default" size="sm" asChild>
+        <Link href="/auth">
+          <Award className="mr-2 h-4 w-4" />
+          Get Certified
+        </Link>
+      </Button>
     );
   }
 
@@ -101,13 +93,6 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {/* Example item: Link to user profile page if you have one */}
-          {/* <Link href="/profile" passHref>
-            <DropdownMenuItem>
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-          </Link> */}
           <Link href="/verify-identity" passHref>
             <DropdownMenuItem disabled={kycVerified}>
               {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-500" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />}

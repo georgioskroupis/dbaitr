@@ -51,7 +51,7 @@ export function ForgotPasswordForm() {
         duration: 7000,
       });
       // Optionally redirect or clear form
-      // router.push("/sign-in"); 
+      // router.push("/auth"); 
     } catch (error: any) {
       console.error("Detailed error: Password reset request failed:", error);
       // Avoid disclosing whether an email exists or not for security reasons.
@@ -93,7 +93,7 @@ export function ForgotPasswordForm() {
         <p className="text-center text-sm text-muted-foreground">
           Remember your password?{" "}
           <Button variant="link" asChild className="p-0 text-primary">
-            <Link href="/sign-in">Sign In</Link>
+            <Link href="/auth">Sign In / Sign Up</Link>
           </Button>
         </p>
       </form>

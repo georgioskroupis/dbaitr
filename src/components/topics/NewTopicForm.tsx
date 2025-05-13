@@ -97,7 +97,7 @@ export function NewTopicForm() {
         duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
-      router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
+      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
       return;
     }
     if (!kycVerified) {

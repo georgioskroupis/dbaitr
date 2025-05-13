@@ -87,7 +87,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
-      router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
+      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
       return;
     }
     if (!kycVerified) {
@@ -197,15 +197,15 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           Submit Statement
         </Button>
         
-        {!user && (
+        {!user && !authLoading && ( // Ensure authLoading is false before showing this
            <p className="mt-2 text-xs text-destructive">
             <Button variant="link" className="p-0 text-destructive hover:text-destructive/80 h-auto" onClick={() => {
                  const currentPath = window.location.pathname + window.location.search;
-                 router.push(`/sign-in?redirect=${encodeURIComponent(currentPath)}`);
+                 router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
             }}>Sign in</Button> to participate.
           </p>
         )}
-        {user && !kycVerified && (
+        {user && !kycVerified && !authLoading && ( // Ensure authLoading is false
           <p className="mt-2 text-xs text-destructive">
             You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate in debates.
           </p>

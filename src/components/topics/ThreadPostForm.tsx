@@ -87,7 +87,7 @@ export function ThreadPostForm({
 
     if (!user) {
       toast({ title: "Authentication Required", description: "Please sign in to post.", variant: "destructive" });
-      router.push(`/sign-in?redirect=${window.location.pathname}${window.location.search}`);
+      router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`); // Updated redirect
       return;
     }
     if (!kycVerified) {
@@ -184,7 +184,7 @@ export function ThreadPostForm({
         </div>
          {!authLoading && !user && (
             <p className="text-xs text-destructive text-right">
-                Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push(`/sign-in?redirect=${window.location.pathname}${window.location.search}`)}>sign in</Button> to participate.
+                Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>sign in</Button> to participate.
             </p>
         )}
         {!authLoading && user && !kycVerified && (
