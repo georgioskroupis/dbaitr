@@ -8,21 +8,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { getUserProfile, getUserQuestionCountForStatement } from '@/lib/firestoreActions';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle } from 'lucide-react';
+import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react'; // Added ShieldAlert, ShieldCheck
 import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge'; // Import Badge
+import { getAuthorStatusBadge } from '@/lib/utils'; // Helper for badge
 
 interface ThreadItemProps {
   node: ThreadNode;
-  statementAuthorId: string; // UID of the author of the root statement
+  statementAuthorId: string; 
   allNodes: ThreadNode[]; 
   level: number;
   onThreadUpdate: () => void; 
 }
 
 export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadUpdate }: ThreadItemProps) {
-  const { user, kycVerified, loading: authLoading } = useAuth();
+  const { user, kycVerified, loading: authLoading, isSuspended: currentUserIsSuspended } = useAuth();
   const { toast } = useToast();
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
   const [showReplyForm, setShowReplyForm] = React.useState(false);
@@ -31,7 +33,6 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
 
   const children = allNodes.filter(n => n.parentId === node.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   
-  // A question has a response if one of its direct children is of type 'response'
   const hasResponse = node.type === 'question' && children.some(childNode => childNode.type === 'response' && childNode.parentId === node.id);
 
   React.useEffect(() => {
@@ -46,15 +47,13 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
 
   React.useEffect(() => {
     async function fetchUserQuestionCount() {
-        if (user && !authLoading) { // Only fetch if user is loaded
+        if (user && !authLoading) { 
             setIsLoadingQuestionCount(true);
             try {
-                // This count is for the entire statement's thread, for *this* user
                 const count = await getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId);
                 setUserQuestionCountOnStatement(count);
             } catch (error) {
                 console.error("Error fetching user question count in ThreadItem for statement:", node.statementId, error);
-                // Handle error, maybe toast
             } finally {
                 setIsLoadingQuestionCount(false);
             }
@@ -63,7 +62,6 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
           setUserQuestionCountOnStatement(0);
         }
     }
-    // Fetch count if user is attempting to ask a question OR if it's a question node to determine reply eligibility
     if (node.type === 'response' || node.type === 'question') {
        fetchUserQuestionCount();
     }
@@ -73,23 +71,22 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
   const timeAgo = node.createdAt ? formatDistanceToNow(new Date(node.createdAt), { addSuffix: true }) : '';
   const displayName = authorProfile?.fullName || 'User';
   const photoURL = authorProfile?.photoURL || undefined;
+  const authorStatusBadge = getAuthorStatusBadge(authorProfile);
+
 
   const getInitials = (name?: string | null) => {
     if (!name) return <User className="h-4 w-4" />;
     return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   };
 
-  // User can ask a follow-up question if logged in, KYC verified, and under question limit for this statement's thread
-  const canAskFollowUpQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountOnStatement < 3;
-  // Statement author can reply to a question if logged in, KYC verified, and the question doesn't already have a response
-  const canReplyToQuestion = user && kycVerified && user.uid === statementAuthorId && !hasResponse;
+  const canAskFollowUpQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountOnStatement < 3 && !currentUserIsSuspended;
+  const canReplyToQuestion = user && kycVerified && user.uid === statementAuthorId && !hasResponse && !currentUserIsSuspended;
 
 
   const handleFormSuccess = () => {
     setShowReplyForm(false);
-    onThreadUpdate(); // Refresh the entire thread list from DebatePostCard
-    // Re-fetch user question count if a question was posted
-    if (user && (showReplyFormForTypeRef.current === 'question')) { // Check the type for which the form was shown
+    onThreadUpdate(); 
+    if (user && (showReplyFormForTypeRef.current === 'question')) { 
         setIsLoadingQuestionCount(true);
         getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId)
             .then(count => setUserQuestionCountOnStatement(count))
@@ -97,7 +94,6 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
     }
   };
   
-  // Ref to store the type of form that was opened
   const showReplyFormForTypeRef = React.useRef<'question' | 'response' | null>(null);
 
   const toggleReplyForm = (type: 'question' | 'response') => {
@@ -121,10 +117,18 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-foreground">{displayName}</p>
+                <div className="flex items-center gap-1.5">
+                   <p className="text-xs font-semibold text-foreground">{displayName}</p>
+                    {authorStatusBadge && (
+                        <Badge variant={authorStatusBadge.variant as any} className="text-xs py-0 px-1 h-4 leading-tight">
+                           {authorStatusBadge.icon && React.cloneElement(authorStatusBadge.icon, {className: "h-2.5 w-2.5 mr-0.5"})}
+                           {authorStatusBadge.label}
+                        </Badge>
+                    )}
+                </div>
                 <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
-             <p className={`text-xs font-medium ${node.type === 'question' ? 'text-primary' : 'text-green-500'}`}>
+             <p className={`text-xs font-medium ${node.type === 'question' ? 'text-primary' : 'text-green-500 dark:text-green-400'}`}>
                 {node.type === 'question' ? 'Question' : 'Response'}
             </p>
           </div>
@@ -132,7 +136,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
         <CardContent className="p-3 pt-0">
           <p className="text-sm text-foreground/90 whitespace-pre-wrap">{node.content}</p>
         </CardContent>
-        {!authLoading && user && kycVerified && (
+        {!authLoading && user && kycVerified && !currentUserIsSuspended && (
             <CardFooter className="p-3 pt-1 flex justify-end">
                 {node.type === 'question' && canReplyToQuestion && (
                     <Button variant="outline" size="sm" onClick={() => toggleReplyForm('response')}>
@@ -158,9 +162,9 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
           <ThreadPostForm
             topicId={node.topicId}
             statementId={node.statementId}
-            statementAuthorId={statementAuthorId} // Needed for permission checks if type='response'
-            parentId={node.id} // The current node is the parent for the new post
-            type={showReplyFormForTypeRef.current} // Type of node being created
+            statementAuthorId={statementAuthorId} 
+            parentId={node.id} 
+            type={showReplyFormForTypeRef.current} 
             onSuccess={handleFormSuccess}
             placeholderText={showReplyFormForTypeRef.current === 'response' ? 'Your response to this question...' : 'Ask a follow-up question...'}
             submitButtonText={showReplyFormForTypeRef.current === 'response' ? 'Post Response' : 'Ask Question'}

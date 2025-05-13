@@ -47,12 +47,13 @@ export async function createUserProfile(
     const fullNameToSet = fullNameFromAuth || email?.split('@')[0] || 'Anonymous User';
 
     if (!docSnap.exists()) {
-      const userProfileData: Omit<UserProfile, 'createdAt' | 'updatedAt' | 'id'> & { createdAt: FieldValue, updatedAt?: FieldValue } = {
+      const userProfileData: Omit<UserProfile, 'createdAt' | 'updatedAt' | 'id' | 'registeredAt'> & { createdAt: FieldValue, registeredAt: FieldValue, updatedAt?: FieldValue } = {
         uid: userId,
         email: email || '', 
         fullName: fullNameToSet,
         kycVerified: false,
         createdAt: serverTimestamp(), 
+        registeredAt: serverTimestamp(), // Add registeredAt for new users
         provider: provider,
       };
       await setDoc(userProfileRef, userProfileData);
@@ -61,20 +62,24 @@ export async function createUserProfile(
       return {
         ...userProfileData,
         createdAt: new Date().toISOString(), // Approximate for immediate use
+        registeredAt: new Date().toISOString(), // Approximate for immediate use
       } as UserProfile;
     } else {
       // Profile exists, optionally update if provider changed or if there's new info
-      // For now, just log and return existing. If merge logic is needed, it can be added here.
-      console.log(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider is up-to-date.`);
-      // Update if provider is different or not set, or if fullName is missing and now available
+      console.log(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider and registeredAt are up-to-date.`);
       const existingData = docSnap.data() as UserProfile;
-      const updates: Partial<UserProfile> & {updatedAt?: FieldValue} = {};
+      const updates: Partial<UserProfile> & {updatedAt?: FieldValue, registeredAt?: FieldValue} = {};
       if (existingData.provider !== provider && provider !== 'unknown') {
         updates.provider = provider;
       }
       if (!existingData.fullName && fullNameToSet !== 'Anonymous User') {
         updates.fullName = fullNameToSet;
       }
+      // If registeredAt is missing (for older users), set it.
+      if (!existingData.registeredAt) {
+        updates.registeredAt = serverTimestamp() as unknown as string; // Cast needed due to FieldValue vs string in UserProfile
+      }
+
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = serverTimestamp();
         await setDoc(userProfileRef, updates, { merge: true });
@@ -82,11 +87,12 @@ export async function createUserProfile(
          return {
           ...existingData,
           ...updates,
-          createdAt: existingData.createdAt, // Keep original createdAt
-          updatedAt: new Date().toISOString(), // Approximate
+          createdAt: existingData.createdAt, 
+          updatedAt: new Date().toISOString(), 
+          registeredAt: updates.registeredAt ? new Date().toISOString() : existingData.registeredAt,
         } as UserProfile;
       }
-      return convertTimestampsToISO(['createdAt', 'updatedAt'], existingData) as UserProfile;
+      return convertTimestampsToISO(['createdAt', 'updatedAt', 'registeredAt'], existingData) as UserProfile;
     }
   } catch (error) {
     console.error(`[firestoreActions] Error in createUserProfile for UID ${userId}:`, error);
@@ -99,7 +105,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   const docSnap = await getDoc(userProfileRef);
   if (docSnap.exists()) {
     const data = docSnap.data();
-    return convertTimestampsToISO(['createdAt', 'updatedAt'], data) as UserProfile;
+    return convertTimestampsToISO(['createdAt', 'updatedAt', 'registeredAt'], data) as UserProfile;
   }
   return null;
 }
@@ -108,7 +114,7 @@ export async function updateUserVerificationStatus(userId: string, idDocumentUrl
   const userProfileRef = doc(db, "users", userId);
   await updateDoc(userProfileRef, {
     kycVerified: true,
-    idDocumentUrl: idDocumentUrl, // Storing the URL for reference, might be useful
+    idDocumentUrl: idDocumentUrl, 
     updatedAt: serverTimestamp(),
   });
   revalidatePath('/(app)/verify-identity');
@@ -195,7 +201,7 @@ export async function createStatement(topicId: string, userId: string, content: 
       throw new Error("Topic does not exist inside transaction!");
     }
 
-    const topicScoreUpdateData: { [key: string]: FieldValue | ReturnType<typeof increment> } = {};
+    const topicScoreUpdateData: { [key: string]: ReturnType<typeof increment> } = {};
     if (position === 'for') {
       topicScoreUpdateData.scoreFor = increment(1);
     } else if (position === 'against') {
@@ -313,7 +319,7 @@ export async function checkIfUserHasPostedStatement(userId: string, topicId: str
 
 export async function getAllTopicTitles(): Promise<string[]> {
   const topicsCollection = collection(db, "topics");
-  const q = query(topicsCollection, orderBy("createdAt", "desc"), limit(500)); // Consider if limit is appropriate for all use cases
+  const q = query(topicsCollection, orderBy("createdAt", "desc"), limit(500)); 
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => (doc.data() as Topic).title);
 }
@@ -322,7 +328,7 @@ export async function updateTopicDescriptionWithAISummary(topicId: string, summa
   const topicRef = doc(db, "topics", topicId);
   await updateDoc(topicRef, {
     description: summary,
-    updatedAt: serverTimestamp(), // Add updatedAt timestamp
+    updatedAt: serverTimestamp(), 
   });
   revalidatePath(`/(app)/topics/${topicId}`);
 }
@@ -345,12 +351,10 @@ export async function updateStatementPosition(
       throw "Topic or Statement does not exist!";
     }
 
-    // const topicData = topicDoc.data(); // Not strictly needed here
     const statementData = statementDoc.data();
 
     const actualOldPosition = oldPosition || statementData.position as 'for' | 'against' | 'neutral' | 'pending';
 
-    // If position isn't changing and it's not just a pending->finalized update
     if (actualOldPosition === newPosition && statementData.position !== 'pending') { 
       transaction.update(statementRef, { lastEditedAt: serverTimestamp() }); 
       return;
@@ -358,14 +362,12 @@ export async function updateStatementPosition(
 
     const scoresUpdate: { [key: string]: ReturnType<typeof increment> } = {};
 
-    // Decrement old score if it was not 'pending'
     if (actualOldPosition !== 'pending') { 
         if (actualOldPosition === 'for') scoresUpdate.scoreFor = increment(-1); 
         else if (actualOldPosition === 'against') scoresUpdate.scoreAgainst = increment(-1);
         else if (actualOldPosition === 'neutral') scoresUpdate.scoreNeutral = increment(-1);
     }
 
-    // Increment new score
     if (newPosition === 'for') scoresUpdate.scoreFor = increment(1);
     else if (newPosition === 'against') scoresUpdate.scoreAgainst = increment(1);
     else if (newPosition === 'neutral') scoresUpdate.scoreNeutral = increment(1);
@@ -391,7 +393,6 @@ export async function createThreadNode(data: {
   const { topicId, statementId, statementAuthorId, parentId, content, createdBy, type } = data;
   const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
 
-  // Enforce business logic for questions
   if (type === 'question') {
     const userQuestionCount = await getUserQuestionCountForStatement(createdBy, statementId, topicId);
     if (userQuestionCount >= 3) {
@@ -399,20 +400,17 @@ export async function createThreadNode(data: {
     }
   }
   
-  // Enforce business logic for responses
   if (type === 'response') {
     if (createdBy !== statementAuthorId) {
       throw new Error("Only the statement author can respond to questions in this thread.");
     }
-    if (!parentId) { // Responses must reply to a question (which is a ThreadNode itself)
+    if (!parentId) { 
         throw new Error("Responses must have a parent question node.");
     }
-    // Check if the parent question (identified by parentId) already has a response by this author.
-    // A question node should only have one direct child of type 'response' from the statementAuthorId.
     const q = query(threadsCollection, 
         where("parentId", "==", parentId), 
         where("type", "==", "response"),
-        where("createdBy", "==", statementAuthorId) // Ensure we are checking for this author's response
+        where("createdBy", "==", statementAuthorId) 
     );
     const existingResponsesSnapshot = await getDocs(q);
     if (!existingResponsesSnapshot.empty) {
@@ -442,7 +440,7 @@ export async function createThreadNode(data: {
     content,
     createdBy,
     type,
-    createdAt: new Date().toISOString(), // Approximation for immediate use
+    createdAt: new Date().toISOString(), 
   } as ThreadNode;
 }
 
@@ -463,10 +461,6 @@ export async function getUserQuestionCountForStatement(userId: string, statement
     const threadsCollection = collection(db, "topics", topicId, "statements", statementId, "threads");
     const q = query(threadsCollection, 
         where("createdBy", "==", userId), 
-        // statementId and topicId are implicitly part of the collection path,
-        // but adding them to where clause can be useful if structure changes or for clarity.
-        // However, Firestore doesn't query across subcollections by default this way.
-        // The path itself ensures statementId and topicId are correct.
         where("type", "==", "question")
     );
     const snapshot = await getDocs(q);
@@ -477,11 +471,10 @@ export async function getUserQuestionCountForStatement(userId: string, statement
 // Old Question/Answer System - to be deprecated or refactored for new ThreadNode system
 export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
   console.warn("DEPRECATED: createQuestion is called. Use createThreadNode instead.");
-  // This function will now essentially call createThreadNode
   const threadNode = await createThreadNode({
     topicId,
     statementId,
-    statementAuthorId: '', // This info might not be readily available here; might need to fetch statement
+    statementAuthorId: '', 
     parentId: null,
     content,
     createdBy: askedBy,
@@ -494,7 +487,7 @@ export async function createQuestion(topicId: string, statementId: string, conte
     content: threadNode.content,
     askedBy: threadNode.createdBy,
     createdAt: threadNode.createdAt,
-    answered: false, // This concept needs to map to ThreadNode structure (e.g. has a child response)
+    answered: false, 
   } as Question;
 }
 
@@ -502,7 +495,7 @@ export async function getQuestionsForStatement(topicId: string, statementId: str
   console.warn("DEPRECATED: getQuestionsForStatement is called. Use getThreadsForStatement instead and filter for type 'question'.");
   const threads = await getThreadsForStatement(topicId, statementId);
   return threads
-    .filter(node => node.type === 'question' && !node.parentId) // Only root questions
+    .filter(node => node.type === 'question' && !node.parentId) 
     .map(node => ({
       id: node.id,
       topicId: node.topicId,
@@ -511,37 +504,14 @@ export async function getQuestionsForStatement(topicId: string, statementId: str
       askedBy: node.createdBy,
       createdAt: node.createdAt,
       answered: threads.some(reply => reply.parentId === node.id && reply.type === 'response'),
-      // answer and answeredAt would need to be derived from child 'response' nodes
     } as Question));
 }
 
 export async function answerQuestion(topicId: string, statementId: string, questionId: string, answer: string): Promise<void> {
   console.warn("DEPRECATED: answerQuestion is called. Use createThreadNode (type: 'response') instead.");
-  // This requires knowing the statementAuthorId. Assuming the currently authenticated user is the statement author.
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error("User not authenticated to answer question.");
   
-  // Need to fetch the statement to get its author, or pass statementAuthorId
-  // For simplicity, this deprecated function might become non-functional or require statementAuthorId
-  // const statementDoc = await getDoc(doc(db, "topics", topicId, "statements", statementId));
-  // if (!statementDoc.exists()) throw new Error("Statement not found.");
-  // const statementAuthorId = statementDoc.data().createdBy;
-  
-  // This is a simplified version, proper implementation requires statementAuthorId
-  // await createThreadNode({
-  //   topicId,
-  //   statementId,
-  //   statementAuthorId: currentUser.uid, // This assumes current user IS statement author
-  //   parentId: questionId, // questionId is the ID of the parent ThreadNode of type 'question'
-  //   content: answer,
-  //   createdBy: currentUser.uid,
-  //   type: 'response',
-  // });
   throw new Error("answerQuestion is deprecated. Use createThreadNode with type 'response'. Ensure statementAuthorId is correctly passed.");
 }
-// End Old Question/Answer System
-
-    
-
-
 

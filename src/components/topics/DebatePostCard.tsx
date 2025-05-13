@@ -2,7 +2,7 @@
 import type { Statement, ThreadNode } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThumbsUp, ThumbsDown, User, Info, MessageSquare } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, User, Info, MessageSquare, ShieldAlert, ShieldCheck, AlertCircle } from 'lucide-react'; // Added ShieldAlert, ShieldCheck, AlertCircle
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import * as React from 'react';
@@ -14,13 +14,14 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { getAuthorStatusBadge } from '@/lib/utils'; // Helper for badge
 
 interface DebateStatementCardProps {
   statement: Statement;
 }
 
 export function DebatePostCard({ statement }: DebateStatementCardProps) {
-  const { user, kycVerified, loading: authLoading } = useAuth();
+  const { user, kycVerified, loading: authLoading, isSuspended: currentUserIsSuspended } = useAuth();
   const { toast } = useToast();
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
   const [threads, setThreads] = React.useState<ThreadNode[]>([]);
@@ -30,7 +31,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
 
   const fetchThreads = React.useCallback(async () => {
-    // Guard against fetching with invalid statement data
     if (!statement || !statement.id || !statement.topicId) {
       console.warn("[DebatePostCard] Attempted to fetch threads with invalid statement data:", statement);
       setThreads([]);
@@ -40,24 +40,20 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     setIsLoadingThreads(true);
     try {
       const fetchedThreads = await getThreadsForStatement(statement.topicId, statement.id);
-      console.log(`[DebatePostCard] Fetched ${fetchedThreads.length} threads for statement ${statement.id}:`, fetchedThreads);
       setThreads(fetchedThreads);
     } catch (error) {
       console.error("Error fetching threads for statement:", statement.id, error);
       toast({ title: "Error", description: "Could not load discussion threads.", variant: "destructive" });
-      setThreads([]); // Ensure threads are empty on error
+      setThreads([]); 
     } finally {
       setIsLoadingThreads(false);
     }
-  }, [statement, toast]); // Depend on the whole statement object and toast
+  }, [statement, toast]); 
 
   React.useEffect(() => {
-    // This effect will run when the component mounts or when `fetchThreads` or `statement` changes.
-    // `fetchThreads` changes if `statement` (the object) changes.
     if (statement && statement.id && statement.topicId) {
       fetchThreads();
     } else {
-      // If statement data is not valid (e.g. still loading higher up), clear threads and stop loading.
       setThreads([]);
       setIsLoadingThreads(false);
     }
@@ -76,7 +72,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
    React.useEffect(() => {
     async function fetchUserQuestionCount() {
-        if (user && !authLoading && statement && statement.id && statement.topicId) { // Ensure user and statement details are loaded
+        if (user && !authLoading && statement && statement.id && statement.topicId) { 
             setIsLoadingQuestionCount(true);
             try {
                 const count = await getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId);
@@ -92,7 +88,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         }
     }
     fetchUserQuestionCount();
-  }, [user, authLoading, statement]); // Depend on statement object
+  }, [user, authLoading, statement]); 
 
 
   const timeAgo = statement.createdAt ? formatDistanceToNow(new Date(statement.createdAt), { addSuffix: true }) : '';
@@ -102,6 +98,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   };
   const displayName = authorProfile?.fullName || 'User';
   const photoURL = authorProfile?.photoURL || undefined;
+  const authorStatusBadge = getAuthorStatusBadge(authorProfile);
 
   let positionIcon;
   let positionBadgeColor;
@@ -123,7 +120,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
-  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountForThisStatement < 3;
+  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountForThisStatement < 3 && !currentUserIsSuspended;
 
   const handleRootQuestionSuccess = () => {
     setShowRootQuestionForm(false);
@@ -139,15 +136,23 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
   return (
     <Card className="mb-6 bg-card/80 shadow-lg">
-      <CardHeader className="flex flex-row items-center space-x-3 p-4">
+      <CardHeader className="flex flex-row items-start space-x-3 p-4">
         <Avatar className="h-10 w-10">
            <AvatarImage src={photoURL} alt={displayName} data-ai-hint="profile avatar" />
            <AvatarFallback className="bg-primary/20 text-primary font-semibold">
              {getInitials(displayName)}
            </AvatarFallback>
         </Avatar>
-        <div>
-          <p className="text-sm font-semibold text-foreground">{displayName}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">{displayName}</p>
+            {authorStatusBadge && (
+              <Badge variant={authorStatusBadge.variant as any} className="text-xs">
+                {authorStatusBadge.icon}
+                {authorStatusBadge.label}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">{timeAgo}</p>
         </div>
         {statement.position && statement.position !== 'pending' && (
@@ -173,7 +178,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       </CardContent>
       
       <CardFooter className="p-4 pt-2 flex-col items-start">
-        {!authLoading && user && kycVerified && canAskRootQuestion && (
+        {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
           <Button 
             variant="outline" 
             size="sm" 
@@ -185,7 +190,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             {showRootQuestionForm ? 'Cancel Question' : 'Ask a Question on this Statement'}
           </Button>
         )}
-        {showRootQuestionForm && user && statement && statement.id && statement.topicId && ( // Ensure statement details are available
+        {showRootQuestionForm && user && statement && statement.id && statement.topicId && ( 
           <div className="w-full mb-2">
             <ThreadPostForm
               topicId={statement.topicId}

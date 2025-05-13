@@ -72,9 +72,9 @@ export default function UnifiedAuthPage() {
     setIsLoading(true);
     try {
       const methods = await fetchSignInMethodsForEmail(auth, values.email);
-      setEmail(values.email); // Store email for next phase
-      loginForm.setValue("email", values.email); // Pre-fill for login form
-      signupForm.setValue("email", values.email); // Pre-fill for signup form
+      setEmail(values.email); 
+      loginForm.setValue("email", values.email); 
+      signupForm.setValue("email", values.email); 
 
       if (methods.length > 0) {
         setPhase("login");
@@ -131,12 +131,16 @@ export default function UnifiedAuthPage() {
           userCredential.user.uid,
           values.email,
           values.fullName,
-          'password'
+          'password' // Assuming email/password signup
         );
       }
-      toast({ title: "Account created successfully!" });
-      // No returnTo here, always redirect to KYC after signup
-      router.push("/verify-identity");
+      toast({ 
+        title: "Account Created Successfully!",
+        description: "Please verify your identity within 10 days to maintain full access.",
+        duration: 7000,
+      });
+      const returnTo = searchParams.get("returnTo");
+      router.push(returnTo || "/dashboard"); // Redirect to dashboard or returnTo URL
     } catch (error) {
       const authError = error as AuthError;
       console.error("Sign up error:", authError);
@@ -284,25 +288,6 @@ export default function UnifiedAuthPage() {
 
   return (
     <>
-     {/* Future OAuth buttons can go here */}
-     {/* {phase === "email" && (
-        <div className="my-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <Button variant="outline" disabled={isLoading}>Google</Button>
-            <Button variant="outline" disabled={isLoading}>Apple</Button>
-          </div>
-        </div>
-      )} */}
       {renderFormContent()}
     </>
   );

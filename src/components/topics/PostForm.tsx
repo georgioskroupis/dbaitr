@@ -33,7 +33,7 @@ interface StatementFormProps {
 export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
+  const { user, userProfile, kycVerified, loading: authLoading, isSuspended } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = React.useState(true);
   const [hasPostedStatement, setHasPostedStatement] = React.useState(false);
@@ -52,7 +52,6 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           setHasPostedStatement(hasPosted);
         } catch (error) {
           console.error(`Detailed error: Could not check if user ${user.uid} has posted a statement for topic ${topic.id}:`, error);
-          // Potentially inform user about this error
           toast({
             title: "Error Checking Statement Status",
             description: "Could not determine if you've already posted. Please try refreshing.",
@@ -64,17 +63,17 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         }
       } else {
         setIsCheckingStatus(false);
-        setHasPostedStatement(false); // If no user, they haven't posted.
+        setHasPostedStatement(false); 
       }
     }
-    if (!authLoading) { // Only run when auth state is resolved
+    if (!authLoading) { 
       checkStatementStatus();
     }
   }, [user, topic.id, authLoading, toast]);
 
 
   async function onSubmit(values: StatementFormValues) {
-    if (authLoading) { // Explicitly wait for auth state resolution
+    if (authLoading) { 
         toast({ title: "Please wait", description: "Verifying authentication status...", variant: "default" });
         return;
     }
@@ -87,13 +86,25 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
-      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
+      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); 
       return;
     }
+
+    if (isSuspended) {
+      toast({
+        title: "Account Access Restricted",
+        description: "Your account is currently restricted. Please complete your identity verification to post statements.",
+        variant: "destructive",
+        duration: 7000,
+      });
+      router.push('/account-suspended');
+      return;
+    }
+
     if (!kycVerified) {
       toast({ 
         title: "Identity Verification Required", 
-        description: "To ensure a fair and accountable debate, identity verification (KYC) is required to post statements. Please complete the verification. You'll be redirected and can return here afterwards.", 
+        description: "To ensure a fair and accountable debate, identity verification (KYC) is required to post statements. Please complete the verification process (you have a 10-day grace period). You'll be redirected and can return here afterwards.", 
         variant: "destructive",
         duration: 7000,
       });
@@ -154,6 +165,22 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       </Alert>
     );
   }
+  
+  if (isSuspended) {
+     return (
+      <Alert variant="destructive" className="mt-6 text-center">
+        <AlertTitle>Account Access Restricted</AlertTitle>
+        <AlertDescription>
+          Your account is currently restricted. Please{' '}
+          <Link href="/verify-identity" className="underline hover:text-destructive-foreground">
+            complete your identity verification
+          </Link>{' '}
+          to post statements.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
 
   return (
     <Form {...form}>
@@ -171,13 +198,13 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
                     !user 
                       ? "Please sign in to contribute to the debate." 
                       : !kycVerified
-                      ? "Please verify your identity to participate."
+                      ? "Please verify your identity to participate (10-day grace period applies)."
                       : "Share your main argument or perspective on this topic..."
                   }
                   className="resize-none min-h-[120px]"
                   rows={5}
                   {...field}
-                  disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus}
+                  disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
                 />
               </FormControl>
               <FormMessage />
@@ -187,7 +214,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         <Button 
           type="submit" 
           className="mt-4 w-full sm:w-auto" 
-          disabled={loading || !user || !kycVerified || hasPostedStatement || authLoading || isCheckingStatus}
+          disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -197,17 +224,17 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           Submit Statement
         </Button>
         
-        {!user && !authLoading && ( // Ensure authLoading is false before showing this
+        {!user && !authLoading && ( 
            <p className="mt-2 text-xs text-destructive">
             <Button variant="link" className="p-0 text-destructive hover:text-destructive/80 h-auto" onClick={() => {
                  const currentPath = window.location.pathname + window.location.search;
-                 router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
+                 router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); 
             }}>Sign in</Button> to participate.
           </p>
         )}
-        {user && !kycVerified && !authLoading && ( // Ensure authLoading is false
+        {user && !kycVerified && !authLoading && !isSuspended && ( 
           <p className="mt-2 text-xs text-destructive">
-            You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate in debates.
+            You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate (10-day grace period).
           </p>
         )}
         </div>

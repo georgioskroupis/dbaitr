@@ -10,6 +10,7 @@ export interface UserProfile {
   createdAt: string; // Changed from Timestamp
   updatedAt?: string; // Changed from Timestamp
   provider?: 'password' | 'google' | 'apple' | 'unknown'; // Added provider
+  registeredAt: string; // ISOString timestamp, added for KYC grace period
 }
 
 export interface Topic {
@@ -57,4 +58,5 @@ export interface ThreadNode {
   createdAt: string; // ISOString timestamp
   type: 'question' | 'response';
 }
+
 

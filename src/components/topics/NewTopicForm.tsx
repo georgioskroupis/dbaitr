@@ -29,7 +29,7 @@ export function NewTopicForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
+  const { user, userProfile, kycVerified, loading: authLoading, isSuspended } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
   const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
@@ -84,7 +84,7 @@ export function NewTopicForm() {
 
 
   async function onSubmit(values: NewTopicFormValues) {
-    if (authLoading) { // Wait for auth state to be resolved
+    if (authLoading) { 
         toast({ title: "Please wait", description: "Authenticating...", variant: "default" });
         return;
     }
@@ -97,19 +97,32 @@ export function NewTopicForm() {
         duration: 7000,
       });
       const currentPath = window.location.pathname + window.location.search;
-      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); // Updated redirect
+      router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); 
       return;
     }
+
+    if (isSuspended) {
+      toast({
+        title: "Account Access Restricted",
+        description: "Your account is currently restricted. Please complete your identity verification to create new topics.",
+        variant: "destructive",
+        duration: 7000,
+      });
+      router.push('/account-suspended');
+      return;
+    }
+    
     if (!kycVerified) {
       toast({ 
         title: "Identity Verification Required", 
-        description: "For quality and accountability in debates, identity verification (KYC) is needed to create new topics. Please complete the verification process. You'll be redirected to the verification page and can return here afterwards.", 
+        description: "To ensure a fair and accountable debate, identity verification (KYC) is needed to create new topics. Please complete the verification process (you have a 10-day grace period). You'll be redirected to the verification page and can return here afterwards.", 
         variant: "destructive",
         duration: 7000,
       });
       router.push('/verify-identity'); 
       return;
     }
+
 
     if (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) {
         toast({
@@ -133,7 +146,6 @@ export function NewTopicForm() {
         })
         .catch(err => {
           console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err);
-          // Non-critical, don't bother user with a toast for this background task. Log is sufficient.
         });
       
       toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
@@ -220,7 +232,7 @@ export function NewTopicForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full sm:w-auto" disabled={loading || checkingSimilarity || (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) }>
+            <Button type="submit" className="w-full sm:w-auto" disabled={loading || checkingSimilarity || (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) || isSuspended }>
               {(loading || checkingSimilarity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Topic
             </Button>

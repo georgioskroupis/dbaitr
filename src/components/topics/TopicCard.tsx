@@ -9,7 +9,7 @@ import * as React from 'react';
 import { getUserProfile } from '@/lib/firestoreActions';
 import type { UserProfile } from '@/types';
 import { format } from 'date-fns';
-
+import { getAuthorStatusBadge } from '@/lib/utils'; // Helper for badge
 
 interface TopicCardProps {
   topic: Topic;
@@ -31,6 +31,8 @@ export function TopicCard({ topic }: TopicCardProps) {
   const formattedDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
   const totalStatements = (topic.scoreFor || 0) + (topic.scoreAgainst || 0) + (topic.scoreNeutral || 0);
+  const creatorStatusBadge = getAuthorStatusBadge(creatorProfile);
+
 
   return (
     <Card className="flex flex-col overflow-hidden transition-all hover:shadow-xl hover:border-primary/30">
@@ -38,9 +40,15 @@ export function TopicCard({ topic }: TopicCardProps) {
         <CardTitle className="text-xl font-semibold line-clamp-2 hover:text-primary transition-colors">
           <Link href={`/topics/${topic.id}`}>{topic.title}</Link>
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Created by {creatorNameDisplay}
-        </CardDescription>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Created by {creatorNameDisplay}</span>
+          {creatorStatusBadge && (
+            <Badge variant={creatorStatusBadge.variant as any} className="text-xs py-0.5 px-1.5">
+              {creatorStatusBadge.icon && React.cloneElement(creatorStatusBadge.icon, {className: "h-3 w-3 mr-1"})}
+              {creatorStatusBadge.label}
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       {topic.description && (
         <CardContent className="flex-grow">
@@ -78,4 +86,3 @@ export function TopicCard({ topic }: TopicCardProps) {
     </Card>
   );
 }
-

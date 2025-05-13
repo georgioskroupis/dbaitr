@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { createThreadNode, getUserQuestionCountForStatement } from "@/lib/firestoreActions";
 import type { ThreadNode } from "@/types";
+import Link from "next/link"; // Import Link for KYC message
 
 const formSchema = z.object({
   content: z.string().min(5, "Content must be at least 5 characters.").max(1000, "Content must be at most 1000 characters."),
@@ -25,9 +26,9 @@ type ThreadFormValues = z.infer<typeof formSchema>;
 interface ThreadPostFormProps {
   topicId: string;
   statementId: string;
-  statementAuthorId: string; // UID of the author of the root statement
-  parentId: string | null;    // ID of parent ThreadNode, or null if root question for statement
-  type: 'question' | 'response'; // Type of node THIS FORM WILL CREATE
+  statementAuthorId: string; 
+  parentId: string | null;    
+  type: 'question' | 'response'; 
   onSuccess: () => void; 
   placeholderText?: string;
   submitButtonText?: string;
@@ -38,16 +39,15 @@ export function ThreadPostForm({
   statementId, 
   statementAuthorId, 
   parentId, 
-  type, // This is the type of node being created
+  type, 
   onSuccess,
   placeholderText,
   submitButtonText
 }: ThreadPostFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, kycVerified, loading: authLoading } = useAuth();
+  const { user, kycVerified, loading: authLoading, isSuspended } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  // This count is for the user's questions on the current statement's overall thread
   const [currentUserQuestionCount, setCurrentUserQuestionCount] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(type === 'question');
 
@@ -58,8 +58,7 @@ export function ThreadPostForm({
 
   React.useEffect(() => {
     async function fetchQuestionCount() {
-      if (user && !authLoading) { // Only fetch if user is loaded
-        // Always fetch, as it's used to disable "Ask Question" even if this form is for a "response"
+      if (user && !authLoading) { 
         setIsLoadingQuestionCount(true);
         try {
           const count = await getUserQuestionCountForStatement(user.uid, statementId, topicId);
@@ -87,16 +86,32 @@ export function ThreadPostForm({
 
     if (!user) {
       toast({ title: "Authentication Required", description: "Please sign in to post.", variant: "destructive" });
-      router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`); // Updated redirect
+      router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`); 
       return;
     }
+
+    if (isSuspended) {
+      toast({
+        title: "Account Access Restricted",
+        description: "Your account is currently restricted. Please complete your identity verification to participate in threads.",
+        variant: "destructive",
+        duration: 7000,
+      });
+      router.push('/account-suspended');
+      return;
+    }
+
     if (!kycVerified) {
-      toast({ title: "Identity Verification Required", description: "Please verify your ID to post.", variant: "destructive" });
+      toast({ 
+        title: "Identity Verification Required", 
+        description: "Please verify your ID to post in threads (10-day grace period applies).", 
+        variant: "destructive",
+        duration: 7000 
+      });
       router.push('/verify-identity');
       return;
     }
 
-    // Specific checks based on the type of node being created
     if (type === 'question' && currentUserQuestionCount >= 3) {
       toast({ title: "Question Limit Reached", description: "You have already asked 3 questions in this statement's thread.", variant: "destructive" });
       return;
@@ -106,22 +121,20 @@ export function ThreadPostForm({
       toast({ title: "Permission Denied", description: "Only the statement author can reply directly to questions.", variant: "destructive" });
       return;
     }
-    // Server-side will also check if the parent question (if type is 'response') already has a response.
 
     setIsSubmitting(true);
     try {
       await createThreadNode({
         topicId,
         statementId,
-        statementAuthorId, // Pass this for server-side check if type is 'response'
+        statementAuthorId, 
         parentId,
         content: values.content,
         createdBy: user.uid,
-        type, // The type of node being created
+        type, 
       });
       toast({ title: `${type === 'question' ? 'Question' : 'Response'} Submitted!`, description: "Your contribution has been added." });
       form.reset();
-      // No need to update currentUserQuestionCount here, onSuccess will trigger parent re-fetch
       onSuccess(); 
     } catch (error: any) {
       console.error(`Error submitting thread node (type: ${type}):`, error);
@@ -140,7 +153,7 @@ export function ThreadPostForm({
     : "Provide your response...";
   const defaultSubmitText = type === 'question' ? "Ask Question" : "Post Response";
 
-  const isDisabled = isSubmitting || authLoading || isLoadingQuestionCount || (type === 'question' && currentUserQuestionCount >= 3);
+  const isDisabled = isSubmitting || authLoading || isLoadingQuestionCount || (type === 'question' && currentUserQuestionCount >= 3) || isSuspended;
 
   return (
     <Form {...form}>
@@ -157,7 +170,7 @@ export function ThreadPostForm({
                   className="resize-none min-h-[80px] text-sm"
                   rows={3}
                   {...field}
-                  disabled={isDisabled || !user || !kycVerified} // Also disable if no user/kyc
+                  disabled={isDisabled || !user || !kycVerified} 
                 />
               </FormControl>
               <FormMessage />
@@ -165,12 +178,12 @@ export function ThreadPostForm({
           )}
         />
         <div className="flex justify-end items-center gap-2">
-            {type === 'question' && !isLoadingQuestionCount && user && kycVerified && (
+            {type === 'question' && !isLoadingQuestionCount && user && kycVerified && !isSuspended &&(
                  <p className="text-xs text-muted-foreground">
                     Questions asked for this statement: {currentUserQuestionCount}/3
                 </p>
             )}
-            {(isLoadingQuestionCount && type === 'question') && ( // Show loader only when relevant for question count
+            {(isLoadingQuestionCount && type === 'question') && ( 
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
           <Button 
@@ -187,9 +200,14 @@ export function ThreadPostForm({
                 Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>sign in</Button> to participate.
             </p>
         )}
-        {!authLoading && user && !kycVerified && (
+        {!authLoading && user && !kycVerified && !isSuspended &&(
             <p className="text-xs text-destructive text-right">
-                Please <Button variant="link" className="p-0 h-auto text-destructive hover:text-destructive/80" onClick={() => router.push('/verify-identity')}>verify your ID</Button> to participate.
+                Please <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate (10-day grace period).
+            </p>
+        )}
+        {!authLoading && user && isSuspended && (
+             <p className="text-xs text-destructive text-right">
+                Your account is suspended. Please <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link>.
             </p>
         )}
       </form>
