@@ -95,10 +95,11 @@ export default function HomePage() {
       <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
         <Logo width={280} href="/" />
         
-        <form onSubmit={handleSearchSubmit} className="w-full space-y-6 group">
-          <div className="relative">
+        <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
+          <div className="relative group w-full max-w-xl mx-auto">
             <Gavel
               className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-primary transition-transform group-hover:rotate-[10deg] group-focus-within:rotate-[10deg]"
+              stroke="currentColor" 
               strokeWidth={2}
             />
             <Input
@@ -106,15 +107,17 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What are you debating about?"
-              className="w-full pl-14 pr-14 py-4 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition"
+              className="w-full pl-12 pr-[calc(theme(spacing.3)+theme(spacing.12)+theme(spacing.2))] py-2.5 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
+              aria-label="Search debate topic"
             />
             <Button
               type="submit"
               size="icon"
-              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-white shadow-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              style={{ height: '40px', width: '40px' }} // Matched to input's effective height with py-2.5
               disabled={isLoading || !searchQuery.trim()}
-              aria-label="Search"
+              aria-label="Search or Create Topic"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-white/80" />
@@ -135,4 +138,3 @@ export default function HomePage() {
     </div>
   );
 }
-
