@@ -21,6 +21,31 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to convert Firestore Timestamps to ISO strings within an object
+const convertProfileTimestamps = (data: any): UserProfile => {
+  const profile = { ...data } as UserProfile; // Cast to UserProfile
+
+  if (data.createdAt && data.createdAt instanceof Timestamp) {
+    profile.createdAt = data.createdAt.toDate().toISOString();
+  } else if (data.createdAt && typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
+    profile.createdAt = new Timestamp(data.createdAt.seconds, data.createdAt.nanoseconds).toDate().toISOString();
+  }
+
+  if (data.updatedAt && data.updatedAt instanceof Timestamp) {
+    profile.updatedAt = data.updatedAt.toDate().toISOString();
+  } else if (data.updatedAt && typeof data.updatedAt === 'object' && 'seconds' in data.updatedAt) {
+    profile.updatedAt = new Timestamp(data.updatedAt.seconds, data.updatedAt.nanoseconds).toDate().toISOString();
+  }
+  
+  if (data.registeredAt && data.registeredAt instanceof Timestamp) {
+    profile.registeredAt = data.registeredAt.toDate().toISOString();
+  } else if (data.registeredAt && typeof data.registeredAt === 'object' && 'seconds' in data.registeredAt) {
+    profile.registeredAt = new Timestamp(data.registeredAt.seconds, data.registeredAt.nanoseconds).toDate().toISOString();
+  }
+  return profile;
+};
+
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -35,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         try {
           console.log(`[AuthContext] Ensuring profile for UID: ${firebaseUser.uid}`);
+          // createUserProfile should return a profile with ISO string dates already
           await createUserProfile(
             firebaseUser.uid,
             firebaseUser.email,
@@ -43,29 +69,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         } catch (profileError: any) {
           console.error(`[AuthContext] Error ensuring user profile for ${firebaseUser.uid}:`, profileError.message);
-          try {
-            console.log(`[AuthContext] Retrying user profile creation for ${firebaseUser.uid}...`);
-            await createUserProfile(
-              firebaseUser.uid,
-              firebaseUser.email,
-              firebaseUser.displayName,
-              firebaseUser.providerData[0]?.providerId
-            );
-            console.log(`[AuthContext] Profile creation retry successful for ${firebaseUser.uid}`);
-          } catch (retryError: any) {
-            console.error(`[AuthContext] Error on profile creation retry for ${firebaseUser.uid}:`, retryError.message);
-          }
+          // Optional: Retry logic if deemed necessary, though createUserProfile handles basic exists check.
         }
 
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            const profileData = docSnap.data() as UserProfile;
-            // Ensure registeredAt is a string for client-side date manipulation
-            if (profileData.registeredAt && typeof profileData.registeredAt !== 'string') {
-                 profileData.registeredAt = (profileData.registeredAt as unknown as Timestamp).toDate().toISOString();
-            }
-            setUserProfile(profileData);
+            const rawProfileData = docSnap.data();
+            // Explicitly convert all relevant timestamps
+            const processedProfileData = convertProfileTimestamps(rawProfileData);
+            setUserProfile(processedProfileData);
           } else {
             setUserProfile(null); 
             console.warn(`[AuthContext] User profile document not found for UID: ${firebaseUser.uid} after creation attempt.`);
@@ -91,13 +104,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (userProfile && !userProfile.kycVerified && userProfile.registeredAt) {
       try {
-        const registeredDate = new Date(userProfile.registeredAt);
+        // Ensure registeredAt is a valid date string before parsing
+        const registeredDate = new Date(userProfile.registeredAt); 
         if (isNaN(registeredDate.getTime())) {
           console.warn("[AuthContext] Invalid registeredAt date for suspension check:", userProfile.registeredAt);
-          setIsSuspended(false); // Cannot determine suspension with invalid date
+          setIsSuspended(false); 
           return;
         }
-        const gracePeriodEndDate = new Date(registeredDate.setDate(registeredDate.getDate() + 10));
+        // Create a new date object for gracePeriodEndDate to avoid mutating registeredDate
+        const gracePeriodEndDate = new Date(registeredDate);
+        gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 10);
         const now = new Date();
         setIsSuspended(now > gracePeriodEndDate);
       } catch (e) {
@@ -123,3 +139,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
