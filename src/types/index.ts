@@ -9,6 +9,7 @@ export interface UserProfile {
   kycVerified: boolean;
   createdAt: string; // Changed from Timestamp
   updatedAt?: string; // Changed from Timestamp
+  provider?: 'password' | 'google' | 'apple' | 'unknown'; // Added provider
 }
 
 export interface Topic {
@@ -56,3 +57,4 @@ export interface ThreadNode {
   createdAt: string; // ISOString timestamp
   type: 'question' | 'response';
 }
+

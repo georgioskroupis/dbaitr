@@ -26,7 +26,7 @@ import { createUserProfile } from "@/lib/firestoreActions";
 
 
 const formSchema = z.object({
-  fullName: z.string().min(2, { message: "Full name must be at least 2 characters."}).max(50), // Changed from displayName
+  fullName: z.string().min(2, { message: "Full name must be at least 2 characters."}).max(50), 
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
@@ -42,7 +42,7 @@ export function SignUpForm() {
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fullName: "", // Changed from displayName
+      fullName: "", 
       email: "",
       password: "",
     },
@@ -52,12 +52,15 @@ export function SignUpForm() {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      // Firebase Auth still uses displayName, so we update that.
-      // Our UserProfile in Firestore will use fullName.
       await updateProfile(userCredential.user, { displayName: values.fullName }); 
       
-      // Create user profile in Firestore using fullName
-      await createUserProfile(userCredential.user.uid, values.email, values.fullName);
+      // Create user profile in Firestore
+      await createUserProfile(
+        userCredential.user.uid, 
+        values.email, 
+        values.fullName,
+        'password' // Provider for email/password sign-up
+      );
 
       toast({ title: "Account created successfully!" });
       router.push("/verify-identity"); 
@@ -81,12 +84,12 @@ export function SignUpForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="fullName" // Changed from displayName
+          name="fullName" 
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel> {/* Changed from Display Name */}
+              <FormLabel>Full Name</FormLabel> 
               <FormControl>
-                <Input placeholder="Your Full Name" {...field} /> {/* Changed placeholder */}
+                <Input placeholder="Your Full Name" {...field} /> 
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -148,3 +151,4 @@ export function SignUpForm() {
     </Form>
   );
 }
+

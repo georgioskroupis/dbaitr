@@ -3,7 +3,7 @@
 
 import { auth, db } from '@/lib/firebase/config';
 import type { Topic, Statement, UserProfile, Question, ThreadNode } from '@/types';
-import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue, increment } from 'firebase/firestore'; // Added increment
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue, increment } from 'firebase/firestore'; 
 import { revalidatePath } from 'next/cache';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 
@@ -14,7 +14,6 @@ const convertTimestampsToISO = (timestampFields: string[], data: Record<string, 
     if (data[field] && data[field] instanceof Timestamp) {
       convertedData[field] = (data[field] as Timestamp).toDate().toISOString();
     } else if (data[field] && typeof data[field] === 'object' && 'seconds' in data[field] && 'nanoseconds' in data[field]) {
-      // Handle cases where it might already be partially serialized by Next.js internal mechanisms (less likely for this error but good to be aware)
       convertedData[field] = new Timestamp(data[field].seconds, data[field].nanoseconds).toDate().toISOString();
     }
   });
@@ -22,21 +21,59 @@ const convertTimestampsToISO = (timestampFields: string[], data: Record<string, 
 };
 
 
-export async function createUserProfile(userId: string, email: string, fullName: string | null): Promise<UserProfile> {
+export async function createUserProfile(
+  userId: string, 
+  email: string | null, 
+  fullNameFromAuth: string | null,
+  providerIdFromAuth: string | undefined
+): Promise<UserProfile | null> {
   const userProfileRef = doc(db, "users", userId);
-  const userProfileData = { // Firestore Timestamps are fine for writing
-    uid: userId,
-    email,
-    fullName: fullName || email?.split('@')[0] || 'Anonymous User',
-    kycVerified: false,
-    createdAt: Timestamp.now(),
-  };
-  await setDoc(userProfileRef, userProfileData);
-  // For the returned object, ensure it matches client-side type
-  return {
-    ...userProfileData,
-    createdAt: userProfileData.createdAt.toDate().toISOString(),
-  } as UserProfile;
+
+  try {
+    const docSnap = await getDoc(userProfileRef);
+
+    if (!docSnap.exists()) {
+      let provider: UserProfile['provider'] = 'unknown';
+      if (providerIdFromAuth === 'password') {
+        provider = 'password';
+      } else if (providerIdFromAuth === 'google.com') {
+        provider = 'google';
+      } else if (providerIdFromAuth === 'apple.com') {
+        provider = 'apple';
+      }
+
+      const fullNameToSet = fullNameFromAuth || email?.split('@')[0] || 'Anonymous User';
+
+      const userProfileData = {
+        uid: userId,
+        email: email || '', // Ensure email is not null
+        fullName: fullNameToSet,
+        kycVerified: false,
+        createdAt: serverTimestamp(), // Use serverTimestamp for consistency
+        provider: provider,
+      };
+      await setDoc(userProfileRef, userProfileData);
+      console.log(`[firestoreActions] User profile created for UID: ${userId} with provider: ${provider}`);
+      // For returning, we need to simulate the serverTimestamp outcome for createdAt
+      // This is tricky without re-fetching, but for client-side use, an immediate ISO string is okay.
+      // The AuthContext will re-fetch and get the actual server-generated timestamp.
+      return {
+        ...userProfileData,
+        createdAt: new Date().toISOString(), // Approximation
+      } as UserProfile;
+    } else {
+      console.log(`[firestoreActions] User profile already exists for UID: ${userId}. No action taken.`);
+      // Optionally, update the existing profile with new provider info if it changed, using setDoc with merge:true
+      // For now, just return existing data or null if no update is intended
+      const existingData = docSnap.data();
+      return convertTimestampsToISO(['createdAt', 'updatedAt'], existingData) as UserProfile;
+    }
+  } catch (error) {
+    console.error(`[firestoreActions] Error in createUserProfile for UID ${userId}:`, error);
+    // It's important to re-throw or handle this error appropriately so callers are aware.
+    // For now, re-throwing to ensure visibility.
+    throw new Error(`Failed to create or check user profile: ${(error as Error).message}`);
+  }
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -65,11 +102,11 @@ export async function createTopic(title: string, initialDescription: string | un
   const topicsCollection = collection(db, "topics");
   const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
-  const newTopicServerData = { // Data for Firestore
+  const newTopicServerData = { 
     title,
     description: initialDescription || '',
     createdBy: userId,
-    createdAt: serverTimestamp(), // FieldValue for server
+    createdAt: serverTimestamp(), 
     scoreFor: 0,
     scoreAgainst: 0,
     scoreNeutral: 0,
@@ -81,13 +118,12 @@ export async function createTopic(title: string, initialDescription: string | un
   revalidatePath('/(app)/topics/new');
   revalidatePath('/');
 
-  // For the returned object, create an approximation that matches client-side type
   return {
     id: newTopicRef.id,
     title,
     description: initialDescription || '',
     createdBy: userId,
-    createdAt: new Date().toISOString(), // Approximation for immediate client use
+    createdAt: new Date().toISOString(), 
     scoreFor: 0,
     scoreAgainst: 0,
     scoreNeutral: 0,
@@ -100,7 +136,6 @@ export async function createStatement(topicId: string, userId: string, content: 
 
   const topicRef = doc(db, "topics", topicId);
   
-  // Get topic title for AI classification (outside transaction for external call)
   const topicSnap = await getDoc(topicRef);
   if (!topicSnap.exists()) {
     throw new Error("Topic not found, cannot classify statement.");
@@ -141,7 +176,6 @@ export async function createStatement(topicId: string, userId: string, content: 
       throw new Error("Topic does not exist inside transaction!");
     }
 
-    // Prepare the update object for topic scores using increment
     const topicScoreUpdateData: { [key: string]: FieldValue | ReturnType<typeof increment> } = {};
     if (position === 'for') {
       topicScoreUpdateData.scoreFor = increment(1);
@@ -461,4 +495,5 @@ export async function answerQuestion(topicId: string, statementId: string, quest
 // End Old Question/Answer System
 
     
+
 
