@@ -3,9 +3,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, KeyRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation"; // Import useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -22,17 +22,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase/config";
+import { createUserProfile } from "@/lib/firestoreActions"; // Import createUserProfile
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(1, { message: "Password cannot be empty." }), // Min 1 for presence check, Firebase handles length
 });
 
 type SignInFormValues = z.infer<typeof formSchema>;
 
 export function SignInForm() {
   const router = useRouter();
-  const searchParams = useSearchParams(); // Get search params
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -48,27 +49,49 @@ export function SignInForm() {
   async function onSubmit(values: SignInFormValues) {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      
+      // Ensure user profile exists in Firestore
+      if (userCredential.user) {
+        await createUserProfile(
+          userCredential.user.uid,
+          userCredential.user.email,
+          userCredential.user.displayName, // Firebase Auth displayName
+          userCredential.user.providerData[0]?.providerId || 'password' // Best guess for provider
+        );
+      }
+      
       toast({ title: "Signed in successfully!" });
       
-      const redirectUrl = searchParams.get('redirect');
-      if (redirectUrl) {
-        router.push(decodeURIComponent(redirectUrl));
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        router.push(decodeURIComponent(returnTo));
       } else {
-        // Default redirect logic: if user is not verified, go to verify-identity, else dashboard
-        // This logic is typically handled by the AuthContext and root page, so just pushing to '/' might be enough
-        // or directly to dashboard if that's the standard post-login destination.
-        // For simplicity, keeping the original behavior which leads to root page handling.
-        router.push("/"); 
+        router.push("/"); // Default redirect to homepage
       }
     } catch (error: any) {
       console.error("Detailed error: Sign in attempt failed:", error);
-      const specificErrorMessage = error.code ? 
-        (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' ? 'Incorrect email or password.' : error.message)
-        : (error.message || "An unknown error occurred.");
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential': // General credential error
+            errorMessage = "Incorrect email or password. Please check your credentials and try again.";
+            break;
+          case 'auth/too-many-requests':
+            errorMessage = "Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later.";
+            break;
+          case 'auth/network-request-failed':
+            errorMessage = "A network error occurred. Please check your internet connection and try again.";
+            break;
+          default:
+            errorMessage = `Login failed: ${error.message || 'Unknown error.'}`;
+        }
+      }
       toast({
         title: "Sign In Failed",
-        description: `There was an issue signing you in. Common reasons include incorrect email/password or network problems. Please double-check your credentials and try again. The system reported: ${specificErrorMessage}`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -86,7 +109,10 @@ export function SignInForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="you@example.com" {...field} className="pl-10" />
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -100,10 +126,12 @@ export function SignInForm() {
               <FormLabel>Password</FormLabel>
               <FormControl>
                 <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <Input 
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••" 
                     {...field} 
+                    className="pl-10"
                   />
                   <Button
                     type="button"
@@ -111,9 +139,9 @@ export function SignInForm() {
                     size="icon"
                     className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
                   </Button>
                 </div>
               </FormControl>
@@ -135,4 +163,3 @@ export function SignInForm() {
     </Form>
   );
 }
-
