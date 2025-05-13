@@ -3,7 +3,7 @@
 
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Search, Sparkles } from 'lucide-react';
+import { Loader2, Search, Gavel } from 'lucide-react'; // Changed Sparkles to Gavel
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/layout/Logo';
@@ -19,7 +19,6 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
-  // Video URL from Firebase Storage
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
 
   useEffect(() => {
@@ -53,7 +52,6 @@ export default function HomePage() {
       });
 
       if (similarTopicsResult.isSimilar && similarTopicsResult.closestMatch) {
-        // Attempt to find the exact topic by title to get its ID
         const existingTopic = await getTopicByTitle(similarTopicsResult.closestMatch);
         if (existingTopic?.id) {
           toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
@@ -62,8 +60,7 @@ export default function HomePage() {
         }
       }
       
-      // If not similar enough or specific match not found by ID, proceed to create new
-      toast({ title: "Create New Topic", description: `No direct match found. Let's create "${searchQuery}".` });
+      toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
       router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
 
     } catch (error: any) {
@@ -92,46 +89,46 @@ export default function HomePage() {
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
+      {/* Increased transparency by changing bg-opacity-50 to bg-opacity-40 */}
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-40 z-[-1]"></div> 
       
-      <div className="relative z-10 flex flex-col items-center w-full max-w-xl text-center">
-        <Logo width={200} href="/" />
-        <p className="mt-4 mb-10 text-lg text-white/80">
-          Explore ongoing debates or spark a new one.
-        </p>
+      <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8"> {/* Increased max-w and added space-y */}
+        <Logo width={280} href="/" /> {/* Increased logo size */}
         
-        <form onSubmit={handleSearchSubmit} className="w-full space-y-4">
+        {/* Removed tagline: <p className="mt-4 mb-10 text-lg text-white/80">Explore ongoing debates or spark a new one.</p> */}
+        
+        <form onSubmit={handleSearchSubmit} className="w-full space-y-6"> {/* Increased space-y */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/60" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-white/60" /> {/* Increased icon size and left padding */}
             <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="What would you like to debate?"
-              className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+              placeholder="What are you debating about?" // Changed placeholder text
+              className="w-full pl-14 pr-4 py-4 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition" // Increased padding, font size, and icon padding
               disabled={isLoading}
             />
           </div>
           <Button 
             type="submit" 
-            className="w-full sm:w-auto text-base px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition"
+            className="w-full sm:w-auto text-lg px-8 py-3 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition [&_svg]:size-5" // Increased padding, font size, and icon size
             size="lg"
             disabled={isLoading || !searchQuery.trim()}
           >
             {isLoading ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Sparkles className="mr-2 h-5 w-5" />
+              <Gavel className="mr-2 h-5 w-5" /> // Changed icon to Gavel
             )}
-            Explore or Create Topic
+            Debate 
           </Button>
         </form>
         
-        <p className="mt-12 text-sm text-white/50">
-          Or, <Button variant="link" className="text-rose-400 underline hover:text-white transition p-0 h-auto" onClick={() => router.push('/dashboard')}>browse all topics</Button>.
+        <p className="text-base text-white/50"> {/* Increased font size */}
+          Or, <Button variant="link" className="text-rose-400 underline hover:text-white transition p-0 h-auto text-base" onClick={() => router.push('/dashboard')}>browse all topics</Button>.
         </p>
       </div>
-       <p className="relative z-10 mt-auto pt-8 text-center text-sm text-white/50 font-light footer-text">
+       <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text"> {/* Increased font size */}
         &copy; {new Date().getFullYear()} db8. All rights reserved.
       </p>
     </div>
