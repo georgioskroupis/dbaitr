@@ -2,7 +2,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award } from "lucide-react"; // Added Award
+import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader } from "lucide-react"; 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,7 +30,7 @@ export function UserNav() {
     try {
       await signOut(auth);
       toast({ title: "Signed out successfully." });
-      router.push("/"); // Redirect to homepage after logout
+      router.push("/"); 
     } catch (error: any) {
       console.error("Detailed error: Sign out failed:", error);
       toast({ 
@@ -44,14 +44,14 @@ export function UserNav() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-10 w-24">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <NavLoader className="h-5 w-5 animate-spin text-rose-500" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <Button variant="default" size="sm" asChild>
+      <Button asChild className="text-sm border border-white/30 hover:border-white rounded-full px-4 py-1 bg-black/30 backdrop-blur-md text-white hover:bg-white/10 transition">
         <Link href="/auth">
           <Award className="mr-2 h-4 w-4" />
           Get Certified
@@ -74,34 +74,34 @@ export function UserNav() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10 border-2 border-primary/50 hover:border-primary transition-colors">
+          <Avatar className="h-10 w-10 border-2 border-rose-500/50 hover:border-rose-500 transition-colors">
             <AvatarImage src={userProfile?.photoURL || user.photoURL || undefined} alt={displayNameForAvatar || "User"} />
-            <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+            <AvatarFallback className="bg-rose-500/20 text-rose-500 font-semibold">
               {getInitials(displayNameForAvatar)}
             </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent className="w-56 bg-black/70 backdrop-blur-md border-white/20 text-white" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none truncate">{displayNameForAvatar || "User"}</p>
-            <p className="text-xs leading-none text-muted-foreground truncate">
+            <p className="text-xs leading-none text-white/70 truncate">
               {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="bg-white/20" />
         <DropdownMenuGroup>
           <Link href="/verify-identity" passHref>
-            <DropdownMenuItem disabled={kycVerified}>
-              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-500" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />}
+            <DropdownMenuItem disabled={kycVerified} className="focus:bg-white/10 focus:text-white">
+              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-400" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-400" />}
               <span>{kycVerified ? "KYC Verified" : "Verify Identity"}</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+        <DropdownMenuSeparator className="bg-white/20" />
+        <DropdownMenuItem onClick={handleSignOut} className="text-rose-400 focus:bg-rose-500/20 focus:text-rose-300">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
@@ -109,8 +109,3 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
-
-// Minimal loader for authLoading state
-const Loader2 = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-);

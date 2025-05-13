@@ -80,43 +80,41 @@ export default function HomePage() {
 
   return (
     <div className={cn(
-      "flex min-h-screen flex-col items-center justify-center p-4 md:p-8 overflow-hidden", // Removed auth-background-glow, added overflow-hidden
+      "flex min-h-screen flex-col items-center justify-center p-4 md:p-8 overflow-hidden",
     )}>
       <video
         autoPlay
         muted
         loop
         playsInline
-        className="absolute top-0 left-0 w-full h-full object-cover z-[-2]" // Furthest back
-        // preload="auto" // Optional: browser default is often good enough
-        // poster="/path/to/fallback-image.jpg" // Optional: placeholder image
+        className="absolute top-0 left-0 w-full h-full object-cover z-[-2]" 
       >
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay */}
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
       
       <div className="relative z-10 flex flex-col items-center w-full max-w-xl text-center">
         <Logo width={200} href="/" />
-        <p className="mt-4 mb-10 text-lg text-foreground/90">
+        <p className="mt-4 mb-10 text-lg text-white/80">
           Explore ongoing debates or spark a new one.
         </p>
         
         <form onSubmit={handleSearchSubmit} className="w-full space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/60" />
             <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What would you like to debate?"
-              className="w-full pl-10 pr-4 py-3 text-base rounded-md border-2 border-input focus:border-primary transition-colors"
+              className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
               disabled={isLoading}
             />
           </div>
           <Button 
             type="submit" 
-            className="w-full sm:w-auto text-base px-8 py-3"
+            className="w-full sm:w-auto text-base px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition"
             size="lg"
             disabled={isLoading || !searchQuery.trim()}
           >
@@ -129,11 +127,11 @@ export default function HomePage() {
           </Button>
         </form>
         
-        <p className="mt-12 text-sm text-muted-foreground">
-          Or, <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/dashboard')}>browse all topics</Button>.
+        <p className="mt-12 text-sm text-white/50">
+          Or, <Button variant="link" className="text-rose-400 underline hover:text-white transition p-0 h-auto" onClick={() => router.push('/dashboard')}>browse all topics</Button>.
         </p>
       </div>
-       <p className="relative z-10 mt-auto pt-8 text-center text-sm text-foreground/70 font-light footer-text">
+       <p className="relative z-10 mt-auto pt-8 text-center text-sm text-white/50 font-light footer-text">
         &copy; {new Date().getFullYear()} db8. All rights reserved.
       </p>
     </div>

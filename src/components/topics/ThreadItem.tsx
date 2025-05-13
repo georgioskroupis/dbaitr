@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { getUserProfile, getUserQuestionCountForStatement } from '@/lib/firestoreActions';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react'; // Added ShieldAlert, ShieldCheck
+import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge'; // Import Badge
-import { getAuthorStatusBadge } from '@/lib/utils'; // Helper for badge
+import { Badge } from '@/components/ui/badge';
+import { getAuthorStatusBadge } from '@/lib/utils';
 
 interface ThreadItemProps {
   node: ThreadNode;
@@ -102,55 +102,63 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
   }
 
 
-  const cardBg = node.type === 'question' ? 'bg-card/70' : 'bg-secondary/30';
-  const borderClass = level > 0 ? 'border-l-2 border-primary/30 pl-3' : '';
+  const cardBg = node.type === 'question' ? 'bg-black/30' : 'bg-black/20';
+  const borderClass = level > 0 ? 'border-l-2 border-rose-500/30 pl-3' : '';
 
   return (
     <div className={`py-2 ${borderClass}`} style={{ marginLeft: `${level * 10}px` }}>
-      <Card className={`shadow-sm ${cardBg}`}>
+      <Card className={`shadow-sm ${cardBg} backdrop-blur-sm p-0 rounded-lg border border-white/10`}>
         <CardHeader className="flex flex-row items-start space-x-3 p-3">
-          <Avatar className="h-8 w-8 mt-1">
+          <Avatar className="h-8 w-8 mt-1 border border-rose-500/30">
             <AvatarImage src={photoURL} alt={displayName} data-ai-hint="profile avatar" />
-            <AvatarFallback className="text-xs bg-primary/20 text-primary font-semibold">
+            <AvatarFallback className="text-xs bg-rose-500/10 text-rose-400 font-semibold">
               {getInitials(displayName)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                   <p className="text-xs font-semibold text-foreground">{displayName}</p>
+                   <p className="text-xs font-semibold text-white">{displayName}</p>
                     {authorStatusBadge && (
-                        <Badge variant={authorStatusBadge.variant as any} className="text-xs py-0 px-1 h-4 leading-tight">
+                        <Badge variant={authorStatusBadge.variant as any} className={`text-xs py-0 px-1 h-4 leading-tight ${authorStatusBadge.variant === 'destructive' ? 'bg-red-700/80 border-red-500/50 text-red-200' : 'bg-yellow-600/20 border-yellow-500/50 text-yellow-300'}`}>
                            {authorStatusBadge.icon && React.cloneElement(authorStatusBadge.icon, {className: "h-2.5 w-2.5 mr-0.5"})}
                            {authorStatusBadge.label}
                         </Badge>
                     )}
                 </div>
-                <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                <p className="text-xs text-white/50">{timeAgo}</p>
             </div>
-             <p className={`text-xs font-medium ${node.type === 'question' ? 'text-primary' : 'text-green-500 dark:text-green-400'}`}>
+             <p className={`text-xs font-medium ${node.type === 'question' ? 'text-rose-400' : 'text-green-400'}`}>
                 {node.type === 'question' ? 'Question' : 'Response'}
             </p>
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-0">
-          <p className="text-sm text-foreground/90 whitespace-pre-wrap">{node.content}</p>
+          <p className="text-sm text-white/80 whitespace-pre-wrap">{node.content}</p>
         </CardContent>
         {!authLoading && user && kycVerified && !currentUserIsSuspended && (
             <CardFooter className="p-3 pt-1 flex justify-end">
                 {node.type === 'question' && canReplyToQuestion && (
-                    <Button variant="outline" size="sm" onClick={() => toggleReplyForm('response')}>
-                        <CornerDownRight className="h-3 w-3 mr-1" /> Reply to Question
+                    <Button 
+                      size="sm" 
+                      onClick={() => toggleReplyForm('response')}
+                      className="px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
+                    >
+                        <CornerDownRight className="h-3 w-3 mr-1" /> Reply
                     </Button>
                 )}
                 {node.type === 'response' && canAskFollowUpQuestion && (
-                    <Button variant="outline" size="sm" onClick={() => toggleReplyForm('question')}>
+                    <Button 
+                      size="sm" 
+                      onClick={() => toggleReplyForm('question')}
+                      className="px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
+                    >
                         <MessageSquare className="h-3 w-3 mr-1" /> Ask Follow-up
                     </Button>
                 )}
                  {node.type === 'response' && !isLoadingQuestionCount && userQuestionCountOnStatement >= 3 && (
-                    <div className="flex items-center text-xs text-muted-foreground">
-                        <AlertCircle className="h-3 w-3 mr-1 text-yellow-500" /> You've reached your question limit for this statement.
+                    <div className="flex items-center text-xs text-white/50">
+                        <AlertCircle className="h-3 w-3 mr-1 text-yellow-400" /> You've reached your question limit for this statement.
                     </div>
                 )}
           </CardFooter>

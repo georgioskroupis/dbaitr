@@ -165,23 +165,23 @@ export function NewTopicForm() {
   if (authLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading user data...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+        <p className="ml-2 text-white/50">Loading user data...</p>
       </div>
     );
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" /> Create a New Debate Topic
+    <Card className="w-full max-w-2xl mx-auto bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10">
+      <CardHeader className="p-0 mb-6">
+        <CardTitle className="text-2xl flex items-center gap-2 text-white font-semibold">
+          <Sparkles className="h-6 w-6 text-rose-400" /> Create a New Debate Topic
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-white/50">
           Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness against existing topics. The topic description will be enhanced by AI.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
@@ -189,24 +189,29 @@ export function NewTopicForm() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Topic Title</FormLabel>
+                  <FormLabel className="text-white">Topic Title</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Input placeholder="e.g., Should AI advancements be regulated more strictly?" {...field} onChange={handleTitleChange} />
-                       {checkingSimilarity && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                      <Input 
+                        placeholder="e.g., Should AI advancements be regulated more strictly?" 
+                        {...field} 
+                        onChange={handleTitleChange} 
+                        className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+                      />
+                       {checkingSimilarity && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-white/60" />}
                     </div>
                   </FormControl>
                   <FormMessage />
                   {similarityResult && similarityResult.guidanceMessage && (
                     <div className={`mt-2 p-3 rounded-md text-sm flex items-start gap-2 ${
-                      similarityResult.isSimilar ? 'bg-destructive/10 text-destructive-foreground border border-destructive/30' : 'bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30'
+                      similarityResult.isSimilar ? 'bg-red-500/10 text-red-300 border border-red-500/30' : 'bg-green-500/10 text-green-300 border border-green-500/30'
                     }`}>
                       {similarityResult.isSimilar ? <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" /> : <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" />}
                       <div>
                         <p className="font-semibold">{similarityResult.isSimilar ? "Potential Duplicate Alert" : "Looking Good and Unique!"}</p>
-                        <p>{similarityResult.guidanceMessage}</p>
+                        <p className="text-white/80">{similarityResult.guidanceMessage}</p>
                         {similarityResult.isSimilar && similarityResult.closestMatch && (
-                          <p className="mt-1">Closest match identified: <span className="italic">"{similarityResult.closestMatch}"</span> (Similarity score: {((similarityResult.similarityScore || 0) * 100).toFixed(0)}%)</p>
+                          <p className="mt-1 text-white/80">Closest match identified: <span className="italic">"{similarityResult.closestMatch}"</span> (Similarity score: {((similarityResult.similarityScore || 0) * 100).toFixed(0)}%)</p>
                         )}
                       </div>
                     </div>
@@ -219,11 +224,11 @@ export function NewTopicForm() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Initial Description (Optional)</FormLabel>
+                  <FormLabel className="text-white">Initial Description (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Provide a short overview or context for your debate topic. This can be refined by AI later. (Max 500 characters)"
-                      className="resize-none"
+                      className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition min-h-[120px] resize-none"
                       rows={4}
                       {...field}
                     />
@@ -232,7 +237,7 @@ export function NewTopicForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full sm:w-auto" disabled={loading || checkingSimilarity || (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) || isSuspended }>
+            <Button type="submit" className="w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || checkingSimilarity || (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) || isSuspended }>
               {(loading || checkingSimilarity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Topic
             </Button>

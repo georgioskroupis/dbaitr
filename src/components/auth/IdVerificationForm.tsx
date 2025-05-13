@@ -40,7 +40,7 @@ type IdVerificationFormValues = z.infer<typeof formSchema>;
 export function IdVerificationForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, userProfile, loading: authLoading, kycVerified } = useAuth(); // Changed isVerified to kycVerified
+  const { user, userProfile, loading: authLoading, kycVerified } = useAuth(); 
   const [loading, setLoading] = React.useState(false);
   const [fileName, setFileName] = React.useState<string | null>(null);
 
@@ -73,10 +73,6 @@ export function IdVerificationForm() {
 
     if (result.url) {
       toast({ title: "ID Document Uploaded Successfully", description: "Your ID has been submitted and is pending verification. You will be redirected shortly." });
-      // The server action `uploadIdDocument` now calls `updateUserVerificationStatus`.
-      // For this scaffold, we assume verification is immediate.
-      // Re-fetching user or relying on AuthContext update (which might need a manual trigger or listen to Firestore changes)
-      // For now, just redirect. The AuthContext will eventually pick up the change on next load or if user data is actively refreshed.
       router.push('/dashboard'); 
     } else {
       console.error("Detailed error: ID document upload failed. Server action response:", result.error);
@@ -90,12 +86,12 @@ export function IdVerificationForm() {
   }
   
   if (authLoading) {
-    return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-rose-500" /></div>;
   }
 
-  if (kycVerified) { // Changed userProfile?.isVerified to kycVerified
+  if (kycVerified) { 
      router.replace('/dashboard');
-     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">You are already verified. Redirecting to dashboard...</p></div>;
+     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-rose-500" /> <p className="ml-2 text-white/80">You are already verified. Redirecting to dashboard...</p></div>;
   }
 
 
@@ -107,20 +103,20 @@ export function IdVerificationForm() {
           name="idDocument"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Upload ID Document</FormLabel>
+              <FormLabel className="text-white">Upload ID Document</FormLabel>
               <FormControl>
                 <div className="relative flex items-center justify-center w-full">
                   <label
                     htmlFor="idDocument-upload"
-                    className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-input bg-card hover:border-primary hover:bg-accent/10 transition-colors"
+                    className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-white/20 bg-white/5 hover:border-white/40 transition-colors"
                   >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                      <p className="mb-2 text-sm text-muted-foreground">
-                        <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+                      <UploadCloud className="w-10 h-10 mb-3 text-white/60" />
+                      <p className="mb-2 text-sm text-white/60">
+                        <span className="font-semibold text-rose-400">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-muted-foreground">JPG, PNG, or PDF (MAX. 5MB)</p>
-                      {fileName && <p className="text-xs text-primary mt-2">{fileName}</p>}
+                      <p className="text-xs text-white/50">JPG, PNG, or PDF (MAX. 5MB)</p>
+                      {fileName && <p className="text-xs text-rose-400 mt-2">{fileName}</p>}
                     </div>
                     <Input
                       id="idDocument-upload"
@@ -136,11 +132,11 @@ export function IdVerificationForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={loading || authLoading}>
+        <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || authLoading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Submit for Verification
         </Button>
-         <p className="text-xs text-center text-muted-foreground">
+         <p className="text-xs text-center text-white/50">
           Verification helps maintain a trustworthy debate environment. Your data is handled securely according to our privacy policy.
         </p>
       </form>

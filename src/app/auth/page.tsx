@@ -140,7 +140,7 @@ export default function UnifiedAuthPage() {
         duration: 7000,
       });
       const returnTo = searchParams.get("returnTo");
-      router.push(returnTo || "/dashboard"); // Redirect to dashboard or returnTo URL
+      router.push(returnTo || "/verify-identity"); // Redirect to KYC or returnTo URL
     } catch (error) {
       const authError = error as AuthError;
       console.error("Sign up error:", authError);
@@ -159,15 +159,15 @@ export default function UnifiedAuthPage() {
       return (
         <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
           <div>
-            <Label htmlFor="email-input" className="text-xl font-semibold text-foreground">Who are you?</Label>
-            <p className="text-sm text-muted-foreground mb-4">Enter your email to continue.</p>
+            <Label htmlFor="email-input" className="text-xl font-semibold text-white">Who are you?</Label>
+            <p className="text-sm text-white/50 mb-4">Enter your email to continue.</p>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="email-input"
                 type="email"
                 placeholder="you@example.com"
-                className="pl-10 text-base"
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                 {...emailForm.register("email")}
               />
             </div>
@@ -175,7 +175,7 @@ export default function UnifiedAuthPage() {
               <p className="mt-2 text-sm text-destructive">{emailForm.formState.errors.email.message}</p>
             )}
           </div>
-          <Button type="submit" className="w-full text-base py-3" disabled={isLoading}>
+          <Button type="submit" className="w-full text-base py-3 px-5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Continue"}
           </Button>
         </form>
@@ -185,27 +185,27 @@ export default function UnifiedAuthPage() {
     if (phase === "login") {
       return (
         <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Welcome Back</h2>
-          <p className="text-sm text-muted-foreground">
-            Logging in as <span className="font-medium text-primary">{email}</span>.
-            Not you? <Button variant="link" className="p-0 h-auto text-sm" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset();}}>Start Over</Button>
+          <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
+          <p className="text-sm text-white/50">
+            Logging in as <span className="font-medium text-rose-400">{email}</span>.
+            Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset();}}>Start Over</Button>
           </p>
           <div>
-            <Label htmlFor="login-password">Password</Label>
+            <Label htmlFor="login-password text-white">Password</Label>
             <div className="relative mt-1">
-              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="login-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className="pl-10"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                 {...loginForm.register("password")}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -216,11 +216,11 @@ export default function UnifiedAuthPage() {
               <p className="mt-2 text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
           </Button>
           <div className="text-center">
-             <Button variant="link" asChild className="p-0 text-sm text-muted-foreground hover:text-primary">
+             <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
                 <a href="/forgot-password">Forgot Password?</a>
               </Button>
           </div>
@@ -231,19 +231,19 @@ export default function UnifiedAuthPage() {
     if (phase === "signup") {
       return (
         <form onSubmit={signupForm.handleSubmit(handleSignUpSubmit)} className="space-y-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Create Your Account</h2>
-           <p className="text-sm text-muted-foreground">
-            Signing up with <span className="font-medium text-primary">{email}</span>.
-            Already have an account? <Button variant="link" className="p-0 h-auto text-sm" onClick={() => setPhase("login")}>Sign In</Button>
+          <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
+           <p className="text-sm text-white/50">
+            Signing up with <span className="font-medium text-rose-400">{email}</span>.
+            Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => setPhase("login")}>Sign In</Button>
           </p>
           <div>
-            <Label htmlFor="signup-fullName">Full Name</Label>
+            <Label htmlFor="signup-fullName" className="text-white">Full Name</Label>
             <div className="relative mt-1">
-              <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="signup-fullName"
                 placeholder="Your Full Name"
-                className="pl-10"
+                className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                 {...signupForm.register("fullName")}
               />
             </div>
@@ -252,21 +252,21 @@ export default function UnifiedAuthPage() {
             )}
           </div>
           <div>
-            <Label htmlFor="signup-password">Password</Label>
+            <Label htmlFor="signup-password text-white">Password</Label>
             <div className="relative mt-1">
-              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="signup-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="•••••••• (min. 6 characters)"
-                className="pl-10"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                 {...signupForm.register("password")}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -277,7 +277,7 @@ export default function UnifiedAuthPage() {
               <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account & Get Certified"}
           </Button>
         </form>

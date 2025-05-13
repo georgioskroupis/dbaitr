@@ -147,19 +147,19 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
 
   if (authLoading || isCheckingStatus) {
     return (
-      <div className="p-6 rounded-lg border bg-card shadow-sm mt-6 flex items-center justify-center min-h-[200px]">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading your statement status...</p>
+      <div className="bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10 mt-6 flex items-center justify-center min-h-[200px]">
+        <Loader2 className="h-6 w-6 animate-spin text-rose-500" />
+        <p className="ml-2 text-white/50">Loading your statement status...</p>
       </div>
     );
   }
 
   if (hasPostedStatement) {
     return (
-      <Alert className="mt-6 border-primary/30 bg-primary/5 text-center">
-        <MessageSquare className="h-5 w-5 text-primary mx-auto mb-2" />
-        <AlertTitle className="text-primary/90 font-semibold">Statement Submitted</AlertTitle>
-        <AlertDescription className="text-foreground/80">
+      <Alert className="mt-6 border-rose-500/30 bg-rose-500/5 text-center">
+        <MessageSquare className="h-5 w-5 text-rose-400 mx-auto mb-2" />
+        <AlertTitle className="text-rose-300 font-semibold">Statement Submitted</AlertTitle>
+        <AlertDescription className="text-white/80">
           You have already shared your perspective on this topic. Thank you for your contribution!
         </AlertDescription>
       </Alert>
@@ -168,11 +168,11 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
   
   if (isSuspended) {
      return (
-      <Alert variant="destructive" className="mt-6 text-center">
-        <AlertTitle>Account Access Restricted</AlertTitle>
-        <AlertDescription>
+      <Alert variant="destructive" className="mt-6 text-center bg-red-900/30 border-red-700 text-red-300">
+        <AlertTitle className="text-white font-semibold">Account Access Restricted</AlertTitle>
+        <AlertDescription className="text-red-300">
           Your account is currently restricted. Please{' '}
-          <Link href="/verify-identity" className="underline hover:text-destructive-foreground">
+          <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">
             complete your identity verification
           </Link>{' '}
           to post statements.
@@ -184,9 +184,9 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1 rounded-lg border bg-card shadow-sm mt-6">
-        <div className="p-6">
-        <FormLabel className="text-lg font-semibold mb-2 block">Your Statement</FormLabel>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10 mt-6">
+        <div>
+        <FormLabel className="text-lg font-semibold mb-2 block text-white">Your Statement</FormLabel>
         <FormField
           control={form.control}
           name="content"
@@ -201,7 +201,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
                       ? "Please verify your identity to participate (10-day grace period applies)."
                       : "Share your main argument or perspective on this topic..."
                   }
-                  className="resize-none min-h-[120px]"
+                  className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition min-h-[120px] resize-none"
                   rows={5}
                   {...field}
                   disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
@@ -213,7 +213,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         />
         <Button 
           type="submit" 
-          className="mt-4 w-full sm:w-auto" 
+          className="mt-4 w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" 
           disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
         >
           {loading ? (
@@ -225,16 +225,16 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         </Button>
         
         {!user && !authLoading && ( 
-           <p className="mt-2 text-xs text-destructive">
-            <Button variant="link" className="p-0 text-destructive hover:text-destructive/80 h-auto" onClick={() => {
+           <p className="mt-2 text-xs text-rose-400">
+            <Button variant="link" className="p-0 text-rose-400 underline hover:text-white transition h-auto" onClick={() => {
                  const currentPath = window.location.pathname + window.location.search;
                  router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); 
             }}>Sign in</Button> to participate.
           </p>
         )}
         {user && !kycVerified && !authLoading && !isSuspended && ( 
-          <p className="mt-2 text-xs text-destructive">
-            You need to <Link href="/verify-identity" className="underline hover:text-destructive/80">verify your ID</Link> to participate (10-day grace period).
+          <p className="mt-2 text-xs text-rose-400">
+            You need to <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify your ID</Link> to participate (10-day grace period).
           </p>
         )}
         </div>

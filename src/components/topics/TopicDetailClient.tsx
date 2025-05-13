@@ -14,12 +14,12 @@ import { Terminal, Loader2 } from "lucide-react";
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types';
-import { format, isValid, parseISO } from 'date-fns'; // Ensure parseISO is imported
+import { format, isValid, parseISO } from 'date-fns'; 
 
 
 interface TopicDetailClientProps {
   initialTopic: Topic;
-  initialStatements: StatementType[]; // Changed from initialPosts
+  initialStatements: StatementType[]; 
 }
 
 export function TopicDetailClient({ initialTopic, initialStatements }: TopicDetailClientProps) {
@@ -34,11 +34,16 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   useEffect(() => {
     if (initialTopic?.createdAt) {
-      const date = parseISO(initialTopic.createdAt);
-      if (isValid(date)) {
-        setClientTopicCreatedAtDate(format(date, 'MM/dd/yyyy'));
-      } else {
+      try {
+        const date = parseISO(initialTopic.createdAt);
+        if (isValid(date)) {
+          setClientTopicCreatedAtDate(format(date, 'MMMM d, yyyy'));
+        } else {
+          setClientTopicCreatedAtDate('N/A');
+        }
+      } catch (e) {
         setClientTopicCreatedAtDate('N/A');
+        console.error("Error parsing initialTopic.createdAt:", e);
       }
     } else {
       setClientTopicCreatedAtDate('N/A');
@@ -53,7 +58,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         setCreatorProfile(profile);
       }
     }
-    if (topic?.createdBy) { // Ensure createdBy is present
+    if (topic?.createdBy) { 
         fetchCreator();
     }
   }, [topic?.createdBy]);
@@ -92,7 +97,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   }, [topic?.id, topic?.title, toast]); 
 
   const refreshData = useCallback(async () => {
-    if (!topic?.id) return; // Guard against missing topic ID
+    if (!topic?.id) return; 
     setIsLoadingStatements(true);
     setIsLoadingTopicDetails(true); 
     try {
@@ -123,11 +128,11 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
 
-  if (!topic) { // Should not happen if initialTopic is always provided, but good check
+  if (!topic) { 
     return (
       <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-3 text-lg">Loading topic data...</p>
+        <Loader2 className="h-12 w-12 animate-spin text-rose-500" />
+        <p className="ml-3 text-lg text-white/80">Loading topic data...</p>
       </div>
     );
   }
@@ -136,9 +141,9 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2">{topic.title}</h1>
+        <h1 className="text-3xl md:text-4xl font-semibold text-white mb-2">{topic.title}</h1>
          {clientTopicCreatedAtDate && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-white/50">
                 Created by {creatorNameDisplay} on {clientTopicCreatedAtDate}
             </p>
         )}
@@ -147,30 +152,30 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <h2 className="text-2xl font-semibold text-foreground">Debate Area</h2>
+          <h2 className="text-2xl font-semibold text-white">Debate Area</h2>
           {isLoadingStatements ? (
              Array.from({ length: 3 }).map((_, index) => (
-                <Card className="mb-4 bg-card/80 shadow-md" key={index}>
+                <Card className="mb-4 bg-black/20 backdrop-blur-sm p-0 rounded-xl shadow-md border border-white/10" key={index}>
                   <CardHeader className="flex flex-row items-center space-x-3 p-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <Skeleton className="h-10 w-10 rounded-full bg-white/10" />
                     <div className="space-y-1">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-4 w-32 bg-white/10" />
+                      <Skeleton className="h-3 w-20 bg-white/10" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-full bg-white/10" />
+                    <Skeleton className="h-4 w-5/6 bg-white/10" />
                   </CardContent>
                 </Card>
               ))
           ) : statements.length > 0 ? (
             statements.map(statement => <DebatePostCard key={statement.id} statement={statement} />)
           ) : (
-            <Alert className="border-primary/30 bg-primary/5">
-              <Terminal className="h-4 w-4 text-primary" />
-              <AlertTitle className="text-primary/90">No Statements Yet!</AlertTitle>
-              <AlertDescription className="text-foreground/80">
+            <Alert className="border-rose-500/30 bg-rose-500/5">
+              <Terminal className="h-4 w-4 text-rose-400" />
+              <AlertTitle className="text-rose-300 font-semibold">No Statements Yet!</AlertTitle>
+              <AlertDescription className="text-white/80">
                 This debate is just getting started. Be the first to share your statement!
               </AlertDescription>
             </Alert>
