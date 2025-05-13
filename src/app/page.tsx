@@ -1,11 +1,11 @@
 
+// Improved landing page search bar with proper gavel icon rendering and button size fix
 "use client";
 
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Gavel } from 'lucide-react';
+import { Loader2 } from 'lucide-react'; // Removed Gavel
 import { Input } from '@/components/ui/input';
-// Removed Button import as we are using a raw button element for finer control
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
@@ -55,20 +55,20 @@ export default function HomePage() {
       if (similarTopicsResult.isSimilar && similarTopicsResult.closestMatch) {
         const existingTopic = await getTopicByTitle(similarTopicsResult.closestMatch);
         if (existingTopic?.id) {
-          toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
+          toast({ title: "Topic Found!", description: `Redirecting to \"${existingTopic.title}\".` });
           router.push(`/topics/${existingTopic.id}`);
           return;
         }
       }
-      
-      toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
+
+      toast({ title: "Create New Topic", description: `Let's create \"${searchQuery}\".` });
       router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
 
     } catch (error: any) {
       console.error("Detailed error: Error during topic search or initial creation step:", error);
       toast({
         title: "Search/Create Topic Error",
-        description: `Something went wrong while trying to search for or create the topic "${searchQuery}". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
+        description: `Something went wrong while trying to search for or create the topic \"${searchQuery}\". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
         variant: "destructive",
       });
     } finally {
@@ -91,17 +91,26 @@ export default function HomePage() {
         Your browser does not support the video tag.
       </video>
       <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-75 z-[-1]"></div>
-      
+
       <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
         <Logo width={280} href="/" />
-        
+
         <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
           <div className="relative group w-full max-w-xl mx-auto">
-            <Gavel
-              className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary transition-transform duration-200 group-hover:rotate-6 group-focus-within:rotate-6"
-              stroke="currentColor" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
               strokeWidth={2}
-            />
+              stroke="currentColor"
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary transition-transform duration-200 group-hover:rotate-6 group-focus-within:rotate-6"
+            >
+              <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
+              <path d="m16 16 6-6"></path>
+              <path d="m8 8 6-6"></path>
+              <path d="m9 7 8 8"></path>
+              <path d="m21 11-8-8"></path>
+            </svg>
             <Input
               type="text"
               value={searchQuery}
@@ -115,7 +124,7 @@ export default function HomePage() {
               type="submit"
               disabled={isLoading || !searchQuery.trim()}
               aria-label="Search or Create Topic"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white/80" />
@@ -123,14 +132,14 @@ export default function HomePage() {
                 <img
                   src={actionButtonIconUrl}
                   alt="Search"
-                  className="h-5 w-5"
+                  className="h-6 w-6" // Updated size
                 />
               )}
             </button>
           </div>
         </form>
       </div>
-       <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
+      <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
         &copy; {new Date().getFullYear()} db8. All rights reserved.
       </p>
     </div>
