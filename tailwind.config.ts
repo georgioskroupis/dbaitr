@@ -1,5 +1,6 @@
+
 import type { Config } from "tailwindcss";
-import { fontFamily } from 'tailwindcss/defaultTheme'; // Use ES6 import
+import { fontFamily } from 'tailwindcss/defaultTheme'; 
 
 export default {
     darkMode: ["class"],
@@ -17,7 +18,7 @@ export default {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
-  				DEFAULT: 'hsl(var(--card))', // #121212 in dark
+  				DEFAULT: 'hsl(var(--card))', 
   				foreground: 'hsl(var(--card-foreground))'
   			},
   			popover: {
@@ -25,7 +26,7 @@ export default {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))', // #E63946
+  				DEFAULT: '#ec2733', // Updated primary color
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
@@ -33,24 +34,24 @@ export default {
   				foreground: 'hsl(var(--secondary-foreground))'
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))', // #111111 for input background in dark
-  				foreground: 'hsl(var(--muted-foreground))' // #888888 or #777777 for placeholders
+  				DEFAULT: 'hsl(var(--muted))', 
+  				foreground: 'hsl(var(--muted-foreground))' 
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))', // #E63946
+  				DEFAULT: 'hsl(var(--accent))', 
   				foreground: 'hsl(var(--accent-foreground))'
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))', // #D50000
+  				DEFAULT: 'hsl(var(--destructive))', 
   				foreground: 'hsl(var(--destructive-foreground))'
   			},
         success: {
-          DEFAULT: 'hsl(var(--success))', // #00C853
+          DEFAULT: 'hsl(var(--success))', 
           foreground: 'hsl(var(--success-foreground))'
         },
-  			border: 'hsl(var(--border))', // #333333 for input border in dark
-  			input: 'hsl(var(--input))', // #333333 for input border in dark (matches --border)
-  			ring: 'hsl(var(--ring))', // Accent Red #E63946 for focus rings (or slightly lighter --ring: 355 79% 65%;)
+  			border: 'hsl(var(--border))', 
+  			input: 'hsl(var(--input))', 
+  			ring: 'hsl(var(--ring))', 
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -70,9 +71,9 @@ export default {
   			}
   		},
   		borderRadius: {
-  			lg: 'var(--radius)', /* 8px */
-  			md: 'calc(var(--radius) - 2px)', /* 6px */
-  			sm: 'calc(var(--radius) - 4px)' /* 4px */
+  			lg: 'var(--radius)', 
+  			md: 'calc(var(--radius) - 2px)', 
+  			sm: 'calc(var(--radius) - 4px)' 
   		},
   		keyframes: {
   			'accordion-down': {
