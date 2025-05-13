@@ -132,48 +132,31 @@
   }
 }
 
-.auth-background-glow {
-  background-image: url("https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-bg.png?alt=media");
-  background-size: 100% auto; /* Stretch to fit screen width */
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-color: #000000; /* Fallback color */
-  position: relative;
-  overflow: hidden; /* Contain potential overflow from background image if not perfectly sized */
-}
+/* Removed .auth-background-glow styles as they are no longer used */
 
-@media (max-width: 768px) {
-  .auth-background-glow {
-    background-size: cover; /* Cover for mobile for better framing */
-    background-position: top center; /* Adjust focus for mobile if needed */
-  }
-}
-
-
-/* Ensure input fields in dark theme have the correct background and border on auth pages */
-.dark .auth-background-glow input[type="email"],
-.dark .auth-background-glow input[type="password"],
-.dark .auth-background-glow input[type="text"] {
+/* Ensure input fields in dark theme have the correct background and border on auth pages (sign-in, sign-up) */
+.dark .auth-layout input[type="email"], /* Assuming a class .auth-layout is added to AuthLayout */
+.dark .auth-layout input[type="password"],
+.dark .auth-layout input[type="text"] {
   background-color: #111111; /* Input background: #111111 */
   border-color: #333333; /* Input border: #333333 */
   color: hsl(var(--foreground)); /* Ensure input text color is foreground */
 }
 
-.dark .auth-background-glow input[type="email"]:focus,
-.dark .auth-background-glow input[type="password"]:focus,
-.dark .auth-background-glow input[type="text"]:focus {
+.dark .auth-layout input[type="email"]:focus,
+.dark .auth-layout input[type="password"]:focus,
+.dark .auth-layout input[type="text"]:focus {
   border-color: hsl(var(--primary)); /* Focus state: red (#E63946) */
   box-shadow: 0 0 0 2px hsl(var(--ring)); /* Consistent with ShadCN focus ring */
 }
 
 /* Placeholder style for auth inputs */
-.dark .auth-background-glow input::placeholder {
+.dark .auth-layout input::placeholder {
   color: #CCCCCC; /* Updated placeholder color */
   font-weight: 500; /* Poppins Medium */
 }
 
 /* Card background for auth form container */
-.dark .auth-background-glow .bg-card {
+.dark .auth-layout .bg-card {
   background-color: #121212; /* Card background #121212 */
 }

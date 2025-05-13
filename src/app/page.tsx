@@ -19,6 +19,9 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
+  // Video URL from Firebase Storage
+  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
+
   useEffect(() => {
     async function fetchTopics() {
       try {
@@ -77,8 +80,22 @@ export default function HomePage() {
 
   return (
     <div className={cn(
-      "auth-background-glow flex min-h-screen flex-col items-center justify-center p-4 md:p-8",
+      "flex min-h-screen flex-col items-center justify-center p-4 md:p-8 overflow-hidden", // Removed auth-background-glow, added overflow-hidden
     )}>
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute top-0 left-0 w-full h-full object-cover z-[-2]" // Furthest back
+        // preload="auto" // Optional: browser default is often good enough
+        // poster="/path/to/fallback-image.jpg" // Optional: placeholder image
+      >
+        <source src={videoUrl} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay */}
+      
       <div className="relative z-10 flex flex-col items-center w-full max-w-xl text-center">
         <Logo width={200} href="/" />
         <p className="mt-4 mb-10 text-lg text-foreground/90">
@@ -122,4 +139,3 @@ export default function HomePage() {
     </div>
   );
 }
-

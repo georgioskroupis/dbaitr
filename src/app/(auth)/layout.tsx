@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className={cn(
-        "auth-background-glow flex min-h-screen flex-col items-center justify-center p-4",
+        "auth-layout flex min-h-screen flex-col items-center justify-center p-4", // Added 'auth-layout' and removed 'auth-background-glow'
       )}>
       <div className="relative z-10 mb-8 flex flex-col items-center">
         <Logo width={160} href="/" />
