@@ -3,7 +3,7 @@
 
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Search, Gavel } from 'lucide-react'; // Changed Sparkles to Gavel
+import { Loader2, Gavel } from 'lucide-react'; 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/layout/Logo';
@@ -20,6 +20,7 @@ export default function HomePage() {
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
+  const faviconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-favicon.png?alt=media&token=2c530150-2b60-4715-a385-0c9e9443ac0e";
 
   useEffect(() => {
     async function fetchTopics() {
@@ -89,46 +90,44 @@ export default function HomePage() {
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      {/* Increased transparency by changing bg-opacity-50 to bg-opacity-40 */}
       <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-40 z-[-1]"></div> 
       
-      <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8"> {/* Increased max-w and added space-y */}
-        <Logo width={280} href="/" /> {/* Increased logo size */}
+      <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
+        <Logo width={280} href="/" />
         
-        {/* Removed tagline: <p className="mt-4 mb-10 text-lg text-white/80">Explore ongoing debates or spark a new one.</p> */}
-        
-        <form onSubmit={handleSearchSubmit} className="w-full space-y-6"> {/* Increased space-y */}
+        <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-white/60" /> {/* Increased icon size and left padding */}
+            <Gavel className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-[#ec2733]" />
             <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="What are you debating about?" // Changed placeholder text
-              className="w-full pl-14 pr-4 py-4 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition" // Increased padding, font size, and icon padding
+              placeholder="What are you debating about?"
+              className="w-full pl-14 pr-14 py-4 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
               disabled={isLoading}
             />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon"
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full hover:bg-white/20 disabled:bg-transparent disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+              disabled={isLoading || !searchQuery.trim()}
+              aria-label="Submit debate topic"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-white/80" />
+              ) : (
+                <img
+                  src={faviconUrl}
+                  alt="Debate"
+                  className="h-5 w-5" 
+                />
+              )}
+            </Button>
           </div>
-          <Button 
-            type="submit" 
-            className="w-full sm:w-auto text-lg px-8 py-3 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition [&_svg]:size-5" // Increased padding, font size, and icon size
-            size="lg"
-            disabled={isLoading || !searchQuery.trim()}
-          >
-            {isLoading ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Gavel className="mr-2 h-5 w-5" /> // Changed icon to Gavel
-            )}
-            Debate 
-          </Button>
         </form>
-        
-        <p className="text-base text-white/50"> {/* Increased font size */}
-          Or, <Button variant="link" className="text-rose-400 underline hover:text-white transition p-0 h-auto text-base" onClick={() => router.push('/dashboard')}>browse all topics</Button>.
-        </p>
       </div>
-       <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text"> {/* Increased font size */}
+       <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
         &copy; {new Date().getFullYear()} db8. All rights reserved.
       </p>
     </div>
