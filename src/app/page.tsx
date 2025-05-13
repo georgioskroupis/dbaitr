@@ -95,9 +95,12 @@ export default function HomePage() {
       <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
         <Logo width={280} href="/" />
         
-        <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
+        <form onSubmit={handleSearchSubmit} className="w-full space-y-6 group">
           <div className="relative">
-            <Gavel className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-primary" />
+            <Gavel
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-primary transition-transform group-hover:rotate-[10deg] group-focus-within:rotate-[10deg]"
+              strokeWidth={2}
+            />
             <Input
               type="text"
               value={searchQuery}
@@ -108,9 +111,8 @@ export default function HomePage() {
             />
             <Button
               type="submit"
-              variant="ghost"
               size="icon"
-              className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full hover:bg-white/20 disabled:bg-transparent disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-white shadow-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               disabled={isLoading || !searchQuery.trim()}
               aria-label="Search"
             >
@@ -133,3 +135,4 @@ export default function HomePage() {
     </div>
   );
 }
+
