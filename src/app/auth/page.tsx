@@ -12,7 +12,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   type AuthError,
-  onAuthStateChanged, // Import onAuthStateChanged
+  onAuthStateChanged,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import { createUserProfile } from "@/lib/firestoreActions";
@@ -28,12 +28,12 @@ const emailSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email(), // Already validated
+  email: z.string().email(),
   password: z.string().min(1, { message: "Password cannot be empty." }),
 });
 
 const signupSchema = z.object({
-  email: z.string().email(), // Already validated
+  email: z.string().email(),
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }).max(50, "Full name must be at most 50 characters."),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
@@ -53,9 +53,18 @@ export default function UnifiedAuthPage() {
   const [email, setEmail] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    console.log("🌀 Auth Phase changed:", phase);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🌀 Auth Phase changed:", phase);
+    }
+    if (phase === "login") {
+      // Auto-focus on password input when login phase starts
+      setTimeout(() => {
+        loginPasswordInputRef.current?.focus();
+      }, 0);
+    }
   }, [phase]);
 
   const emailForm = useForm<EmailFormValues>({
@@ -70,8 +79,8 @@ export default function UnifiedAuthPage() {
 
   const signupForm = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { 
-      email: "", 
+    defaultValues: {
+      email: "",
       fullName: "",
       password: ""
     },
@@ -81,9 +90,9 @@ export default function UnifiedAuthPage() {
     setIsLoading(true);
     try {
       const methods = await fetchSignInMethodsForEmail(auth, values.email);
-      setEmail(values.email); 
-      loginForm.setValue("email", values.email); 
-      signupForm.setValue("email", values.email); 
+      setEmail(values.email);
+      loginForm.setValue("email", values.email);
+      signupForm.setValue("email", values.email);
 
       if (methods.length > 0) {
         setPhase("login");
@@ -104,12 +113,16 @@ export default function UnifiedAuthPage() {
 
   const handleLoginSubmit: SubmitHandler<LoginFormValues> = async (values) => {
     setIsLoading(true);
-    console.log("🚨 Attempting login with:", values);
-    console.log("🚀 Attempting to sign in with email:", values.email);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🚨 Attempting login with:", values);
+      console.log("🚀 Attempting to sign in with email:", values.email);
+    }
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      console.log("✅ Sign in successful. Firebase User Credential:", userCredential);
-      console.log("👤 Firebase currentUser after sign in:", auth.currentUser);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("✅ Sign in successful. Firebase User Credential:", userCredential);
+        console.log("👤 Firebase currentUser after sign in:", auth.currentUser);
+      }
 
       if (userCredential.user) {
         await createUserProfile(
@@ -120,7 +133,6 @@ export default function UnifiedAuthPage() {
         );
       }
 
-      // Wait for Firebase Auth to stabilize
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           if (user) {
@@ -129,8 +141,10 @@ export default function UnifiedAuthPage() {
           }
         });
       });
-      
-      console.log("User after login state stabilization:", auth.currentUser);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("User after login state stabilization:", auth.currentUser);
+      }
 
       toast({ title: "Signed in successfully!" });
       const returnTo = searchParams.get("returnTo");
@@ -149,13 +163,18 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
-    console.log("📨 Signup form submitted with:", values);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("📨 Signup form submitted with:", values);
+    }
     setIsLoading(true);
-    console.log("🚀 Attempting to sign up with email:", values.email);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🚀 Attempting to sign up with email:", values.email);
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
-      
+      if (process.env.NODE_ENV !== "production") {
+        console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
+      }
 
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: values.fullName });
@@ -163,12 +182,13 @@ export default function UnifiedAuthPage() {
           userCredential.user.uid,
           values.email,
           values.fullName,
-          'password' // Assuming email/password signup
+          'password'
         );
       }
-      console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
+      }
 
-      // Wait for Firebase Auth to stabilize
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           if (user) {
@@ -178,15 +198,17 @@ export default function UnifiedAuthPage() {
         });
       });
 
-      console.log("🧾 Firebase current user immediately after signup:", auth.currentUser); 
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🧾 Firebase current user immediately after signup:", auth.currentUser);
+      }
       
-      toast({ 
+      toast({
         title: "Account Created Successfully!",
         description: "Please verify your identity within 10 days to maintain full access.",
         duration: 7000,
       });
       const returnTo = searchParams.get("returnTo");
-      router.push(returnTo || "/verify-identity"); 
+      router.push(returnTo || "/verify-identity");
     } catch (error) {
       const authError = error as AuthError;
       console.error("🔥 Full Auth Error:", error);
@@ -197,18 +219,17 @@ export default function UnifiedAuthPage() {
           description: "That email has already been used. Try signing in instead.",
           variant: "destructive",
         });
-        setPhase("login"); // Switch to login phase
-        // Optionally pre-fill email in login form if not already done
+        setPhase("login");
         loginForm.setValue("email", values.email);
-        return; 
-      } 
-      
+        return;
+      }
+
       toast({
         title: "Sign Up Failed",
         description: authError.message || "An unexpected error occurred.",
         variant: "destructive",
       });
-      
+
     } finally {
       setIsLoading(false);
     }
@@ -216,7 +237,9 @@ export default function UnifiedAuthPage() {
 
   const renderFormContent = () => {
     if (phase === "email") {
-      console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
+      }
       return (
         <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
           <div>
@@ -244,13 +267,15 @@ export default function UnifiedAuthPage() {
     }
 
     if (phase === "login") {
-      console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
+      }
       return (
         <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
           <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
           <p className="text-sm text-white/50">
             Logging in as <span className="font-medium text-rose-400">{email}</span>.
-            Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset();}}>Start Over</Button>
+            Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset(); }}>Start Over</Button>
           </p>
           <div>
             <Label htmlFor="login-password text-white">Password</Label>
@@ -258,6 +283,7 @@ export default function UnifiedAuthPage() {
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="login-password"
+                ref={loginPasswordInputRef}
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -282,36 +308,32 @@ export default function UnifiedAuthPage() {
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
           </Button>
           <div className="text-center">
-             <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
-                <a href="/forgot-password">Forgot Password?</a>
-              </Button>
+            <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
+              <a href="/forgot-password">Forgot Password?</a>
+            </Button>
           </div>
         </form>
       );
     }
 
     if (phase === "signup") {
-      console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
+      }
       return (
-        <form 
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              console.warn("⚠️ Enter key pressed — preventing premature submission.");
-              e.preventDefault();
-            }
-          }}
+        <form
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
             console.warn("❌ Signup form validation failed:", errors);
             toast({
               title: "Missing Fields",
-              description: "Please fill in your full name and password.",
+              description: "Please fill in all required fields correctly.",
               variant: "destructive",
             });
-          })} 
+          })}
           className="space-y-6"
         >
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
-           <p className="text-sm text-white/50">
+          <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
             Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => setPhase("login")}>Sign In</Button>
           </p>
@@ -371,5 +393,3 @@ export default function UnifiedAuthPage() {
     </div>
   );
 }
-
-    
