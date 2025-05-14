@@ -28,57 +28,72 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false); // For main form submission
+  const [isSearching, setIsSearching] = useState(false); 
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isLandingPage = variant === 'landing';
+  const MIN_CHARS_FOR_SEARCH = 1;
 
-  // Debounced function to fetch suggestions
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetchSuggestions = useCallback(
     debounce(async (query: string) => {
       if (isLandingPage) return;
-      if (!query.trim() || query.length < 3) {
-         setSuggestions([]);
-        if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+      if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
+        setSuggestions([]);
+        setShowSuggestions(false);
         setIsSuggestionLoading(false);
         return;
       }
       setIsSuggestionLoading(true);
       try {
         const result = await getSemanticTopicSuggestions({ query });
-        setSuggestions(result.suggestions);
+         if (process.env.NODE_ENV !== "production") {
+            console.log('TopNav suggestions results:', result.suggestions, 'for query:', query);
+        }
+        if (result.suggestions.length > 0) {
+          setSuggestions(result.suggestions);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       } catch (error) {
         console.error("TopNav: Failed to fetch suggestions:", error);
         setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
         setIsSuggestionLoading(false);
+        if (process.env.NODE_ENV !== "production") {
+            console.log('TopNav suggestions final state:', suggestions, showSuggestions, isSuggestionLoading);
+        }
       }
     }, 300),
-    [isLandingPage] // Add isLandingPage to dependencies
+    [isLandingPage] 
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
+    setActiveSuggestionIndex(-1);
     if (isLandingPage) return;
 
-    if (query.trim() === '') {
+    if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
       setSuggestions([]);
       setShowSuggestions(false);
       setIsSuggestionLoading(false);
     } else {
-      setShowSuggestions(true);
       debouncedFetchSuggestions(query);
     }
   };
 
   const handleSuggestionClick = async (title: string) => {
     if (isLandingPage) return;
-    setIsSearching(true); // Use main form loader
+    setIsSearching(true); 
     setSearchQuery(title);
     setShowSuggestions(false);
     try {
@@ -104,11 +119,11 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     setShowSuggestions(false);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-    if (exactMatchInCurrentSuggestions) {
+     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) {
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
     }
-
+    
     try {
       const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
@@ -129,12 +144,33 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       setIsSearching(false);
     }
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isLandingPage || !showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prevIndex) => (prevIndex < suggestions.length - 1 ? prevIndex + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+        e.preventDefault();
+        handleSuggestionClick(suggestions[activeSuggestionIndex].title);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  };
   
   useEffect(() => {
     if (isLandingPage) return;
     function handleClickOutside(event: MouseEvent) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        setActiveSuggestionIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -143,6 +179,25 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     };
   }, [searchContainerRef, isLandingPage]);
 
+  const renderHighlightedTitle = (title: string, matchedPhrase?: string) => {
+    if (!matchedPhrase || !title.toLowerCase().includes(matchedPhrase.toLowerCase())) {
+      return title;
+    }
+    const parts = title.split(new RegExp(`(${matchedPhrase})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, index) =>
+          part.toLowerCase() === matchedPhrase.toLowerCase() ? (
+            <strong key={index} className="text-primary font-semibold">
+              {part}
+            </strong>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -184,12 +239,14 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
               <div className="relative">
                 <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                 <Input
+                  ref={inputRef}
                   type="search"
                   placeholder="What's the db8?"
                   value={searchQuery}
                   onChange={handleInputChange}
-                  onFocus={() => !isLandingPage && searchQuery.trim() && setShowSuggestions(true)}
-                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-10 text-sm text-white placeholder-white/60 focus:ring-rose-500" // Added pr-10 for loader
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => !isLandingPage && searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
+                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-10 text-sm text-white placeholder-white/60 focus:ring-rose-500"
                   disabled={isSearching}
                   autoComplete="off"
                 />
@@ -197,30 +254,31 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                   <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />
                 )}
               </div>
-               {showSuggestions && !isLandingPage && (
+               {showSuggestions && !isLandingPage && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
-                  {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
-                    <p className="p-2 text-xs text-muted-foreground">Loading...</p>
-                  )}
-                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
-                    <p className="p-2 text-xs text-muted-foreground">No similar topics.</p>
-                  )}
-                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
-                    <p className="p-2 text-xs text-muted-foreground">Keep typing...</p>
-                  )}
-                  {suggestions.length > 0 && suggestions.map((suggestion, index) => (
+                  {suggestions.map((suggestion, index) => (
                     <div
-                      key={index}
-                      className="p-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                      key={suggestion.title + index}
+                      className={cn(
+                        "p-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
+                        index === activeSuggestionIndex && "bg-accent text-accent-foreground"
+                      )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
                        onMouseDown={(e) => e.preventDefault()}
                     >
-                      <p className="font-medium text-xs text-foreground truncate">{suggestion.title}</p>
+                      <p className="font-medium text-xs text-foreground truncate">
+                        {renderHighlightedTitle(suggestion.title, suggestion.matchedPhrase)}
+                      </p>
                       <p className="text-xs text-muted-foreground">{(suggestion.score * 100).toFixed(0)}% match</p>
                     </div>
                   ))}
                 </div>
               )}
+              {isSuggestionLoading && !isLandingPage && suggestions.length === 0 && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && (
+                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 p-2 text-xs text-muted-foreground text-left">
+                    Loading...
+                  </div>
+               )}
             </form>
           </div>
         </div>

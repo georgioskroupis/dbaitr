@@ -22,59 +22,74 @@ export default function HomePage() {
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
 
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
   const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-debate-icon-white.png?alt=media&token=498c3433-2870-440d-aa40-3634a450c8ad";
 
-  // Debounced function to fetch suggestions
+  const MIN_CHARS_FOR_SEARCH = 1; // Adjusted to allow search from first character
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetchSuggestions = useCallback(
     debounce(async (query: string) => {
-      if (!query.trim() || query.length < 3) { // Min 3 chars to search
-        setSuggestions([]); // Clear suggestions if query is too short or empty
-        if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
-        setIsSuggestionLoading(false); // Stop loading if query is invalid for search
+      if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setIsSuggestionLoading(false);
         return;
       }
       setIsSuggestionLoading(true);
       try {
         const result = await getSemanticTopicSuggestions({ query });
-        setSuggestions(result.suggestions);
+        if (process.env.NODE_ENV !== "production") {
+            console.log('landing suggestions results:', result.suggestions, 'for query:', query);
+        }
+        if (result.suggestions.length > 0) {
+          setSuggestions(result.suggestions);
+          setShowSuggestions(true); 
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       } catch (error) {
         console.error("Failed to fetch suggestions:", error);
         setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
         setIsSuggestionLoading(false);
+        if (process.env.NODE_ENV !== "production") {
+            console.log('landing suggestions final state:', suggestions, showSuggestions, isSuggestionLoading);
+        }
       }
-    }, 300), // 300ms debounce time
+    }, 300),
     []
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-    if (query.trim() === '') {
+    setActiveSuggestionIndex(-1); // Reset active suggestion on new input
+    if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
       setSuggestions([]);
       setShowSuggestions(false);
-      setIsSuggestionLoading(false); // Stop loading if query is cleared
+      setIsSuggestionLoading(false);
     } else {
-      setShowSuggestions(true);
       debouncedFetchSuggestions(query);
     }
   };
   
   const handleSuggestionClick = async (title: string) => {
-    setIsLoading(true); // Main form loader
-    setSearchQuery(title); // Optionally update input, good for UX if nav fails
+    setIsLoading(true); 
+    setSearchQuery(title); 
     setShowSuggestions(false);
     try {
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
         router.push(`/topics/${topic.id}`);
       } else {
-        // If suggested topic somehow not found, navigate to create new with this title
         toast({ title: "Topic Not Found", description: `Could not find details for "${title}". You can create it.`, variant: "default" });
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
@@ -86,6 +101,31 @@ export default function HomePage() {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prevIndex) =>
+        prevIndex < suggestions.length - 1 ? prevIndex + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prevIndex) =>
+        prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1
+      );
+    } else if (e.key === 'Enter') {
+      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+        e.preventDefault(); 
+        handleSuggestionClick(suggestions[activeSuggestionIndex].title);
+      }
+      // Allow form submission if Enter is pressed without an active suggestion
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  };
+
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!searchQuery.trim()) {
@@ -93,10 +133,10 @@ export default function HomePage() {
       return;
     }
     setIsLoading(true);
-    setShowSuggestions(false); // Hide suggestions on direct submit
+    setShowSuggestions(false); 
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-    if (exactMatchInCurrentSuggestions) {
+    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { // Only if no suggestion was actively selected by keyboard
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title); 
         return;
     }
@@ -122,11 +162,11 @@ export default function HomePage() {
     }
   };
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        setActiveSuggestionIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -134,6 +174,26 @@ export default function HomePage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [searchContainerRef]);
+
+  const renderHighlightedTitle = (title: string, matchedPhrase?: string) => {
+    if (!matchedPhrase || !title.toLowerCase().includes(matchedPhrase.toLowerCase())) {
+      return title;
+    }
+    const parts = title.split(new RegExp(`(${matchedPhrase})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, index) =>
+          part.toLowerCase() === matchedPhrase.toLowerCase() ? (
+            <strong key={index} className="text-primary font-semibold">
+              {part}
+            </strong>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
 
 
   return (
@@ -174,10 +234,12 @@ export default function HomePage() {
                 <path d="m21 11-8-8"></path>
               </svg>
               <Input
+                ref={inputRef}
                 type="text"
                 value={searchQuery}
                 onChange={handleInputChange}
-                onFocus={() => searchQuery.trim() && setShowSuggestions(true)} // Show suggestions on focus if query exists
+                onKeyDown={handleKeyDown}
+                onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="What are you debating about?"
                 className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
                 disabled={isLoading}
@@ -200,32 +262,32 @@ export default function HomePage() {
                   />
                 )}
               </button>
-              {/* Suggestions Dropdown */}
-              {showSuggestions && (
+             
+              {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
-                  {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
-                    <p className="p-3 text-sm text-muted-foreground">Loading suggestions...</p>
-                  )}
-                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
-                    <p className="p-3 text-sm text-muted-foreground">No similar topics found.</p>
-                  )}
-                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
-                    <p className="p-3 text-sm text-muted-foreground">Keep typing to see suggestions...</p>
-                  )}
-                  {/* Render suggestions even if isSuggestionLoading is true, to avoid flicker */}
-                  {suggestions.length > 0 && suggestions.map((suggestion, index) => (
+                  {suggestions.map((suggestion, index) => (
                     <div
-                      key={index}
-                      className="p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                      key={suggestion.title + index} // Using index for key if titles aren't guaranteed unique
+                      className={cn(
+                        "p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
+                        index === activeSuggestionIndex && "bg-accent text-accent-foreground"
+                      )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
-                      onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click
+                      onMouseDown={(e) => e.preventDefault()} 
                     >
-                      <p className="font-medium text-sm text-foreground">{suggestion.title}</p>
+                      <p className="font-medium text-sm text-foreground">
+                        {renderHighlightedTitle(suggestion.title, suggestion.matchedPhrase)}
+                      </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
                   ))}
                 </div>
               )}
+               {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && (
+                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 p-3 text-sm text-muted-foreground text-left">
+                    Loading suggestions...
+                  </div>
+               )}
             </div>
           </form>
         </div>
