@@ -140,6 +140,7 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
+    console.log("📨 Signup form submitted with:", values);
     setIsLoading(true);
     console.log("🚀 Attempting to sign up with email:", values.email);
     try {
@@ -191,6 +192,7 @@ export default function UnifiedAuthPage() {
 
   const renderFormContent = () => {
     if (phase === "email") {
+      console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
       return (
         <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
           <div>
@@ -218,6 +220,7 @@ export default function UnifiedAuthPage() {
     }
 
     if (phase === "login") {
+      console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
       return (
         <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
           <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
@@ -264,6 +267,7 @@ export default function UnifiedAuthPage() {
     }
 
     if (phase === "signup") {
+      console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
       return (
         <form onSubmit={signupForm.handleSubmit(handleSignUpSubmit)} className="space-y-6">
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
