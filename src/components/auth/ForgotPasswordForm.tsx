@@ -33,6 +33,7 @@ export function ForgotPasswordForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = React.useState(false);
+  const emailInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(formSchema),
@@ -40,6 +41,12 @@ export function ForgotPasswordForm() {
       email: "",
     },
   });
+
+  React.useEffect(() => {
+    setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 0);
+  }, []);
 
   async function onSubmit(values: ForgotPasswordFormValues) {
     setLoading(true);
@@ -82,6 +89,7 @@ export function ForgotPasswordForm() {
                   <Input 
                     placeholder="you@example.com" 
                     {...field} 
+                    ref={emailInputRef}
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                   />
                 </div>

@@ -53,18 +53,26 @@ export default function UnifiedAuthPage() {
   const [email, setEmail] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+
+  const emailInputRef = React.useRef<HTMLInputElement>(null);
   const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
+  const signupFullNameInputRef = React.useRef<HTMLInputElement>(null);
+
 
   React.useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       console.log("🌀 Auth Phase changed:", phase);
     }
-    if (phase === "login") {
-      // Auto-focus on password input when login phase starts
-      setTimeout(() => {
+    // Auto-focus logic
+    setTimeout(() => {
+      if (phase === "email") {
+        emailInputRef.current?.focus();
+      } else if (phase === "login") {
         loginPasswordInputRef.current?.focus();
-      }, 0);
-    }
+      } else if (phase === "signup") {
+        signupFullNameInputRef.current?.focus();
+      }
+    }, 0); // setTimeout ensures focus happens after potential DOM updates
   }, [phase]);
 
   const emailForm = useForm<EmailFormValues>({
@@ -84,9 +92,9 @@ export default function UnifiedAuthPage() {
       fullName: "",
       password: ""
     },
-    mode: "onChange", // Validate on change to provide feedback sooner
-    criteriaMode: "all", // Show all validation errors for a field
-    shouldFocusError: true, // Focus the first field with an error on submit
+    mode: "onChange", 
+    criteriaMode: "all", 
+    shouldFocusError: true, 
   });
 
   const handleEmailSubmit: SubmitHandler<EmailFormValues> = async (values) => {
@@ -273,6 +281,7 @@ export default function UnifiedAuthPage() {
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...emailForm.register("email")}
+                ref={emailInputRef}
               />
             </div>
             {emailForm.formState.errors.email && (
@@ -341,19 +350,34 @@ export default function UnifiedAuthPage() {
         console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
       }
       return (
-        <form
+        <form className="space-y-6"
           onKeyDown={(e) => { 
-            if (e.key === "Enter") { 
-              e.preventDefault(); 
-              const el = document.activeElement as HTMLElement; 
-              (document.activeElement as HTMLElement).blur();
-              requestAnimationFrame(() => {
-                signupForm.handleSubmit(handleSignUpSubmit)(); 
-              });
+            if (e.key === "Enter") {
+              // Only submit if form is valid to prevent premature submission or phase switch
+              if (signupForm.formState.isValid) {
+                signupForm.handleSubmit(handleSignUpSubmit)();
+              } else {
+                e.preventDefault(); // Prevent default form submission
+                // Optionally, trigger validation display or a toast
+                signupForm.trigger(); // Trigger validation to show errors
+                toast({
+                  title: "Incomplete Form",
+                  description: "Please fill in all required fields correctly.",
+                  variant: "destructive",
+                });
+              }
             }
           }}
-          onSubmit={signupForm.handleSubmit(handleSignUpSubmit)}
-          className="space-y-6"
+          onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
+            if (process.env.NODE_ENV !== "production") {
+                console.warn("❌ Signup form validation failed:", errors);
+            }
+            toast({
+                title: "Missing Fields",
+                description: "Please fill in all required fields correctly.",
+                variant: "destructive",
+            });
+         })}
         >
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
           <p className="text-sm text-white/50">
@@ -372,6 +396,7 @@ export default function UnifiedAuthPage() {
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
+                ref={signupFullNameInputRef}
               />
             </div>
             {signupForm.formState.errors.fullName && (

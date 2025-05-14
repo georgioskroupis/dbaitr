@@ -43,10 +43,21 @@ export function IdVerificationForm() {
   const { user, userProfile, loading: authLoading, kycVerified } = useAuth(); 
   const [loading, setLoading] = React.useState(false);
   const [fileName, setFileName] = React.useState<string | null>(null);
+  const idDocumentLabelRef = React.useRef<HTMLLabelElement>(null);
+
 
   const form = useForm<IdVerificationFormValues>({
     resolver: zodResolver(formSchema),
   });
+
+  React.useEffect(() => {
+    setTimeout(() => {
+      // Focusing a label that's for a hidden file input can be tricky.
+      // If this doesn't provide a good UX, consider focusing the submit button instead
+      // or just not auto-focusing on this specific form.
+      idDocumentLabelRef.current?.focus(); 
+    }, 0);
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -108,7 +119,9 @@ export function IdVerificationForm() {
                 <div className="relative flex items-center justify-center w-full">
                   <label
                     htmlFor="idDocument-upload"
-                    className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-white/20 bg-white/5 hover:border-white/40 transition-colors"
+                    ref={idDocumentLabelRef}
+                    tabIndex={0} // Make label focusable
+                    className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-white/20 bg-white/5 hover:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/40 transition-colors"
                   >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <UploadCloud className="w-10 h-10 mb-3 text-white/60" />
@@ -124,6 +137,7 @@ export function IdVerificationForm() {
                       className="hidden"
                       accept=".jpg,.jpeg,.png,.pdf"
                       onChange={handleFileChange}
+                      // {...field} but onChange is handled separately
                     />
                   </label>
                 </div>
