@@ -52,8 +52,8 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
           const isActive = item.href ? pathname === item.href || (item.href === "/dashboard" && pathname.startsWith("/topics")) : false;
           const Icon = item.icon;
           
+          const itemKey = item.href || item.id;
           const commonProps = {
-            key: item.href || item.id,
             className: cn(
               'flex flex-col items-center justify-center gap-1 p-2 rounded-md text-xs transition-colors',
               isActive ? 'text-rose-400' : 'text-white/70 hover:text-white hover:bg-white/10',
@@ -62,7 +62,7 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
 
           if (item.action) {
             return (
-              <button {...commonProps} onClick={item.action}>
+              <button key={itemKey} {...commonProps} onClick={item.action}>
                 <Icon className={cn("h-6 w-6", item.label === "Start db8" ? "text-rose-500" : "")} />
                 {/* No labels as per requirement */}
               </button>
@@ -70,7 +70,7 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
           }
 
           return (
-            <Link href={item.href!} {...commonProps}>
+            <Link key={itemKey} href={item.href!} {...commonProps}>
               <Icon className="h-6 w-6" />
               {/* No labels as per requirement */}
             </Link>
