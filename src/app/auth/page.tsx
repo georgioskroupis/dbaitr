@@ -74,8 +74,8 @@ export default function UnifiedAuthPage() {
       password: ""
     },
     mode: "onChange", 
-    criteriaMode: "all", // Ensure all errors are caught
-    shouldFocusError: true, // Focus the first field with an error
+    criteriaMode: "all", 
+    shouldFocusError: true, 
   });
 
   React.useEffect(() => {
@@ -93,7 +93,7 @@ export default function UnifiedAuthPage() {
         signupForm.setValue("email", email);
         document.getElementById('signup-fullName')?.focus();
       }
-    }, 0); // setTimeout ensures focus happens after potential DOM updates
+    }, 0); 
   }, [phase, email, loginForm, signupForm]);
 
 
@@ -109,7 +109,7 @@ export default function UnifiedAuthPage() {
       }
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
-        console.error("🔥 Full Auth Error:", error);
+        console.error("🔥 Full Auth Error (Email Check):", error);
       }
       toast({
         title: "Error",
@@ -162,7 +162,9 @@ export default function UnifiedAuthPage() {
     } catch (error) {
       const authError = error as AuthError;
       if (process.env.NODE_ENV !== "production") {
-        console.error("🔥 Full Auth Error:", error);
+        console.error("🔥 Full Auth Error (Login):", error);
+        console.error("🔥 Login Error Code:", authError.code);
+        console.error("🔥 Login Error Message:", authError.message);
       }
       toast({
         title: "Sign In Failed",
@@ -175,51 +177,64 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
-    // Log values as received by handleSubmit and from getValues() *before* explicit trigger
     if (process.env.NODE_ENV !== "production") {
         console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
-        console.log("🧾 Values before explicit trigger (from signupForm.getValues()):", signupForm.getValues());
+        const currentRHFValues = signupForm.getValues();
+        console.log("🧾 Values in RHF before explicit trigger (from signupForm.getValues()):", currentRHFValues);
+        if(values.password !== currentRHFValues.password) {
+            console.warn("PASSWORD MISMATCH DETECTED (PRE-TRIGGER): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field.");
+        }
+         if (!currentRHFValues.password || currentRHFValues.password.length < 6) {
+            console.error("SIGNUP SUBMIT DIAGNOSTIC (PRE-TRIGGER): Password in RHF (getValues) appears invalid or empty:", `"${currentRHFValues.password}"`);
+        }
     }
   
-    const isValid = await signupForm.trigger(); // Explicitly trigger validation for all fields
+    const isValid = await signupForm.trigger(); 
+    if (process.env.NODE_ENV !== "production") {
+        const postTriggerRHFValues = signupForm.getValues();
+        console.log("🧾 Values in RHF after explicit trigger (from signupForm.getValues()):", postTriggerRHFValues);
+        console.log("🧾 Form validity after trigger:", isValid);
+         if(values.password !== postTriggerRHFValues.password && isValid) { 
+            console.warn("PASSWORD MISMATCH DETECTED (POST-TRIGGER & VALID): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field, even though form is considered valid.");
+        }
+        if (!postTriggerRHFValues.password || postTriggerRHFValues.password.length < 6) {
+            console.error("SIGNUP SUBMIT DIAGNOSTIC (POST-TRIGGER): Password in RHF (getValues) appears invalid or empty AFTER trigger:", `"${postTriggerRHFValues.password}"`);
+        }
+    }
+
     if (!isValid) {
-      // This toast indicates that RHF's validation, after trigger, found issues.
       toast({
-        title: "Missing Fields",
-        description: "Please fill in all required fields correctly.",
+        title: "Missing or Invalid Fields",
+        description: "Please fill in all required fields correctly (e.g. password min 6 chars).",
         variant: "destructive",
       });
       return;
     }
-    // If we reach here, RHF considers the form valid.
-    // Now, let's log the values *again* after trigger, just to be sure.
-    if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Values after explicit trigger (from signupForm.getValues()):", signupForm.getValues());
-    }
-
+    
     setIsLoading(true);
+    const finalValuesForFirebase = signupForm.getValues(); // Use getValues after trigger for most certainty
     if (process.env.NODE_ENV !== "production") {
-      console.log("ℹ️ Starting sign-up process...");
-      console.log("🚀 Attempting to sign up with email:", values.email); // 'values.email' should be correct here
+      console.log("ℹ️ Starting sign-up process with FINAL values for Firebase:", finalValuesForFirebase);
+      console.log("🚀 Attempting to sign up with email:", finalValuesForFirebase.email, "and password:", finalValuesForFirebase.password ? "********" : "(empty)");
     }
     
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, finalValuesForFirebase.email, finalValuesForFirebase.password);
       if (process.env.NODE_ENV !== "production") {
         console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
       }
 
       if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: values.fullName });
+        await updateProfile(userCredential.user, { displayName: finalValuesForFirebase.fullName });
         await createUserProfile(
           userCredential.user.uid,
-          values.email,
-          values.fullName,
+          finalValuesForFirebase.email,
+          finalValuesForFirebase.fullName,
           'password'
         );
       }
       if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Firebase current user immediately after signup:", auth.currentUser);
+        console.log("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);
       }
 
       await new Promise<void>((resolve) => {
@@ -241,7 +256,9 @@ export default function UnifiedAuthPage() {
     } catch (error) {
       const authError = error as AuthError; 
       if (process.env.NODE_ENV !== "production") {
-       console.error("🔥 Full Auth Error:", error);
+       console.error("🔥 Full Auth Error (Signup):", error);
+       console.error("🔥 Signup Error Code:", authError.code);
+       console.error("🔥 Signup Error Message:", authError.message);
       }
 
       if (authError.code === "auth/email-already-in-use") {
@@ -251,7 +268,6 @@ export default function UnifiedAuthPage() {
           variant: "destructive",
         });
         setPhase("login");
-        // loginForm.setValue("email", values.email); // Handled by useEffect when phase changes to "login"
         return;
       }
 
@@ -279,7 +295,7 @@ export default function UnifiedAuthPage() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="email-input" // ID for focusing
+                id="email-input" 
                 type="email"
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -313,7 +329,7 @@ export default function UnifiedAuthPage() {
             <div className="relative mt-1">
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="login-password" // ID for focusing
+                id="login-password" 
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -349,7 +365,6 @@ export default function UnifiedAuthPage() {
     if (phase === "signup") {
       if (process.env.NODE_ENV !== "production") {
         console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
-        // console.log("👀 Watching signup form:", signupForm.watch());
       }
       return (
         <form
@@ -369,11 +384,11 @@ export default function UnifiedAuthPage() {
           }}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
             if (process.env.NODE_ENV !== "production") {
-                console.warn("❌ Signup form validation failed:", errors);
+                console.warn("❌ Signup form validation failed on submit:", errors);
             }
             toast({
-                title: "Missing Fields",
-                description: "Please fill in all required fields correctly.",
+                title: "Missing Fields on Submit",
+                description: "Please fill in all required fields correctly before submitting.",
                 variant: "destructive",
             });
          })}
@@ -390,7 +405,7 @@ export default function UnifiedAuthPage() {
             <div className="relative mt-1">
               <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="signup-fullName" // ID for focusing
+                id="signup-fullName" 
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
@@ -406,20 +421,21 @@ export default function UnifiedAuthPage() {
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="signup-password"
-                type={showPassword ? "text" : "password"}
+                type="password" // DIAGNOSTIC: Hardcoded type
                 placeholder="•••••••• (min. 6 characters)"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("password")}
               />
-              <Button
+              <Button // DIAGNOSTIC: Button for password toggle is still here but onClick is commented out
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                // onClick={() => setShowPassword(!showPassword)} // DIAGNOSTIC: Temporarily disable onClick
+                // aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {/* <EyeOff size={18} />  // DIAGNOSTIC: Temporarily disable icon toggle  */}
+                {/* <Eye size={18} />  // DIAGNOSTIC: Temporarily disable icon toggle */}
               </Button>
             </div>
             {(signupForm.formState.touchedFields.password || signupForm.formState.isSubmitted) && signupForm.formState.errors.password && (
@@ -446,3 +462,4 @@ export default function UnifiedAuthPage() {
     
 
     
+
