@@ -90,7 +90,7 @@ export default function HomePage() {
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-75 z-[-1]"></div>
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
         <Logo width={280} href="/" />
