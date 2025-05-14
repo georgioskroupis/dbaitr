@@ -100,7 +100,9 @@ export default function UnifiedAuthPage() {
         setPhase("signup");
       }
     } catch (error) {
-      console.error("🔥 Full Auth Error:", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("🔥 Full Auth Error:", error);
+      }
       toast({
         title: "Error",
         description: "Could not check email. Please try again.",
@@ -151,7 +153,9 @@ export default function UnifiedAuthPage() {
       router.push(returnTo || "/dashboard");
     } catch (error) {
       const authError = error as AuthError;
-      console.error("🔥 Full Auth Error:", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("🔥 Full Auth Error:", error);
+      }
       toast({
         title: "Sign In Failed",
         description: authError.message || "An unexpected error occurred.",
@@ -211,7 +215,9 @@ export default function UnifiedAuthPage() {
       router.push(returnTo || "/verify-identity");
     } catch (error) {
       const authError = error as AuthError;
-      console.error("🔥 Full Auth Error:", error);
+      if (process.env.NODE_ENV !== "production") {
+       console.error("🔥 Full Auth Error:", error);
+      }
 
       if (authError.code === "auth/email-already-in-use") {
         toast({
@@ -322,8 +328,29 @@ export default function UnifiedAuthPage() {
       }
       return (
         <form
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              // Prevent default browser submission if form is not valid according to RHF
+              if (!signupForm.formState.isValid) {
+                e.preventDefault(); 
+                if (process.env.NODE_ENV !== "production") {
+                  console.warn("⚠️ Enter key pressed on signup form, but form is not valid (RHF). Preventing default browser submission.");
+                }
+                // Optionally trigger validation to show errors to the user
+                signupForm.trigger(); 
+                toast({
+                    title: "Incomplete Form",
+                    description: "Please fill out all required fields correctly before submitting with Enter.",
+                    variant: "destructive",
+                });
+              }
+              // If form IS valid, Enter key will proceed to trigger the onSubmit handler below
+            }
+          }}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
-            console.warn("❌ Signup form validation failed:", errors);
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("❌ Signup form validation failed:", errors);
+            }
             toast({
               title: "Missing Fields",
               description: "Please fill in all required fields correctly.",
