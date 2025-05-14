@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react'; 
+import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
@@ -102,9 +102,9 @@ export default function HomePage() {
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth={1.5} 
+              strokeWidth={1.5}
               stroke="currentColor"
-              className="z-10 absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left" 
+              className="z-10 absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left"
             >
               <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
               <path d="m16 16 6-6"></path>
@@ -119,7 +119,7 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What are you debating about?"
-              className="w-full pl-12 pr-14 py-3 text-base rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
+              className="w-full pl-12 pr-12 py-3 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
             />
@@ -129,7 +129,7 @@ export default function HomePage() {
               type="submit"
               disabled={isLoading || !searchQuery.trim()}
               aria-label="Search or Create Topic"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white/80" />
@@ -137,7 +137,7 @@ export default function HomePage() {
                 <img
                   src={actionButtonIconUrl}
                   alt="Search"
-                  className="h-6 w-6" // Reduced icon size
+                  className="h-5 w-5"
                 />
               )}
             </button>
@@ -151,4 +151,3 @@ export default function HomePage() {
     </div>
   );
 }
-
