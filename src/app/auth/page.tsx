@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * => z from "zod";
+import * as z from "zod";
 import {
   fetchSignInMethodsForEmail,
   signInWithEmailAndPassword,
@@ -53,12 +53,6 @@ export default function UnifiedAuthPage() {
   const [email, setEmail] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-
-  // Refs for programmatic focus - RHF's register will handle its own refs.
-  // We'll use IDs for focusing if these refs cause issues with RHF.
-  // const emailInputRef = React.useRef<HTMLInputElement>(null);
-  // const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
-  // const signupFullNameInputRef = React.useRef<HTMLInputElement>(null);
 
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
@@ -290,7 +284,6 @@ export default function UnifiedAuthPage() {
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...emailForm.register("email")}
-                // ref={emailInputRef} // Removed manual ref
               />
             </div>
             {emailForm.formState.errors.email && (
@@ -321,7 +314,6 @@ export default function UnifiedAuthPage() {
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="login-password" // ID for focusing
-                // ref={loginPasswordInputRef} // Removed manual ref
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -402,7 +394,6 @@ export default function UnifiedAuthPage() {
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
-                // ref={signupFullNameInputRef} // Removed manual ref
               />
             </div>
             {(signupForm.formState.touchedFields.fullName || signupForm.formState.isSubmitted) && signupForm.formState.errors.fullName && (
