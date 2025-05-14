@@ -79,6 +79,7 @@ export default function UnifiedAuthPage() {
 
   const signupForm = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
+    mode: "onChange", // Sync values more reliably
     defaultValues: {
       email: "",
       fullName: "",
@@ -167,8 +168,20 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
+    // Force validation trigger to ensure form values are up-to-date
+    const isValid = await signupForm.trigger();
+    if (!isValid) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("📨 Signup form submitted with:", values);
+      console.log("🧾 Values before submit (from signupForm.getValues()):", signupForm.getValues());
+      console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
     }
     setIsLoading(true);
     if (process.env.NODE_ENV !== "production") {
@@ -190,9 +203,9 @@ export default function UnifiedAuthPage() {
         );
       }
       if (process.env.NODE_ENV !== "production") {
-        console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
+        console.log("🧾 Firebase current user immediately after signup:", auth.currentUser);
       }
-
+      
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           if (user) {
@@ -201,10 +214,6 @@ export default function UnifiedAuthPage() {
           }
         });
       });
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Firebase current user immediately after signup:", auth.currentUser);
-      }
       
       toast({
         title: "Account Created Successfully!",
@@ -226,7 +235,7 @@ export default function UnifiedAuthPage() {
           variant: "destructive",
         });
         setPhase("login");
-        loginForm.setValue("email", values.email);
+        loginForm.setValue("email", values.email); // Pre-fill login form email
         return;
       }
 
@@ -351,18 +360,17 @@ export default function UnifiedAuthPage() {
             if (process.env.NODE_ENV !== "production") {
               console.warn("❌ Signup form validation failed:", errors);
             }
-            toast({
-              title: "Missing Fields",
-              description: "Please fill in all required fields correctly.",
-              variant: "destructive",
-            });
+            // Toast is already shown by explicit trigger() call if validation fails in handleSignUpSubmit
           })}
           className="space-y-6"
         >
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
           <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
-            Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => setPhase("login")}>Sign In</Button>
+            Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
+                loginForm.setValue("email", email); // Ensure email is pre-filled
+                setPhase("login");
+            }}>Sign In</Button>
           </p>
           <div>
             <Label htmlFor="signup-fullName" className="text-white">Full Name</Label>
@@ -420,4 +428,4 @@ export default function UnifiedAuthPage() {
     </div>
   );
 }
-
+    
