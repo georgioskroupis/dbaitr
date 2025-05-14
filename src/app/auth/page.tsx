@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, KeyRound, User, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSafeEnterSubmit } from "@/hooks/useSafeEnterSubmit"; // Import the custom hook
 
 const emailSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -73,9 +74,9 @@ export default function UnifiedAuthPage() {
       fullName: "",
       password: ""
     },
-    mode: "onChange", 
-    criteriaMode: "all", 
-    shouldFocusError: true, 
+    mode: "onChange",
+    criteriaMode: "all",
+    shouldFocusError: true,
   });
 
   React.useEffect(() => {
@@ -93,7 +94,7 @@ export default function UnifiedAuthPage() {
         signupForm.setValue("email", email);
         document.getElementById('signup-fullName')?.focus();
       }
-    }, 0); 
+    }, 0);
   }, [phase, email, loginForm, signupForm]);
 
 
@@ -188,13 +189,13 @@ export default function UnifiedAuthPage() {
             console.error("SIGNUP SUBMIT DIAGNOSTIC (PRE-TRIGGER): Password in RHF (getValues) appears invalid or empty:", `"${currentRHFValues.password}"`);
         }
     }
-  
-    const isValid = await signupForm.trigger(); 
+
+    const isValid = await signupForm.trigger();
     if (process.env.NODE_ENV !== "production") {
         const postTriggerRHFValues = signupForm.getValues();
         console.log("🧾 Values in RHF after explicit trigger (from signupForm.getValues()):", postTriggerRHFValues);
         console.log("🧾 Form validity after trigger:", isValid);
-         if(values.password !== postTriggerRHFValues.password && isValid) { 
+         if(values.password !== postTriggerRHFValues.password && isValid) {
             console.warn("PASSWORD MISMATCH DETECTED (POST-TRIGGER & VALID): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field, even though form is considered valid.");
         }
         if (!postTriggerRHFValues.password || postTriggerRHFValues.password.length < 6) {
@@ -210,14 +211,14 @@ export default function UnifiedAuthPage() {
       });
       return;
     }
-    
+
     setIsLoading(true);
     const finalValuesForFirebase = signupForm.getValues(); // Use getValues after trigger for most certainty
     if (process.env.NODE_ENV !== "production") {
       console.log("ℹ️ Starting sign-up process with FINAL values for Firebase:", finalValuesForFirebase);
       console.log("🚀 Attempting to sign up with email:", finalValuesForFirebase.email, "and password:", finalValuesForFirebase.password ? "********" : "(empty)");
     }
-    
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, finalValuesForFirebase.email, finalValuesForFirebase.password);
       if (process.env.NODE_ENV !== "production") {
@@ -245,7 +246,7 @@ export default function UnifiedAuthPage() {
           }
         });
       });
-      
+
       toast({
         title: "Account Created Successfully!",
         description: "Please verify your identity within 10 days to maintain full access.",
@@ -254,7 +255,7 @@ export default function UnifiedAuthPage() {
       const returnTo = searchParams.get("returnTo");
       router.push(returnTo || "/verify-identity");
     } catch (error) {
-      const authError = error as AuthError; 
+      const authError = error as AuthError;
       if (process.env.NODE_ENV !== "production") {
        console.error("🔥 Full Auth Error (Signup):", error);
        console.error("🔥 Signup Error Code:", authError.code);
@@ -282,20 +283,29 @@ export default function UnifiedAuthPage() {
     }
   };
 
+  const safeEmailSubmit = useSafeEnterSubmit(emailForm.handleSubmit, handleEmailSubmit);
+  const safeLoginSubmit = useSafeEnterSubmit(loginForm.handleSubmit, handleLoginSubmit);
+  const safeSignupSubmit = useSafeEnterSubmit(signupForm.handleSubmit, handleSignUpSubmit);
+
+
   const renderFormContent = () => {
     if (phase === "email") {
       if (process.env.NODE_ENV !== "production") {
         console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
       }
       return (
-        <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
+        <form 
+          onKeyDown={safeEmailSubmit} 
+          onSubmit={emailForm.handleSubmit(handleEmailSubmit)} 
+          className="space-y-6"
+        >
           <div>
             <Label htmlFor="email-input" className="text-xl font-semibold text-white">Who are you?</Label>
             <p className="text-sm text-white/50 mb-4">Enter your email to continue.</p>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="email-input" 
+                id="email-input"
                 type="email"
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -318,18 +328,22 @@ export default function UnifiedAuthPage() {
         console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
       }
       return (
-        <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
+        <form 
+          onKeyDown={safeLoginSubmit} 
+          onSubmit={loginForm.handleSubmit(handleLoginSubmit)} 
+          className="space-y-6"
+        >
           <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
           <p className="text-sm text-white/50">
             Logging in as <span className="font-medium text-rose-400">{email}</span>.
             Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset(); }}>Start Over</Button>
           </p>
           <div>
-            <Label htmlFor="login-password text-white">Password</Label>
+            <Label htmlFor="login-password" className="text-white">Password</Label> {/* Fixed: className for Label */}
             <div className="relative mt-1">
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="login-password" 
+                id="login-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -368,20 +382,7 @@ export default function UnifiedAuthPage() {
       }
       return (
         <form
-          className="space-y-6"
-          onKeyDown={(e) => { 
-            if (e.key === "Enter") {
-              if (!signupForm.formState.isValid) { 
-                e.preventDefault(); 
-                signupForm.trigger(); 
-                toast({
-                  title: "Incomplete Form",
-                  description: "Please fill in all required fields correctly.",
-                  variant: "destructive",
-                });
-              }
-            }
-          }}
+          onKeyDown={safeSignupSubmit}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
             if (process.env.NODE_ENV !== "production") {
                 console.warn("❌ Signup form validation failed on submit:", errors);
@@ -392,6 +393,7 @@ export default function UnifiedAuthPage() {
                 variant: "destructive",
             });
          })}
+          className="space-y-6"
         >
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
           <p className="text-sm text-white/50">
@@ -405,7 +407,7 @@ export default function UnifiedAuthPage() {
             <div className="relative mt-1">
               <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="signup-fullName" 
+                id="signup-fullName"
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
@@ -416,26 +418,25 @@ export default function UnifiedAuthPage() {
             )}
           </div>
           <div>
-            <Label htmlFor="signup-password text-white">Password</Label>
+            <Label htmlFor="signup-password" className="text-white">Password</Label> {/* Fixed: className for Label */}
             <div className="relative mt-1">
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="signup-password"
-                type="password" // DIAGNOSTIC: Hardcoded type
+                type="password"
                 placeholder="•••••••• (min. 6 characters)"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("password")}
               />
-              <Button // DIAGNOSTIC: Button for password toggle is still here but onClick is commented out
+              <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
-                // onClick={() => setShowPassword(!showPassword)} // DIAGNOSTIC: Temporarily disable onClick
-                // aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {/* <EyeOff size={18} />  // DIAGNOSTIC: Temporarily disable icon toggle  */}
-                {/* <Eye size={18} />  // DIAGNOSTIC: Temporarily disable icon toggle */}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </Button>
             </div>
             {(signupForm.formState.touchedFields.password || signupForm.formState.isSubmitted) && signupForm.formState.errors.password && (
@@ -457,9 +458,3 @@ export default function UnifiedAuthPage() {
     </div>
   );
 }
-    
-
-    
-
-    
-
