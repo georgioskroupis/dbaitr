@@ -57,7 +57,9 @@ export async function createUserProfile(
         provider: provider,
       };
       await setDoc(userProfileRef, userProfileData);
-      console.log(`[firestoreActions] User profile CREATED for UID: ${userId} with provider: ${provider}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[firestoreActions] User profile CREATED for UID: ${userId} with provider: ${provider}`);
+      }
       // Return a representation matching UserProfile type, actual timestamp will be on server
       return {
         ...userProfileData,
@@ -66,7 +68,9 @@ export async function createUserProfile(
       } as UserProfile;
     } else {
       // Profile exists, optionally update if provider changed or if there's new info
-      console.log(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider and registeredAt are up-to-date.`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider and registeredAt are up-to-date.`);
+      }
       const existingData = docSnap.data() as UserProfile;
       const updates: Partial<UserProfile> & {updatedAt?: FieldValue, registeredAt?: FieldValue} = {};
       if (existingData.provider !== provider && provider !== 'unknown') {
@@ -83,7 +87,9 @@ export async function createUserProfile(
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = serverTimestamp();
         await setDoc(userProfileRef, updates, { merge: true });
-        console.log(`[firestoreActions] User profile UPDATED for UID: ${userId} with changes:`, updates);
+         if (process.env.NODE_ENV !== "production") {
+          console.log(`[firestoreActions] User profile UPDATED for UID: ${userId} with changes:`, updates);
+         }
          return {
           ...existingData,
           ...updates,
@@ -157,7 +163,9 @@ export async function createTopic(title: string, initialDescription: string | un
 }
 
 export async function createStatement(topicId: string, userId: string, content: string, userName?: string, userPhotoURL?: string): Promise<Statement> {
-  console.log("[createStatement] Called with:", { topicId, userId, content });
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[createStatement] Called with:", { topicId, userId, content });
+  }
 
   const topicRef = doc(db, "topics", topicId);
   
@@ -169,16 +177,19 @@ export async function createStatement(topicId: string, userId: string, content: 
   if (!topicDataForClassification || !topicDataForClassification.title) {
     throw new Error("Topic data is invalid, cannot retrieve title for classification.");
   }
-
-  console.log("[createStatement] Calling classifyPostPosition with:", {
-    topicTitle: topicDataForClassification.title,
-    post: content,
-  });
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[createStatement] Calling classifyPostPosition with:", {
+      topicTitle: topicDataForClassification.title,
+      post: content,
+    });
+  }
 
   let classificationResult;
   try {
     classificationResult = await classifyPostPosition({ topic: topicDataForClassification.title, post: content });
-    console.log("[createStatement] Classification result:", classificationResult);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[createStatement] Classification result:", classificationResult);
+    }
   } catch (err) {
     console.error("[createStatement] AI classification failed:", err);
     throw new Error("AI classification failed. Cannot continue creating statement.");
@@ -237,8 +248,9 @@ export async function createStatement(topicId: string, userId: string, content: 
   if (!newStatementRefId) {
     throw new Error("Failed to create statement reference within transaction.");
   }
-  
-  console.log("[createStatement] Statement successfully created with ID:", newStatementRefId);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[createStatement] Statement successfully created with ID:", newStatementRefId);
+  }
 
   return {
     id: newStatementRefId,

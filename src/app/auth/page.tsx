@@ -14,6 +14,7 @@ import {
   type AuthError,
   onAuthStateChanged,
 } from "firebase/auth";
+import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"; // Import Firestore functions
 import { auth } from "@/lib/firebase/config";
 import { createUserProfile } from "@/lib/firestoreActions";
 import { Button } from "@/components/ui/button";
@@ -100,12 +101,35 @@ export default function UnifiedAuthPage() {
 
   const handleEmailSubmit: SubmitHandler<EmailFormValues> = async (values) => {
     setIsLoading(true);
+    const emailValue = emailForm.getValues("email"); // Retrieve the current value directly
+
+    // Sanitize and validate the email
+    const sanitizedEmail = emailValue ? emailValue.trim().toLowerCase() : "";
+    if (!sanitizedEmail) {
+      setIsLoading(false);
+      return; // Stop the process if email is empty after sanitization
+    }
+      
+
+    setIsLoading(true);
     try {
-      const methods = await fetchSignInMethodsForEmail(auth, values.email);
-      setEmail(values.email);
-      if (methods.length > 0) {
+      const db = getFirestore();
+      const usersCollection = collection(db, "users");
+      const userQuery = query(usersCollection, where("email", "==", sanitizedEmail));
+
+      console.log("🔥 Auth instance project:", auth.app.options.projectId);
+      console.log("📬 Email submitted:", sanitizedEmail);
+
+      const querySnapshot = await getDocs(userQuery);
+      console.log("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
+
+      setEmail(sanitizedEmail); // Use the sanitized email
+
+      if (!querySnapshot.empty) {
+        console.log("🔑 Found user with this email in Firestore. Proceeding to login.");
         setPhase("login");
       } else {
+        console.log("🆕 No user found with this email in Firestore. Proceeding to signup.");
         setPhase("signup");
       }
     } catch (error) {
@@ -309,7 +333,11 @@ export default function UnifiedAuthPage() {
                 type="email"
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                {...emailForm.register("email")}
+                {...emailForm.register("email", {
+                  setValueAs: (value) => value.trim().toLowerCase(), // Trim and lowercase the email
+                  required: "Email is required",
+                  pattern: { value: /\S+@\S+\.\S+/, message: "Entered value does not match email format" }
+                })}
               />
             </div>
             {emailForm.formState.errors.email && (

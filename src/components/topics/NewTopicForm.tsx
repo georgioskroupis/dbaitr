@@ -31,6 +31,7 @@ export function NewTopicForm() {
   const { toast } = useToast();
   const { user, userProfile, kycVerified, loading: authLoading, isSuspended } = useAuth();
   const [loading, setLoading] = React.useState(false);
+  const [existingTopicTitles, setExistingTopicTitles] = React.useState<string[]>([]);
   const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
   const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
 
@@ -40,11 +41,31 @@ export function NewTopicForm() {
   });
 
   React.useEffect(() => {
+    async function fetchTitles() {
+        try {
+            const titles = await getAllTopicTitles();
+            setExistingTopicTitles(titles);
+        } catch (error) {
+             console.error("Detailed error: Failed to fetch existing topic titles for similarity check:", error);
+             toast({
+                title: "Error Loading Topics",
+                description: "Could not load existing topics for similarity comparison. Please try again later.",
+                variant: "destructive"
+             });
+        }
+    }
+    fetchTitles();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+  React.useEffect(() => {
     const prefilledTitle = searchParams.get('title');
     if (prefilledTitle) {
       form.setValue('title', decodeURIComponent(prefilledTitle));
       handleTitleChange({ target: { value: decodeURIComponent(prefilledTitle) } } as React.ChangeEvent<HTMLInputElement>);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, form]);
 
 
@@ -58,13 +79,15 @@ export function NewTopicForm() {
       clearTimeout(titleDebounceTimeoutRef.current);
     }
 
-    if (newTitle.length >= 10) {
+    if (newTitle.length >= 10 && existingTopicTitles.length > 0) { // Only check if titles are loaded
       titleDebounceTimeoutRef.current = setTimeout(async () => {
         setCheckingSimilarity(true);
         setSimilarityResult(null);
         try {
-          const existingTopics = await getAllTopicTitles();
-          const result = await checkTopicSimilarity({ newTopic: newTitle, existingTopics });
+          // Note: getAllTopicTitles() is called on mount. We use the state `existingTopicTitles` here.
+          // If you need truly real-time titles for every check, you might refetch here,
+          // but that could be expensive. The current approach uses titles fetched on form load.
+          const result = await checkTopicSimilarity({ newTopic: newTitle, existingTopics: existingTopicTitles });
           setSimilarityResult(result);
         } catch (error) {
           console.error("Detailed error during topic similarity check (AI flow):", error);
@@ -79,6 +102,9 @@ export function NewTopicForm() {
       }, 1000); 
     } else {
       setSimilarityResult(null); 
+      if(newTitle.length >=10 && existingTopicTitles.length === 0) {
+         console.warn("Similarity check skipped: existing topic titles not yet loaded or empty.");
+      }
     }
   };
 
@@ -247,3 +273,4 @@ export function NewTopicForm() {
     </Card>
   );
 }
+
