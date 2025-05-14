@@ -12,7 +12,7 @@ import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
 import { getAllTopicTitles, getTopicByTitle } from '@/lib/firestoreActions';
 import { cn } from '@/lib/utils';
 import { TopNav } from '@/components/layout/TopNav';
-import { GavelIcon } from '@/components/layout/GavelIcon'; // Ensure this is the inline SVG or working component
+// import { GavelIcon } from '@/components/layout/GavelIcon'; // Replaced with inline SVG
 
 export default function HomePage() {
   const router = useRouter();
@@ -102,15 +102,29 @@ export default function HomePage() {
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
             <div className="relative group w-full max-w-xl mx-auto">
-              <GavelIcon
+              {/* <GavelIcon
                 className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10"
-              />
+              /> */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10"
+              >
+                <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
+                <path d="m16 16 6-6"></path>
+                <path d="m8 8 6-6"></path>
+                <path d="m9 7 8 8"></path>
+                <path d="m21 11-8-8"></path>
+              </svg>
               <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="What are you debating about?"
-                className="w-full pl-12 pr-12 py-3 text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
+                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
                 disabled={isLoading}
                 aria-label="Search debate topic"
               />
@@ -140,3 +154,4 @@ export default function HomePage() {
     </div>
   );
 }
+
