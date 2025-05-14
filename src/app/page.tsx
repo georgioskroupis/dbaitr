@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react'; // Removed Gavel
+import { Loader2 } from 'lucide-react'; 
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
@@ -97,13 +97,14 @@ export default function HomePage() {
 
         <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
           <div className="relative group w-full max-w-xl mx-auto">
+            {/* Gavel Icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth={2}
+              strokeWidth={1.5} // Can adjust stroke width if needed
               stroke="currentColor"
-              className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary transition-transform duration-200 group-hover:rotate-6 group-focus-within:rotate-6"
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-white z-10 animate-gavel-strike origin-bottom-left"
             >
               <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
               <path d="m16 16 6-6"></path>
@@ -111,6 +112,8 @@ export default function HomePage() {
               <path d="m9 7 8 8"></path>
               <path d="m21 11-8-8"></path>
             </svg>
+
+            {/* Input Field */}
             <Input
               type="text"
               value={searchQuery}
@@ -120,6 +123,8 @@ export default function HomePage() {
               disabled={isLoading}
               aria-label="Search debate topic"
             />
+
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading || !searchQuery.trim()}
@@ -132,12 +137,13 @@ export default function HomePage() {
                 <img
                   src={actionButtonIconUrl}
                   alt="Search"
-                  className="h-6 w-6" // Updated size
+                  className="h-7 w-7" 
                 />
               )}
             </button>
           </div>
         </form>
+
       </div>
       <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
         &copy; {new Date().getFullYear()} db8. All rights reserved.
