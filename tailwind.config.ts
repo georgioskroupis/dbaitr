@@ -92,15 +92,15 @@ export default {
   					height: '0'
   				}
   			},
-        'gavel-strike': {
-          '0%, 100%': { transform: 'rotate(0deg)' },
-          '50%': { transform: 'rotate(15deg)' }, // Clockwise strike, adjust angle as needed
+        'gavel-strike-paused': { // New animation with pause
+          '0%, 50%, 100%': { transform: 'rotate(0deg)' }, // Paused states at 0s, 2s, 4s
+          '25%': { transform: 'rotate(20deg)' },       // Strike at 1s (20deg clockwise)
         }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-        'gavel-strike': 'gavel-strike 1.5s ease-in-out infinite',
+        'gavel-strike-paused': 'gavel-strike-paused 4s ease-in-out infinite', // New animation
   		}
   	}
   },

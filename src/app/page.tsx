@@ -102,9 +102,9 @@ export default function HomePage() {
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth={1.5} // Can adjust stroke width if needed
+              strokeWidth={1.5} 
               stroke="currentColor"
-              className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-white z-10 animate-gavel-strike origin-bottom-left"
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left" // Updated animation and color
             >
               <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
               <path d="m16 16 6-6"></path>
@@ -129,7 +129,7 @@ export default function HomePage() {
               type="submit"
               disabled={isLoading || !searchQuery.trim()}
               aria-label="Search or Create Topic"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition" // Updated button size to h-10 w-10
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white/80" />
@@ -137,7 +137,7 @@ export default function HomePage() {
                 <img
                   src={actionButtonIconUrl}
                   alt="Search"
-                  className="h-7 w-7" 
+                  className="h-8 w-8" // Updated icon size to h-8 w-8
                 />
               )}
             </button>
