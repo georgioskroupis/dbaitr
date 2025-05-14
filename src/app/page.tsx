@@ -1,3 +1,4 @@
+
 // src/app/page.tsx
 "use client";
 
@@ -10,8 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
 import { getAllTopicTitles, getTopicByTitle } from '@/lib/firestoreActions';
 import { cn } from '@/lib/utils';
-import { TopNav } from '@/components/layout/TopNav'; // Import TopNav
-import { GavelIcon } from '@/components/layout/GavelIcon';
+import { TopNav } from '@/components/layout/TopNav';
+import { GavelIcon } from '@/components/layout/GavelIcon'; // Ensure this is the inline SVG or working component
 
 export default function HomePage() {
   const router = useRouter();
@@ -79,9 +80,9 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col overflow-hidden">
-      <TopNav variant="landing" />
+      <TopNav variant="landing" /> {/* TopNav is transparent for landing */}
       <div className={cn(
-        "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative", // Added relative for video
+        "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative", 
       )}>
         <video
           autoPlay
@@ -96,8 +97,8 @@ export default function HomePage() {
         <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-          {/* Logo is now in TopNav for landing page */}
-          {/* <Logo width={280} href="/" /> */} 
+          {/* Logo is now centered in the page content */}
+          <Logo width={280} href="/" /> 
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
             <div className="relative group w-full max-w-xl mx-auto">
@@ -125,7 +126,7 @@ export default function HomePage() {
                   <img
                     src={actionButtonIconUrl}
                     alt="Search"
-                    className="h-5 w-5" // Reduced from h-6 w-6
+                    className="h-5 w-5"
                   />
                 )}
               </button>

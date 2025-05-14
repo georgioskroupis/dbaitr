@@ -32,7 +32,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
-  // Fetch topic titles for search suggestion/check (can be optimized)
+  // Fetch topic titles for search suggestion/check
   useEffect(() => {
     async function fetchTopics() {
       try {
@@ -44,7 +44,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       }
     }
     fetchTopics();
-  }, []); // Empty dependency array ensures it runs once on mount
+  }, []);
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -90,16 +90,18 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-16 items-center gap-4 border-b px-4 md:px-6",
-      "border-white/10 bg-black/70 backdrop-blur-md text-white"
+      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6",
+      isLandingPage ? "bg-transparent" : "border-b border-white/10 bg-black/70 backdrop-blur-md text-white"
     )}>
-      <div className={cn(
-        "flex items-center",
-        isLandingPage ? "flex-1 justify-center" : "justify-start" 
-      )}>
-        <Logo width={isLandingPage ? 120 : 100} href="/" />
-      </div>
+      
+      {/* Logo: Only shown for default variant, not for landing */}
+      {!isLandingPage && (
+        <div className="flex items-center justify-start">
+          <Logo width={100} href="/" />
+        </div>
+      )}
 
+      {/* Navigation for Default Variant */}
       {!isLandingPage && (
         <nav className="hidden flex-1 justify-center items-center gap-1 sm:gap-2 md:gap-4 lg:gap-6 md:flex">
           {navItems.map((item) => (
@@ -119,24 +121,41 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         </nav>
       )}
       
-      {/* Landing page specific nav items */}
+      {/* Landing page specific nav items layout */}
       {isLandingPage && (
-         <nav className="hidden md:flex flex-1 items-center justify-start gap-6 pl-8">
+         <nav className="flex flex-1 items-center justify-between w-full">
+            {/* Dashboard link to the far left */}
             <Link
               href="/dashboard"
               className={cn(
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                  pathname === "/dashboard" || pathname.startsWith("/topics")
-                  ? "bg-rose-500/30 text-rose-300"
+                  ? "bg-rose-500/30 text-rose-300" // Example active style
                   : "text-white/80 hover:bg-white/10 hover:text-white"
               )}
             >
               Dashboard
             </Link>
+            
+            {/* Auth related button to the far right */}
+            <div className="flex items-center gap-2">
+              {authLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
+              ) : user ? (
+                <UserNav />
+              ) : (
+                <Button asChild size="sm" variant="outline" className="border-rose-500/70 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500">
+                  <Link href="/auth">
+                    <UserPlus className="mr-1.5 h-4 w-4" /> Join the db8
+                  </Link>
+                </Button>
+              )}
+            </div>
          </nav>
       )}
 
 
+      {/* Search bar for Default Variant */}
       {!isLandingPage && (
         <div className="hidden md:flex items-center justify-center flex-1 max-w-xs lg:max-w-sm xl:max-w-md">
           <form onSubmit={handleSearchSubmit} className="w-full">
@@ -156,23 +175,22 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         </div>
       )}
 
-
-      <div className={cn(
-        "flex items-center gap-2",
-        isLandingPage ? "flex-1 justify-end" : ""
-      )}>
-        {authLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
-        ) : user ? (
-          <UserNav />
-        ) : (
-          <Button asChild size="sm" variant="outline" className="border-rose-500/70 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500">
-            <Link href="/auth">
-              <UserPlus className="mr-1.5 h-4 w-4" /> Join db8
-            </Link>
-          </Button>
-        )}
-      </div>
+      {/* Auth section for Default Variant (Desktop) */}
+      {!isLandingPage && (
+        <div className="flex items-center gap-2">
+          {authLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
+          ) : user ? (
+            <UserNav />
+          ) : (
+            <Button asChild size="sm" variant="outline" className="border-rose-500/70 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500">
+              <Link href="/auth">
+                <UserPlus className="mr-1.5 h-4 w-4" /> Join the db8
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
     </header>
   );
 }
