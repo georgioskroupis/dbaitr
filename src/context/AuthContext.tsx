@@ -54,13 +54,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("📡 [AuthContext] onAuthStateChanged triggered:", firebaseUser);
       setLoading(true); 
       if (firebaseUser) {
         setUser(firebaseUser);
 
         try {
           console.log(`[AuthContext] Ensuring profile for UID: ${firebaseUser.uid}`);
-          // createUserProfile should return a profile with ISO string dates already
           await createUserProfile(
             firebaseUser.uid,
             firebaseUser.email,
@@ -69,14 +69,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         } catch (profileError: any) {
           console.error(`[AuthContext] Error ensuring user profile for ${firebaseUser.uid}:`, profileError.message);
-          // Optional: Retry logic if deemed necessary, though createUserProfile handles basic exists check.
         }
 
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const rawProfileData = docSnap.data();
-            // Explicitly convert all relevant timestamps
             const processedProfileData = convertProfileTimestamps(rawProfileData);
             setUserProfile(processedProfileData);
           } else {
@@ -104,14 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (userProfile && !userProfile.kycVerified && userProfile.registeredAt) {
       try {
-        // Ensure registeredAt is a valid date string before parsing
         const registeredDate = new Date(userProfile.registeredAt); 
         if (isNaN(registeredDate.getTime())) {
           console.warn("[AuthContext] Invalid registeredAt date for suspension check:", userProfile.registeredAt);
           setIsSuspended(false); 
           return;
         }
-        // Create a new date object for gracePeriodEndDate to avoid mutating registeredDate
         const gracePeriodEndDate = new Date(registeredDate);
         gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 10);
         const now = new Date();

@@ -83,7 +83,7 @@ export default function UnifiedAuthPage() {
         setPhase("signup");
       }
     } catch (error) {
-      console.error("Error checking email:", error);
+      console.error("🔥 Full Auth Error:", error);
       toast({
         title: "Error",
         description: "Could not check email. Please try again.",
@@ -96,8 +96,12 @@ export default function UnifiedAuthPage() {
 
   const handleLoginSubmit: SubmitHandler<LoginFormValues> = async (values) => {
     setIsLoading(true);
+    console.log("🚀 Attempting to sign in with email:", values.email);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      console.log("✅ Sign in successful. Firebase User Credential:", userCredential);
+      console.log("👤 Firebase currentUser after sign in:", auth.currentUser);
+
       if (userCredential.user) {
         await createUserProfile(
           userCredential.user.uid,
@@ -117,14 +121,14 @@ export default function UnifiedAuthPage() {
         });
       });
       
-      console.log("User after login:", auth.currentUser); // Optional debug log
+      console.log("User after login state stabilization:", auth.currentUser);
 
       toast({ title: "Signed in successfully!" });
       const returnTo = searchParams.get("returnTo");
       router.push(returnTo || "/dashboard");
     } catch (error) {
       const authError = error as AuthError;
-      console.error("Login error:", authError);
+      console.error("🔥 Full Auth Error:", error);
       toast({
         title: "Sign In Failed",
         description: authError.message || "An unexpected error occurred.",
@@ -137,8 +141,12 @@ export default function UnifiedAuthPage() {
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
     setIsLoading(true);
+    console.log("🚀 Attempting to sign up with email:", values.email);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
+      console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
+
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: values.fullName });
         await createUserProfile(
@@ -159,7 +167,7 @@ export default function UnifiedAuthPage() {
         });
       });
 
-      console.log("User after signup:", auth.currentUser); // Optional debug log
+      console.log("User after signup state stabilization:", auth.currentUser); 
       
       toast({ 
         title: "Account Created Successfully!",
@@ -167,10 +175,10 @@ export default function UnifiedAuthPage() {
         duration: 7000,
       });
       const returnTo = searchParams.get("returnTo");
-      router.push(returnTo || "/verify-identity"); // Redirect to KYC or returnTo URL
+      router.push(returnTo || "/verify-identity"); 
     } catch (error) {
       const authError = error as AuthError;
-      console.error("Sign up error:", authError);
+      console.error("🔥 Full Auth Error:", error);
       toast({
         title: "Sign Up Failed",
         description: authError.message || "An unexpected error occurred.",
