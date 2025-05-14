@@ -119,7 +119,7 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What are you debating about?"
-              className="w-full pl-12 pr-12 py-3 text-lg rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
+              className="w-full pl-12 pr-12 py-3 text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
             />
@@ -129,7 +129,7 @@ export default function HomePage() {
               type="submit"
               disabled={isLoading || !searchQuery.trim()}
               aria-label="Search or Create Topic"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+              className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white/80" />
@@ -151,3 +151,4 @@ export default function HomePage() {
     </div>
   );
 }
+
