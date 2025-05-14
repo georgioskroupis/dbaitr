@@ -1,9 +1,10 @@
+
 // src/components/layout/TopNav.tsx
 "use client";
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { Home, User, UserPlus, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -32,7 +33,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
   // Fetch topic titles for search suggestion/check (can be optimized)
-  useState(() => {
+  useEffect(() => {
     async function fetchTopics() {
       try {
         const titles = await getAllTopicTitles();
@@ -43,7 +44,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       }
     }
     fetchTopics();
-  }, []);
+  }, []); // Empty dependency array ensures it runs once on mount
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,7 +74,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     } catch (error: any) {
       toast({
         title: "Search Error",
-        description: error.message || "Could not perform search.",
+        description: `An error occurred during the search process. This could be due to a network issue or a problem with the AI topic analysis service. Please try again. Error details: ${error.message || "Could not perform search."}`,
         variant: "destructive",
       });
     } finally {
