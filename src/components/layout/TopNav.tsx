@@ -42,8 +42,10 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         // Non-critical, search will still work but without pre-check
       }
     }
-    fetchTopics();
-  }, []);
+    if (variant === 'default') { // Only fetch for default variant search bar
+        fetchTopics();
+    }
+  }, [variant]);
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,10 +91,9 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white",
       isLandingPage
-        ? "bg-transparent" // Explicitly transparent for landing page
-        : "border-b border-white/10 bg-black/70 backdrop-blur-md" // Styles for non-landing page
+        ? "absolute top-0 left-0 w-full z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white bg-transparent"
+        : "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white border-b border-white/10 bg-black/70 backdrop-blur-md"
     )}>
       
       {/* Logo: Only shown for default variant, not for landing */}
