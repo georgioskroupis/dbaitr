@@ -54,6 +54,10 @@ export default function UnifiedAuthPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
+  React.useEffect(() => {
+    console.log("🌀 Auth Phase changed:", phase);
+  }, [phase]);
+
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
@@ -196,13 +200,15 @@ export default function UnifiedAuthPage() {
         setPhase("login"); // Switch to login phase
         // Optionally pre-fill email in login form if not already done
         loginForm.setValue("email", values.email);
-      } else {
-        toast({
-          title: "Sign Up Failed",
-          description: authError.message || "An unexpected error occurred.",
-          variant: "destructive",
-        });
-      }
+        return; 
+      } 
+      
+      toast({
+        title: "Sign Up Failed",
+        description: authError.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      
     } finally {
       setIsLoading(false);
     }
@@ -212,148 +218,148 @@ export default function UnifiedAuthPage() {
     if (phase === "email") {
       console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
       return (
-        <div key="email-form">
-          <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
-            <div>
-              <Label htmlFor="email-input" className="text-xl font-semibold text-white">Who are you?</Label>
-              <p className="text-sm text-white/50 mb-4">Enter your email to continue.</p>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
-                <Input
-                  id="email-input"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                  {...emailForm.register("email")}
-                />
-              </div>
-              {emailForm.formState.errors.email && (
-                <p className="mt-2 text-sm text-destructive">{emailForm.formState.errors.email.message}</p>
-              )}
+        <form onSubmit={emailForm.handleSubmit(handleEmailSubmit)} className="space-y-6">
+          <div>
+            <Label htmlFor="email-input" className="text-xl font-semibold text-white">Who are you?</Label>
+            <p className="text-sm text-white/50 mb-4">Enter your email to continue.</p>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
+              <Input
+                id="email-input"
+                type="email"
+                placeholder="you@example.com"
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
+                {...emailForm.register("email")}
+              />
             </div>
-            <Button type="submit" className="w-full text-base py-3 px-5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Continue"}
-            </Button>
-          </form>
-        </div>
+            {emailForm.formState.errors.email && (
+              <p className="mt-2 text-sm text-destructive">{emailForm.formState.errors.email.message}</p>
+            )}
+          </div>
+          <Button type="submit" className="w-full text-base py-3 px-5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Continue"}
+          </Button>
+        </form>
       );
     }
 
     if (phase === "login") {
       console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
       return (
-        <div key="login-form">
-          <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
-            <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
-            <p className="text-sm text-white/50">
-              Logging in as <span className="font-medium text-rose-400">{email}</span>.
-              Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset();}}>Start Over</Button>
-            </p>
-            <div>
-              <Label htmlFor="login-password text-white">Password</Label>
-              <div className="relative mt-1">
-                <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
-                <Input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                  {...loginForm.register("password")}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </Button>
-              </div>
-              {loginForm.formState.errors.password && (
-                <p className="mt-2 text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
-              )}
+        <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-6">
+          <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
+          <p className="text-sm text-white/50">
+            Logging in as <span className="font-medium text-rose-400">{email}</span>.
+            Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset();}}>Start Over</Button>
+          </p>
+          <div>
+            <Label htmlFor="login-password text-white">Password</Label>
+            <div className="relative mt-1">
+              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
+              <Input
+                id="login-password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
+                {...loginForm.register("password")}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </Button>
             </div>
-            <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
-            </Button>
-            <div className="text-center">
-               <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
-                  <a href="/forgot-password">Forgot Password?</a>
-                </Button>
-            </div>
-          </form>
-        </div>
+            {loginForm.formState.errors.password && (
+              <p className="mt-2 text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
+            )}
+          </div>
+          <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
+          </Button>
+          <div className="text-center">
+             <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
+                <a href="/forgot-password">Forgot Password?</a>
+              </Button>
+          </div>
+        </form>
       );
     }
 
     if (phase === "signup") {
       console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
       return (
-        <div key="signup-form">
-          <form 
-            onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
-              console.warn("❌ Signup form validation failed:", errors);
-              toast({
-                title: "Missing Fields",
-                description: "Please fill in your full name and password.",
-                variant: "destructive",
-              });
-            })} 
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
-             <p className="text-sm text-white/50">
-              Signing up with <span className="font-medium text-rose-400">{email}</span>.
-              Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => setPhase("login")}>Sign In</Button>
-            </p>
-            <div>
-              <Label htmlFor="signup-fullName" className="text-white">Full Name</Label>
-              <div className="relative mt-1">
-                <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
-                <Input
-                  id="signup-fullName"
-                  placeholder="Your Full Name"
-                  className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                  {...signupForm.register("fullName")}
-                />
-              </div>
-              {signupForm.formState.errors.fullName && (
-                <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
-              )}
+        <form 
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              console.warn("⚠️ Enter key pressed — preventing premature submission.");
+              e.preventDefault();
+            }
+          }}
+          onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
+            console.warn("❌ Signup form validation failed:", errors);
+            toast({
+              title: "Missing Fields",
+              description: "Please fill in your full name and password.",
+              variant: "destructive",
+            });
+          })} 
+          className="space-y-6"
+        >
+          <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
+           <p className="text-sm text-white/50">
+            Signing up with <span className="font-medium text-rose-400">{email}</span>.
+            Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => setPhase("login")}>Sign In</Button>
+          </p>
+          <div>
+            <Label htmlFor="signup-fullName" className="text-white">Full Name</Label>
+            <div className="relative mt-1">
+              <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
+              <Input
+                id="signup-fullName"
+                placeholder="Your Full Name"
+                className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
+                {...signupForm.register("fullName")}
+              />
             </div>
-            <div>
-              <Label htmlFor="signup-password text-white">Password</Label>
-              <div className="relative mt-1">
-                <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
-                <Input
-                  id="signup-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="•••••••• (min. 6 characters)"
-                  className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                  {...signupForm.register("password")}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </Button>
-              </div>
-              {signupForm.formState.errors.password && (
-                <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
-              )}
+            {signupForm.formState.errors.fullName && (
+              <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="signup-password text-white">Password</Label>
+            <div className="relative mt-1">
+              <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
+              <Input
+                id="signup-password"
+                type={showPassword ? "text" : "password"}
+                placeholder="•••••••• (min. 6 characters)"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
+                {...signupForm.register("password")}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-white/60 hover:text-white"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </Button>
             </div>
-            <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account & Get Certified"}
-            </Button>
-          </form>
-        </div>
+            {signupForm.formState.errors.password && (
+              <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
+            )}
+          </div>
+          <Button type="submit" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account & Get Certified"}
+          </Button>
+        </form>
       );
     }
     return null;
