@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
-import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react'; // Renamed Search to SearchIconLucide
+import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react';
 import { cn, debounce } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
@@ -40,10 +40,11 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetchSuggestions = useCallback(
     debounce(async (query: string) => {
-      if (isLandingPage) return; // No suggestions on landing page's top nav search
+      if (isLandingPage) return;
       if (!query.trim() || query.length < 3) {
          setSuggestions([]);
         if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+        setIsSuggestionLoading(false);
         return;
       }
       setIsSuggestionLoading(true);
@@ -57,7 +58,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         setIsSuggestionLoading(false);
       }
     }, 300),
-    [isLandingPage]
+    [isLandingPage] // Add isLandingPage to dependencies
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,6 +69,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     if (query.trim() === '') {
       setSuggestions([]);
       setShowSuggestions(false);
+      setIsSuggestionLoading(false);
     } else {
       setShowSuggestions(true);
       debouncedFetchSuggestions(query);
@@ -76,7 +78,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   const handleSuggestionClick = async (title: string) => {
     if (isLandingPage) return;
-    setIsSearching(true);
+    setIsSearching(true); // Use main form loader
     setSearchQuery(title);
     setShowSuggestions(false);
     try {
@@ -87,10 +89,10 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
     } catch (error) {
-      toast({ title: "Navigation Error", variant: "destructive" });
+      toast({ title: "Navigation Error", description: "Could not navigate to suggested topic.", variant: "destructive" });
     } finally {
       setIsSearching(false);
-      setSearchQuery(''); // Clear search after navigation
+      setSearchQuery(''); 
     }
   };
 
@@ -101,22 +103,22 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     setIsSearching(true);
     setShowSuggestions(false);
 
-    const exactMatch = suggestions.find(s => s.title.toLowerCase() === searchQuery.toLowerCase());
-    if (exactMatch) {
-        await handleSuggestionClick(exactMatch.title);
+    const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
+    if (exactMatchInCurrentSuggestions) {
+        await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
     }
 
     try {
-      const existingTopic = await getTopicByTitle(searchQuery);
+      const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
         toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
         router.push(`/topics/${existingTopic.id}`);
       } else {
-        toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
-        router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
+        toast({ title: "Create New Topic", description: `Let's create "${searchQuery.trim()}".` });
+        router.push(`/topics/new?title=${encodeURIComponent(searchQuery.trim())}`);
       }
-      setSearchQuery(''); // Clear search after action
+      setSearchQuery(''); 
     } catch (error: any) {
       toast({
         title: "Search Error",
@@ -128,7 +130,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     }
   };
   
-  // Close suggestions when clicking outside
   useEffect(() => {
     if (isLandingPage) return;
     function handleClickOutside(event: MouseEvent) {
@@ -187,23 +188,27 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                   placeholder="What's the db8?"
                   value={searchQuery}
                   onChange={handleInputChange}
-                  onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
-                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-2 text-sm text-white placeholder-white/60 focus:ring-rose-500"
+                  onFocus={() => !isLandingPage && searchQuery.trim() && setShowSuggestions(true)}
+                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-10 text-sm text-white placeholder-white/60 focus:ring-rose-500" // Added pr-10 for loader
                   disabled={isSearching}
                   autoComplete="off"
                 />
-                {(isSearching || isSuggestionLoading) && <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />}
+                {(isSearching || isSuggestionLoading) && !isLandingPage && (
+                  <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />
+                )}
               </div>
                {showSuggestions && !isLandingPage && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
-                  {isSuggestionLoading && <p className="p-2 text-xs text-muted-foreground">Loading...</p>}
-                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >=3 && (
+                  {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
+                    <p className="p-2 text-xs text-muted-foreground">Loading...</p>
+                  )}
+                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
                     <p className="p-2 text-xs text-muted-foreground">No similar topics.</p>
                   )}
                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
                     <p className="p-2 text-xs text-muted-foreground">Keep typing...</p>
                   )}
-                  {!isSuggestionLoading && suggestions.map((suggestion, index) => (
+                  {suggestions.length > 0 && suggestions.map((suggestion, index) => (
                     <div
                       key={index}
                       className="p-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"

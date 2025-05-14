@@ -33,8 +33,9 @@ export default function HomePage() {
   const debouncedFetchSuggestions = useCallback(
     debounce(async (query: string) => {
       if (!query.trim() || query.length < 3) { // Min 3 chars to search
-        setSuggestions([]);
+        setSuggestions([]); // Clear suggestions if query is too short or empty
         if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+        setIsSuggestionLoading(false); // Stop loading if query is invalid for search
         return;
       }
       setIsSuggestionLoading(true);
@@ -44,7 +45,6 @@ export default function HomePage() {
       } catch (error) {
         console.error("Failed to fetch suggestions:", error);
         setSuggestions([]);
-        // Optionally, toast an error, but might be too noisy for live search
       } finally {
         setIsSuggestionLoading(false);
       }
@@ -58,6 +58,7 @@ export default function HomePage() {
     if (query.trim() === '') {
       setSuggestions([]);
       setShowSuggestions(false);
+      setIsSuggestionLoading(false); // Stop loading if query is cleared
     } else {
       setShowSuggestions(true);
       debouncedFetchSuggestions(query);
@@ -65,14 +66,15 @@ export default function HomePage() {
   };
   
   const handleSuggestionClick = async (title: string) => {
-    setIsLoading(true);
-    setSearchQuery(title); // Populate search bar with selection
+    setIsLoading(true); // Main form loader
+    setSearchQuery(title); // Optionally update input, good for UX if nav fails
     setShowSuggestions(false);
     try {
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
         router.push(`/topics/${topic.id}`);
       } else {
+        // If suggested topic somehow not found, navigate to create new with this title
         toast({ title: "Topic Not Found", description: `Could not find details for "${title}". You can create it.`, variant: "default" });
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
@@ -93,29 +95,26 @@ export default function HomePage() {
     setIsLoading(true);
     setShowSuggestions(false); // Hide suggestions on direct submit
 
-    // Check if current search query exactly matches any of the fetched suggestions
-    const exactMatch = suggestions.find(s => s.title.toLowerCase() === searchQuery.toLowerCase());
-    if (exactMatch) {
-        await handleSuggestionClick(exactMatch.title); // Use existing logic for navigation
-        return; // Stop further execution
+    const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
+    if (exactMatchInCurrentSuggestions) {
+        await handleSuggestionClick(exactMatchInCurrentSuggestions.title); 
+        return;
     }
 
-    // If no exact match from suggestions, try to find by title directly
     try {
-      const existingTopic = await getTopicByTitle(searchQuery);
+      const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
         toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
         router.push(`/topics/${existingTopic.id}`);
       } else {
-        // If still not found, proceed to create new topic flow
-        toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
-        router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
+        toast({ title: "Create New Topic", description: `Let's create "${searchQuery.trim()}".` });
+        router.push(`/topics/new?title=${encodeURIComponent(searchQuery.trim())}`);
       }
     } catch (error: any) {
       console.error("Detailed error: Error during topic search or initial creation step:", error);
       toast({
         title: "Search/Create Topic Error",
-        description: `Something went wrong while trying to search for or create the topic "${searchQuery}". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
+        description: `Something went wrong while trying to search for or create the topic "${searchQuery.trim()}". Please check your internet connection and try again. Error detail: ${error.message || 'Unknown error.'}`,
         variant: "destructive",
       });
     } finally {
@@ -178,7 +177,7 @@ export default function HomePage() {
                 type="text"
                 value={searchQuery}
                 onChange={handleInputChange}
-                onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
+                onFocus={() => searchQuery.trim() && setShowSuggestions(true)} // Show suggestions on focus if query exists
                 placeholder="What are you debating about?"
                 className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
                 disabled={isLoading}
@@ -191,7 +190,7 @@ export default function HomePage() {
                 aria-label="Search or Create Topic"
                 className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
               >
-                {isLoading && !isSuggestionLoading ? ( // Show main loader only if not suggestion loading
+                {isLoading && !isSuggestionLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-white/80" />
                 ) : (
                   <img
@@ -204,14 +203,17 @@ export default function HomePage() {
               {/* Suggestions Dropdown */}
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
-                  {isSuggestionLoading && <p className="p-3 text-sm text-muted-foreground">Loading suggestions...</p>}
+                  {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
+                    <p className="p-3 text-sm text-muted-foreground">Loading suggestions...</p>
+                  )}
                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
                     <p className="p-3 text-sm text-muted-foreground">No similar topics found.</p>
                   )}
-                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
+                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
                     <p className="p-3 text-sm text-muted-foreground">Keep typing to see suggestions...</p>
                   )}
-                  {!isSuggestionLoading && suggestions.map((suggestion, index) => (
+                  {/* Render suggestions even if isSuggestionLoading is true, to avoid flicker */}
+                  {suggestions.length > 0 && suggestions.map((suggestion, index) => (
                     <div
                       key={index}
                       className="p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"

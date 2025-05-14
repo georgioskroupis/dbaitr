@@ -3,7 +3,7 @@
 
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Search as SearchIconLucide, X } from 'lucide-react'; // Renamed Search
+import { Loader2, Search as SearchIconLucide, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
   const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
 
   // Debounced function to fetch suggestions
@@ -37,6 +38,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
       if (!query.trim() || query.length < 3) {
         setSuggestions([]);
         if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+        setIsSuggestionLoading(false);
         return;
       }
       setIsSuggestionLoading(true);
@@ -60,6 +62,11 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
       setShowSuggestions(false);
       setIsLoading(false);
       setIsSuggestionLoading(false);
+    } else {
+        // Auto-focus input when modal opens
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100); // Small delay to ensure modal is rendered
     }
   }, [isOpen]);
 
@@ -69,6 +76,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
      if (query.trim() === '') {
       setSuggestions([]);
       setShowSuggestions(false);
+      setIsSuggestionLoading(false);
     } else {
       setShowSuggestions(true);
       debouncedFetchSuggestions(query);
@@ -76,7 +84,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
   };
   
   const handleSuggestionClick = async (title: string) => {
-    setIsLoading(true);
+    setIsLoading(true); 
     setSearchQuery(title);
     setShowSuggestions(false);
     try {
@@ -86,9 +94,9 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
       } else {
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
-      onOpenChange(false); // Close modal on navigation
+      onOpenChange(false); 
     } catch (error) {
-      toast({ title: "Navigation Error", variant: "destructive" });
+      toast({ title: "Navigation Error", description: "Could not navigate to suggested topic.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -103,22 +111,22 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     setIsLoading(true);
     setShowSuggestions(false);
 
-    const exactMatch = suggestions.find(s => s.title.toLowerCase() === searchQuery.toLowerCase());
-    if (exactMatch) {
-        await handleSuggestionClick(exactMatch.title);
+    const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
+    if (exactMatchInCurrentSuggestions) {
+        await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
     }
     
     try {
-      const existingTopic = await getTopicByTitle(searchQuery);
+      const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
         toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
         router.push(`/topics/${existingTopic.id}`);
       } else {
-        toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
-        router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
+        toast({ title: "Create New Topic", description: `Let's create "${searchQuery.trim()}".` });
+        router.push(`/topics/new?title=${encodeURIComponent(searchQuery.trim())}`);
       }
-      onOpenChange(false); // Close modal on navigation
+      onOpenChange(false); 
     } catch (error: any) {
       console.error("GlobalSearchModal: Error during topic search/create:", error);
       toast({
@@ -131,7 +139,6 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     }
   };
 
-  // Close suggestions when clicking outside the search input and suggestions list
     useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -162,27 +169,29 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
           <div className="relative" ref={searchContainerRef}>
             <SearchIconLucide className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
             <Input
+              ref={inputRef} // Assign ref for auto-focus
               type="text"
               value={searchQuery}
               onChange={handleInputChange}
-              onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
+              onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
               placeholder="What would you like to debate?"
               className="w-full pl-10 pr-4 py-3 text-base rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-rose-500 backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
               autoComplete="off"
             />
-            {/* Suggestions Dropdown */}
             {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto text-left">
-                  {isSuggestionLoading && <p className="p-3 text-sm text-muted-foreground">Loading...</p>}
+                  {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >=3 && (
+                    <p className="p-3 text-sm text-muted-foreground">Loading...</p>
+                  )}
                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >=3 && (
                     <p className="p-3 text-sm text-muted-foreground">No similar topics found.</p>
                   )}
                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
                     <p className="p-3 text-sm text-muted-foreground">Keep typing...</p>
                   )}
-                  {!isSuggestionLoading && suggestions.map((suggestion, index) => (
+                  {suggestions.length > 0 && suggestions.map((suggestion, index) => (
                     <div
                       key={index}
                       className="p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
@@ -209,9 +218,11 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
             Search or Create
           </Button>
         </form>
-        <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
+        <DialogClose asChild>
+            <Button variant="ghost" size="icon" className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+            </Button>
         </DialogClose>
       </DialogContent>
     </Dialog>
