@@ -67,9 +67,9 @@ export default function UnifiedAuthPage() {
   const signupForm = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: { 
-      email: "georgios.kroupis@gmail.com",
-      fullName: "Test User",
-      password: "test1234"
+      email: "", // Will be set dynamically
+      fullName: "",
+      password: ""
     },
   });
 
