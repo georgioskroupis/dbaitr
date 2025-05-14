@@ -92,35 +92,53 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   return (
     <header className={cn(
       isLandingPage
-        ? "absolute top-0 left-0 w-full z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white bg-transparent"
-        : "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white border-b border-white/10 bg-black/70 backdrop-blur-md"
+        ? "absolute top-0 left-0 w-full z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-white bg-transparent"
+        : "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-white border-b border-white/10 bg-black/70 backdrop-blur-md"
     )}>
       
-      {/* Logo: Only shown for default variant, not for landing */}
+      {/* Left Section: Logo and Dashboard link for default variant */}
       {!isLandingPage && (
-        <div className="flex items-center justify-start">
+        <div className="flex items-center gap-x-4">
           <Logo width={100} href="/" />
+          <nav className="hidden md:flex items-center gap-1 sm:gap-2">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  pathname === item.href || (item.href === "/dashboard" && pathname.startsWith("/topics"))
+                    ? "bg-rose-500/30 text-rose-300"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       )}
 
-      {/* Navigation for Default Variant */}
+      {/* Center Section: Search bar for default variant (Desktop) */}
       {!isLandingPage && (
-        <nav className="hidden flex-1 justify-center items-center gap-1 sm:gap-2 md:gap-4 lg:gap-6 md:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                pathname === item.href || (item.href === "/dashboard" && pathname.startsWith("/topics"))
-                  ? "bg-rose-500/30 text-rose-300"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="flex-1 hidden md:flex justify-center px-4">
+          <div className="w-full max-w-xs lg:max-w-sm xl:max-w-md">
+            <form onSubmit={handleSearchSubmit} className="w-full">
+              <div className="relative">
+                <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" /> {/* Gavel icon color updated */}
+                <Input
+                  type="search"
+                  placeholder="What's the db8?" // Placeholder text updated
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-2 text-sm text-white placeholder-white/60 focus:ring-rose-500"
+                  disabled={isSearching}
+                />
+                {isSearching && <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />}
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       
       {/* Landing page specific nav items layout */}
@@ -157,27 +175,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       )}
 
 
-      {/* Search bar for Default Variant */}
-      {!isLandingPage && (
-        <div className="hidden md:flex items-center justify-center flex-1 max-w-xs lg:max-w-sm xl:max-w-md">
-          <form onSubmit={handleSearchSubmit} className="w-full">
-            <div className="relative">
-              <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-400" />
-              <Input
-                type="search"
-                placeholder="Start a db8..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-2 text-sm text-white placeholder-white/60 focus:ring-rose-500"
-                disabled={isSearching}
-              />
-              {isSearching && <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />}
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Auth section for Default Variant (Desktop) */}
+      {/* Right Section: Auth section for default variant (Desktop) */}
       {!isLandingPage && (
         <div className="flex items-center gap-2">
           {authLoading ? (

@@ -18,18 +18,19 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
   const { user, loading } = useAuth();
 
   const navItems = [
-    { href: '/dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/dashboard', icon: Home, label: 'Dashboard', id: 'dashboard' },
     { 
       action: () => setSearchModalOpen(true), 
-      icon: GavelIcon, // Using the GavelIcon component here
+      icon: GavelIcon, 
       label: 'Start db8', 
       id: 'start-db8' 
     },
     { 
-      href: user ? '/profile' : '/auth', // Simplified: /profile route would need to be created
+      href: user ? '/profile' : '/auth', 
       icon: user ? User : UserPlus, 
       label: user ? 'Profile' : 'Join db8',
-      authRequired: false // Icon changes based on auth state
+      id: user ? 'profile' : 'join-db8',
+      authRequired: false 
     },
   ];
 
@@ -53,18 +54,27 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
           const Icon = item.icon;
           
           const itemKey = item.href || item.id;
+          
+          let buttonSpecificClasses = '';
+          if (item.id === 'start-db8') {
+            buttonSpecificClasses = 'bg-primary/20 hover:bg-primary/30 p-3 rounded-lg'; // Pop out style for gavel
+          } else {
+            buttonSpecificClasses = 'p-2';
+          }
+
           const commonProps = {
             className: cn(
-              'flex flex-col items-center justify-center gap-1 p-2 rounded-md text-xs transition-colors',
+              'flex flex-col items-center justify-center gap-1 rounded-md text-xs transition-colors',
               isActive ? 'text-rose-400' : 'text-white/70 hover:text-white hover:bg-white/10',
+              buttonSpecificClasses
             ),
           };
+          
 
           if (item.action) {
             return (
               <button key={itemKey} {...commonProps} onClick={item.action}>
-                <Icon className={cn("h-6 w-6", item.label === "Start db8" ? "text-rose-500" : "")} />
-                {/* No labels as per requirement */}
+                <Icon className={cn("h-6 w-6", item.id === 'start-db8' ? "text-white" : "")} /> {/* Gavel icon is white */}
               </button>
             );
           }
@@ -72,7 +82,6 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
           return (
             <Link key={itemKey} href={item.href!} {...commonProps}>
               <Icon className="h-6 w-6" />
-              {/* No labels as per requirement */}
             </Link>
           );
         })}

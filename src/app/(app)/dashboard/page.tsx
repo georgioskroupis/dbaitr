@@ -100,17 +100,12 @@ export default function DashboardPage() {
     <div className="container mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-semibold text-white">Debate Topics</h1>
-        <Button asChild className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">
-          <Link href="/topics/new">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Create New Topic
-          </Link>
-        </Button>
+        {/* "Create New Topic" button removed as per request */}
       </div>
 
       {topics.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-white/10 rounded-xl bg-black/20 text-center backdrop-blur-sm">
-          <img src="https://picsum.photos/seed/empty-dashboard/300/200" alt="Empty state" data-ai-hint="empty state no topics" className="mb-6 rounded-md opacity-70" />
+          <img src="https://placehold.co/300x200.png" alt="Empty state" data-ai-hint="empty state no topics" className="mb-6 rounded-md opacity-70" />
           <h2 className="text-2xl font-semibold text-white mb-2">No Debate Topics Yet</h2>
           <p className="text-white/50 mb-6">It looks a bit quiet here. Be the first to spark a debate and create a new topic!</p>
           <Button asChild size="lg" className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">

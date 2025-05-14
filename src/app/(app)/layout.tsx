@@ -14,7 +14,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
-import { cn } from '@/lib/utils'; // Added import for cn
+import { cn } from '@/lib/utils';
+import { Logo } from '@/components/layout/Logo'; // Import Logo
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, loading: authLoading, isSuspended, kycVerified } = useAuth();
@@ -29,10 +30,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         if (pathname !== '/verify-identity' && pathname !== '/account-suspended') {
           router.replace('/account-suspended');
         }
-      } else if (user && !kycVerified && pathname === '/account-suspended') { // User exists, not suspended, but not KYC verified, and on suspension page
-        router.replace('/verify-identity'); // Guide to verify
-      } else if (user && kycVerified && pathname === '/account-suspended') { // User exists, KYC verified, but somehow on suspension page
-        router.replace('/dashboard'); // Should be on dashboard
+      } else if (user && !kycVerified && pathname === '/account-suspended') { 
+        router.replace('/verify-identity'); 
+      } else if (user && kycVerified && pathname === '/account-suspended') { 
+        router.replace('/dashboard'); 
       }
     }
   }, [authLoading, user, isSuspended, kycVerified, router, pathname]);
@@ -54,9 +55,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       
       <main className={cn(
         "flex-1 w-full mx-auto",
-        isMobile ? "pb-16" : "pt-0", // Padding for bottom nav
+        isMobile ? "pb-16" : "pt-0", 
         "p-4 md:p-6 lg:p-8" 
       )}>
+        {isMobile && (
+          <div className="px-0 pb-4 md:hidden"> {/* Use px-0 to align with main content padding */}
+            <Logo width={90} /> 
+          </div>
+        )}
         {showSuspensionBanner && (
           <Alert variant="destructive" className="mb-6 bg-red-900/50 border-red-700 text-red-200">
             <AlertTitle className="font-semibold">Account Access Restricted</AlertTitle>
