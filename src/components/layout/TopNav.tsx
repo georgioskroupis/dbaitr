@@ -32,7 +32,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
 
-  // Fetch topic titles for search suggestion/check
   useEffect(() => {
     async function fetchTopics() {
       try {
@@ -90,8 +89,8 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6",
-      isLandingPage ? "bg-transparent" : "border-b border-white/10 bg-black/70 backdrop-blur-md text-white"
+      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white", // Common base styles + text color
+      !isLandingPage && "border-b border-white/10 bg-black/70 backdrop-blur-md" // Styles only for non-landing page
     )}>
       
       {/* Logo: Only shown for default variant, not for landing */}
@@ -130,7 +129,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
               className={cn(
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                  pathname === "/dashboard" || pathname.startsWith("/topics")
-                  ? "bg-rose-500/30 text-rose-300" // Example active style
+                  ? "bg-rose-500/30 text-rose-300" 
                   : "text-white/80 hover:bg-white/10 hover:text-white"
               )}
             >
