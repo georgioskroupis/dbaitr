@@ -14,6 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
+import { cn } from '@/lib/utils'; // Added import for cn
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, loading: authLoading, isSuspended, kycVerified } = useAuth();
