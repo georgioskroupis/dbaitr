@@ -1,5 +1,4 @@
-
-// Improved landing page search bar with proper gavel icon rendering and button size fix
+// src/app/page.tsx
 "use client";
 
 import { useState, type FormEvent, useEffect } from 'react';
@@ -11,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
 import { getAllTopicTitles, getTopicByTitle } from '@/lib/firestoreActions';
 import { cn } from '@/lib/utils';
+import { TopNav } from '@/components/layout/TopNav'; // Import TopNav
+import { GavelIcon } from '@/components/layout/GavelIcon';
 
 export default function HomePage() {
   const router = useRouter();
@@ -55,20 +56,20 @@ export default function HomePage() {
       if (similarTopicsResult.isSimilar && similarTopicsResult.closestMatch) {
         const existingTopic = await getTopicByTitle(similarTopicsResult.closestMatch);
         if (existingTopic?.id) {
-          toast({ title: "Topic Found!", description: `Redirecting to \"${existingTopic.title}\".` });
+          toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
           router.push(`/topics/${existingTopic.id}`);
           return;
         }
       }
 
-      toast({ title: "Create New Topic", description: `Let's create \"${searchQuery}\".` });
+      toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
       router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
 
     } catch (error: any) {
       console.error("Detailed error: Error during topic search or initial creation step:", error);
       toast({
         title: "Search/Create Topic Error",
-        description: `Something went wrong while trying to search for or create the topic \"${searchQuery}\". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
+        description: `Something went wrong while trying to search for or create the topic "${searchQuery}". Please check your internet connection and try again. If the problem continues, please contact support. Error detail: ${error.message || 'Unknown error.'}`,
         variant: "destructive",
       });
     } finally {
@@ -77,78 +78,64 @@ export default function HomePage() {
   };
 
   return (
-    <div className={cn(
-      "flex min-h-screen flex-col items-center justify-center p-4 md:p-8 overflow-hidden",
-    )}>
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="absolute top-0 left-0 w-full h-full object-cover z-[-2]"
-      >
-        <source src={videoUrl} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
-      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
+    <div className="flex min-h-screen flex-col overflow-hidden">
+      <TopNav variant="landing" />
+      <div className={cn(
+        "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative", // Added relative for video
+      )}>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute top-0 left-0 w-full h-full object-cover z-[-2]"
+        >
+          <source src={videoUrl} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
 
-      <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-        <Logo width={280} href="/" />
+        <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
+          {/* Logo is now in TopNav for landing page */}
+          {/* <Logo width={280} href="/" /> */} 
 
-        <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
-          <div className="relative group w-full max-w-xl mx-auto">
-            {/* Gavel Icon */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="z-10 absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left"
-            >
-              <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
-              <path d="m16 16 6-6"></path>
-              <path d="m8 8 6-6"></path>
-              <path d="m9 7 8 8"></path>
-              <path d="m21 11-8-8"></path>
-            </svg>
-
-            {/* Input Field */}
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="What are you debating about?"
-              className="w-full pl-12 pr-12 py-3 text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
-              disabled={isLoading}
-              aria-label="Search debate topic"
-            />
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading || !searchQuery.trim()}
-              aria-label="Search or Create Topic"
-              className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-white/80" />
-              ) : (
-                <img
-                  src={actionButtonIconUrl}
-                  alt="Search"
-                  className="h-5 w-5"
-                />
-              )}
-            </button>
-          </div>
-        </form>
-
+          <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
+            <div className="relative group w-full max-w-xl mx-auto">
+              <GavelIcon
+                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10"
+              />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="What are you debating about?"
+                className="w-full pl-12 pr-12 py-3 text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
+                disabled={isLoading}
+                aria-label="Search debate topic"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !searchQuery.trim()}
+                aria-label="Search or Create Topic"
+                className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white/80" />
+                ) : (
+                  <img
+                    src={actionButtonIconUrl}
+                    alt="Search"
+                    className="h-5 w-5" // Reduced from h-6 w-6
+                  />
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+        <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
+          &copy; {new Date().getFullYear()} db8. All rights reserved.
+        </p>
       </div>
-      <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
-        &copy; {new Date().getFullYear()} db8. All rights reserved.
-      </p>
     </div>
   );
 }
-
