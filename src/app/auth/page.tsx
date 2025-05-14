@@ -58,25 +58,7 @@ export default function UnifiedAuthPage() {
   const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
   const signupFullNameInputRef = React.useRef<HTMLInputElement>(null);
 
-
-  React.useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🌀 Auth Phase changed:", phase);
-    }
-    // Auto-focus logic
-    setTimeout(() => {
-      if (phase === "email") {
-        emailInputRef.current?.focus();
-      } else if (phase === "login") {
-        loginForm.setValue("email", email);
-        loginPasswordInputRef.current?.focus();
-      } else if (phase === "signup") {
-        signupForm.setValue("email", email);
-        signupFullNameInputRef.current?.focus();
-      }
-    }, 0); // setTimeout ensures focus happens after potential DOM updates
-  }, [phase, email, loginForm, signupForm]);
-
+  // Moved form declarations before the useEffect that uses them
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
@@ -100,6 +82,25 @@ export default function UnifiedAuthPage() {
     criteriaMode: "all", 
     shouldFocusError: true, 
   });
+
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🌀 Auth Phase changed:", phase);
+    }
+    // Auto-focus logic
+    setTimeout(() => {
+      if (phase === "email") {
+        emailInputRef.current?.focus();
+      } else if (phase === "login") {
+        loginForm.setValue("email", email);
+        loginPasswordInputRef.current?.focus();
+      } else if (phase === "signup") {
+        signupForm.setValue("email", email);
+        signupFullNameInputRef.current?.focus();
+      }
+    }, 0); // setTimeout ensures focus happens after potential DOM updates
+  }, [phase, email, loginForm, signupForm]);
+
 
   const handleEmailSubmit: SubmitHandler<EmailFormValues> = async (values) => {
     setIsLoading(true);
