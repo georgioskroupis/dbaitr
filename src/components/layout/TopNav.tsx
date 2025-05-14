@@ -89,8 +89,10 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white", // Common base styles + text color
-      !isLandingPage && "border-b border-white/10 bg-black/70 backdrop-blur-md" // Styles only for non-landing page
+      "sticky top-0 z-40 flex h-16 items-center gap-4 px-4 md:px-6 text-white",
+      isLandingPage
+        ? "bg-transparent" // Explicitly transparent for landing page
+        : "border-b border-white/10 bg-black/70 backdrop-blur-md" // Styles for non-landing page
     )}>
       
       {/* Logo: Only shown for default variant, not for landing */}
