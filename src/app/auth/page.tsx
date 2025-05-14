@@ -79,12 +79,14 @@ export default function UnifiedAuthPage() {
 
   const signupForm = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
-    mode: "onChange", // Sync values more reliably
     defaultValues: {
       email: "",
       fullName: "",
       password: ""
     },
+    mode: "onChange", // Validate on change to provide feedback sooner
+    criteriaMode: "all", // Show all validation errors for a field
+    shouldFocusError: true, // Focus the first field with an error on submit
   });
 
   const handleEmailSubmit: SubmitHandler<EmailFormValues> = async (values) => {
@@ -168,7 +170,6 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
-    // Force validation trigger to ensure form values are up-to-date
     const isValid = await signupForm.trigger();
     if (!isValid) {
       toast({
@@ -178,12 +179,16 @@ export default function UnifiedAuthPage() {
       });
       return;
     }
-
+  
     if (process.env.NODE_ENV !== "production") {
-      console.log("🧾 Values before submit (from signupForm.getValues()):", signupForm.getValues());
-      console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
+        console.log("🧾 Values before submit (from signupForm.getValues()):", signupForm.getValues());
+        console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
     }
     setIsLoading(true);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("ℹ️ Starting sign-up process...");
+    }
+
     if (process.env.NODE_ENV !== "production") {
       console.log("🚀 Attempting to sign up with email:", values.email);
     }
@@ -205,7 +210,7 @@ export default function UnifiedAuthPage() {
       if (process.env.NODE_ENV !== "production") {
         console.log("🧾 Firebase current user immediately after signup:", auth.currentUser);
       }
-      
+
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
           if (user) {
@@ -223,7 +228,7 @@ export default function UnifiedAuthPage() {
       const returnTo = searchParams.get("returnTo");
       router.push(returnTo || "/verify-identity");
     } catch (error) {
-      const authError = error as AuthError;
+      const authError = error as AuthError; 
       if (process.env.NODE_ENV !== "production") {
        console.error("🔥 Full Auth Error:", error);
       }
@@ -235,7 +240,7 @@ export default function UnifiedAuthPage() {
           variant: "destructive",
         });
         setPhase("login");
-        loginForm.setValue("email", values.email); // Pre-fill login form email
+        loginForm.setValue("email", values.email); 
         return;
       }
 
@@ -323,7 +328,7 @@ export default function UnifiedAuthPage() {
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
           </Button>
           <div className="text-center">
-            <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition">
+            <Button variant="link" asChild className="p-0 text-sm text-rose-400 underline hover:text-white transition h-auto">
               <a href="/forgot-password">Forgot Password?</a>
             </Button>
           </div>
@@ -337,38 +342,24 @@ export default function UnifiedAuthPage() {
       }
       return (
         <form
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              // Prevent default browser submission if form is not valid according to RHF
-              if (!signupForm.formState.isValid) {
-                e.preventDefault(); 
-                if (process.env.NODE_ENV !== "production") {
-                  console.warn("⚠️ Enter key pressed on signup form, but form is not valid (RHF). Preventing default browser submission.");
-                }
-                // Optionally trigger validation to show errors to the user
-                signupForm.trigger(); 
-                toast({
-                    title: "Incomplete Form",
-                    description: "Please fill out all required fields correctly before submitting with Enter.",
-                    variant: "destructive",
-                });
-              }
-              // If form IS valid, Enter key will proceed to trigger the onSubmit handler below
+          onKeyDown={(e) => { 
+            if (e.key === "Enter") { 
+              e.preventDefault(); 
+              const el = document.activeElement as HTMLElement; 
+              (document.activeElement as HTMLElement).blur();
+              requestAnimationFrame(() => {
+                signupForm.handleSubmit(handleSignUpSubmit)(); 
+              });
             }
           }}
-          onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
-            if (process.env.NODE_ENV !== "production") {
-              console.warn("❌ Signup form validation failed:", errors);
-            }
-            // Toast is already shown by explicit trigger() call if validation fails in handleSignUpSubmit
-          })}
+          onSubmit={signupForm.handleSubmit(handleSignUpSubmit)}
           className="space-y-6"
         >
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
           <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
             Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
-                loginForm.setValue("email", email); // Ensure email is pre-filled
+                loginForm.setValue("email", email); 
                 setPhase("login");
             }}>Sign In</Button>
           </p>
