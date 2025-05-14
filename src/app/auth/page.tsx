@@ -151,7 +151,7 @@ export default function UnifiedAuthPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
-      console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
+      
 
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: values.fullName });
@@ -162,6 +162,7 @@ export default function UnifiedAuthPage() {
           'password' // Assuming email/password signup
         );
       }
+      console.log("👤 Firebase currentUser after sign up:", auth.currentUser);
 
       // Wait for Firebase Auth to stabilize
       await new Promise<void>((resolve) => {
@@ -185,11 +186,23 @@ export default function UnifiedAuthPage() {
     } catch (error) {
       const authError = error as AuthError;
       console.error("🔥 Full Auth Error:", error);
-      toast({
-        title: "Sign Up Failed",
-        description: authError.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+
+      if (authError.code === "auth/email-already-in-use") {
+        toast({
+          title: "Email Already Registered",
+          description: "That email has already been used. Try signing in instead.",
+          variant: "destructive",
+        });
+        setPhase("login"); // Switch to login phase
+        // Optionally pre-fill email in login form if not already done
+        loginForm.setValue("email", values.email);
+      } else {
+        toast({
+          title: "Sign Up Failed",
+          description: authError.message || "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -347,9 +360,10 @@ export default function UnifiedAuthPage() {
   };
 
   return (
-    <>
+    <div key={phase}>
       {renderFormContent()}
-    </>
+    </div>
   );
 }
 
+    
