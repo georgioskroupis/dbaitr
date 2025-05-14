@@ -68,21 +68,25 @@ export default function UnifiedAuthPage() {
       if (phase === "email") {
         emailInputRef.current?.focus();
       } else if (phase === "login") {
+        loginForm.setValue("email", email);
         loginPasswordInputRef.current?.focus();
       } else if (phase === "signup") {
+        signupForm.setValue("email", email);
         signupFullNameInputRef.current?.focus();
       }
     }, 0); // setTimeout ensures focus happens after potential DOM updates
-  }, [phase]);
+  }, [phase, email, loginForm, signupForm]);
 
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
+    mode: "onChange",
   });
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onChange",
   });
 
   const signupForm = useForm<SignupFormValues>({
@@ -102,8 +106,8 @@ export default function UnifiedAuthPage() {
     try {
       const methods = await fetchSignInMethodsForEmail(auth, values.email);
       setEmail(values.email);
-      loginForm.setValue("email", values.email);
-      signupForm.setValue("email", values.email);
+      // loginForm.setValue("email", values.email); // Set by useEffect when phase changes
+      // signupForm.setValue("email", values.email); // Set by useEffect when phase changes
 
       if (methods.length > 0) {
         setPhase("login");
@@ -248,7 +252,7 @@ export default function UnifiedAuthPage() {
           variant: "destructive",
         });
         setPhase("login");
-        loginForm.setValue("email", values.email); 
+        // loginForm.setValue("email", values.email); // Handled by useEffect
         return;
       }
 
@@ -350,22 +354,20 @@ export default function UnifiedAuthPage() {
         console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
       }
       return (
-        <form className="space-y-6"
+        <form
+          className="space-y-6"
           onKeyDown={(e) => { 
             if (e.key === "Enter") {
-              // Only submit if form is valid to prevent premature submission or phase switch
-              if (signupForm.formState.isValid) {
-                signupForm.handleSubmit(handleSignUpSubmit)();
-              } else {
-                e.preventDefault(); // Prevent default form submission
-                // Optionally, trigger validation display or a toast
-                signupForm.trigger(); // Trigger validation to show errors
+              if (!signupForm.formState.isValid) {
+                e.preventDefault(); 
+                signupForm.trigger(); 
                 toast({
                   title: "Incomplete Form",
                   description: "Please fill in all required fields correctly.",
                   variant: "destructive",
                 });
               }
+              // Allow Enter to submit if form is valid (handled by onSubmit)
             }
           }}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
@@ -383,7 +385,7 @@ export default function UnifiedAuthPage() {
           <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
             Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
-                loginForm.setValue("email", email); 
+                // loginForm.setValue("email", email); // Handled by useEffect
                 setPhase("login");
             }}>Sign In</Button>
           </p>
@@ -399,7 +401,7 @@ export default function UnifiedAuthPage() {
                 ref={signupFullNameInputRef}
               />
             </div>
-            {signupForm.formState.errors.fullName && (
+            {(signupForm.formState.touchedFields.fullName || signupForm.formState.isSubmitted) && signupForm.formState.errors.fullName && (
               <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
             )}
           </div>
@@ -425,7 +427,7 @@ export default function UnifiedAuthPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </Button>
             </div>
-            {signupForm.formState.errors.password && (
+            {(signupForm.formState.touchedFields.password || signupForm.formState.isSubmitted) && signupForm.formState.errors.password && (
               <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
             )}
           </div>
@@ -444,4 +446,6 @@ export default function UnifiedAuthPage() {
     </div>
   );
 }
+    
+
     
