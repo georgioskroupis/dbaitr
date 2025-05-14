@@ -12,6 +12,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   type AuthError,
+  onAuthStateChanged, // Import onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import { createUserProfile } from "@/lib/firestoreActions";
@@ -105,6 +106,19 @@ export default function UnifiedAuthPage() {
           userCredential.user.providerData[0]?.providerId || 'password'
         );
       }
+
+      // Wait for Firebase Auth to stabilize
+      await new Promise<void>((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) {
+            unsub();
+            resolve();
+          }
+        });
+      });
+      
+      console.log("User after login:", auth.currentUser); // Optional debug log
+
       toast({ title: "Signed in successfully!" });
       const returnTo = searchParams.get("returnTo");
       router.push(returnTo || "/dashboard");
@@ -134,6 +148,19 @@ export default function UnifiedAuthPage() {
           'password' // Assuming email/password signup
         );
       }
+
+      // Wait for Firebase Auth to stabilize
+      await new Promise<void>((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) {
+            unsub();
+            resolve();
+          }
+        });
+      });
+
+      console.log("User after signup:", auth.currentUser); // Optional debug log
+      
       toast({ 
         title: "Account Created Successfully!",
         description: "Please verify your identity within 10 days to maintain full access.",
@@ -167,7 +194,7 @@ export default function UnifiedAuthPage() {
                 id="email-input"
                 type="email"
                 placeholder="you@example.com"
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...emailForm.register("email")}
               />
             </div>
@@ -198,7 +225,7 @@ export default function UnifiedAuthPage() {
                 id="login-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...loginForm.register("password")}
               />
               <Button
@@ -243,7 +270,7 @@ export default function UnifiedAuthPage() {
               <Input
                 id="signup-fullName"
                 placeholder="Your Full Name"
-                className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+                className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
               />
             </div>
@@ -259,7 +286,7 @@ export default function UnifiedAuthPage() {
                 id="signup-password"
                 type={showPassword ? "text" : "password"}
                 placeholder="•••••••• (min. 6 characters)"
-                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
+                className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("password")}
               />
               <Button
@@ -292,3 +319,4 @@ export default function UnifiedAuthPage() {
     </>
   );
 }
+
