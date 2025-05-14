@@ -40,3 +40,19 @@ export function getAuthorStatusBadge(profile: UserProfile | null): { label: stri
   // Default to Unverified if not KYC verified and not past grace period (or no registeredAt)
   return { label: "Unverified", variant: "outline", icon: <ShieldAlert className="h-3 w-3 mr-1 text-yellow-500" /> };
 }
+
+// Debounce function to limit how often a function is called.
+export function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: NodeJS.Timeout | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  // This assertion is to help TypeScript understand the debounced function's signature.
+  return debounced as (...args: Parameters<F>) => void;
+}

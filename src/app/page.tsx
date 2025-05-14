@@ -1,45 +1,88 @@
-
 // src/app/page.tsx
 "use client";
 
-import { useState, type FormEvent, useEffect } from 'react';
+import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
-import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
-import { getAllTopicTitles, getTopicByTitle } from '@/lib/firestoreActions';
-import { cn } from '@/lib/utils';
+import { getTopicByTitle } from '@/lib/firestoreActions';
+import { cn, debounce } from '@/lib/utils';
 import { TopNav } from '@/components/layout/TopNav';
-// import { GavelIcon } from '@/components/layout/GavelIcon'; // Replaced with inline SVG
+import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
+import type { FindSimilarTopicsOutput } from '@/ai/flows/find-similar-topics';
+
 
 export default function HomePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false); // For main form submission
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
 
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
   const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-debate-icon-white.png?alt=media&token=498c3433-2870-440d-aa40-3634a450c8ad";
 
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const titles = await getAllTopicTitles();
-        setExistingTopicTitles(titles);
-      } catch (error) {
-        console.error("Detailed error: Failed to load existing topic titles for the homepage search functionality:", error);
-        toast({
-          title: "Error Loading Topic Data",
-          description: "Failed to load the list of existing debate topics. This might be a temporary network issue or a problem with our servers. Please try refreshing the page. If the problem persists, please contact support.",
-          variant: "destructive",
-        });
+  // Debounced function to fetch suggestions
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedFetchSuggestions = useCallback(
+    debounce(async (query: string) => {
+      if (!query.trim() || query.length < 3) { // Min 3 chars to search
+        setSuggestions([]);
+        if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+        return;
       }
+      setIsSuggestionLoading(true);
+      try {
+        const result = await getSemanticTopicSuggestions({ query });
+        setSuggestions(result.suggestions);
+      } catch (error) {
+        console.error("Failed to fetch suggestions:", error);
+        setSuggestions([]);
+        // Optionally, toast an error, but might be too noisy for live search
+      } finally {
+        setIsSuggestionLoading(false);
+      }
+    }, 300), // 300ms debounce time
+    []
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.trim() === '') {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(true);
+      debouncedFetchSuggestions(query);
     }
-    fetchTopics();
-  }, [toast]);
+  };
+  
+  const handleSuggestionClick = async (title: string) => {
+    setIsLoading(true);
+    setSearchQuery(title); // Populate search bar with selection
+    setShowSuggestions(false);
+    try {
+      const topic = await getTopicByTitle(title);
+      if (topic?.id) {
+        router.push(`/topics/${topic.id}`);
+      } else {
+        toast({ title: "Topic Not Found", description: `Could not find details for "${title}". You can create it.`, variant: "default" });
+        router.push(`/topics/new?title=${encodeURIComponent(title)}`);
+      }
+    } catch (error) {
+      console.error("Error navigating to suggested topic:", error);
+      toast({ title: "Navigation Error", description: "Could not navigate to the selected topic.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,24 +91,26 @@ export default function HomePage() {
       return;
     }
     setIsLoading(true);
+    setShowSuggestions(false); // Hide suggestions on direct submit
+
+    // Check if current search query exactly matches any of the fetched suggestions
+    const exactMatch = suggestions.find(s => s.title.toLowerCase() === searchQuery.toLowerCase());
+    if (exactMatch) {
+        await handleSuggestionClick(exactMatch.title); // Use existing logic for navigation
+        return; // Stop further execution
+    }
+
+    // If no exact match from suggestions, try to find by title directly
     try {
-      const similarTopicsResult = await findSimilarTopics({
-        newTopic: searchQuery,
-        existingTopics: existingTopicTitles,
-      });
-
-      if (similarTopicsResult.isSimilar && similarTopicsResult.closestMatch) {
-        const existingTopic = await getTopicByTitle(similarTopicsResult.closestMatch);
-        if (existingTopic?.id) {
-          toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
-          router.push(`/topics/${existingTopic.id}`);
-          return;
-        }
+      const existingTopic = await getTopicByTitle(searchQuery);
+      if (existingTopic?.id) {
+        toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
+        router.push(`/topics/${existingTopic.id}`);
+      } else {
+        // If still not found, proceed to create new topic flow
+        toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
+        router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
       }
-
-      toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
-      router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
-
     } catch (error: any) {
       console.error("Detailed error: Error during topic search or initial creation step:", error);
       toast({
@@ -78,9 +123,23 @@ export default function HomePage() {
     }
   };
 
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [searchContainerRef]);
+
+
   return (
     <div className="flex min-h-screen flex-col overflow-hidden">
-      <TopNav variant="landing" /> {/* TopNav is transparent for landing */}
+      <TopNav variant="landing" />
       <div className={cn(
         "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative", 
       )}>
@@ -97,14 +156,10 @@ export default function HomePage() {
         <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-          {/* Logo is now centered in the page content */}
           <Logo width={280} href="/" /> 
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
-            <div className="relative group w-full max-w-xl mx-auto">
-              {/* <GavelIcon
-                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10"
-              /> */}
+            <div className="relative group w-full max-w-xl mx-auto" ref={searchContainerRef}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -122,11 +177,13 @@ export default function HomePage() {
               <Input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleInputChange}
+                onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="What are you debating about?"
                 className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
                 disabled={isLoading}
                 aria-label="Search debate topic"
+                autoComplete="off"
               />
               <button
                 type="submit"
@@ -134,7 +191,7 @@ export default function HomePage() {
                 aria-label="Search or Create Topic"
                 className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
               >
-                {isLoading ? (
+                {isLoading && !isSuggestionLoading ? ( // Show main loader only if not suggestion loading
                   <Loader2 className="h-4 w-4 animate-spin text-white/80" />
                 ) : (
                   <img
@@ -144,6 +201,29 @@ export default function HomePage() {
                   />
                 )}
               </button>
+              {/* Suggestions Dropdown */}
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
+                  {isSuggestionLoading && <p className="p-3 text-sm text-muted-foreground">Loading suggestions...</p>}
+                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= 3 && (
+                    <p className="p-3 text-sm text-muted-foreground">No similar topics found.</p>
+                  )}
+                   {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
+                    <p className="p-3 text-sm text-muted-foreground">Keep typing to see suggestions...</p>
+                  )}
+                  {!isSuggestionLoading && suggestions.map((suggestion, index) => (
+                    <div
+                      key={index}
+                      className="p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                      onClick={() => handleSuggestionClick(suggestion.title)}
+                      onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click
+                    >
+                      <p className="font-medium text-sm text-foreground">{suggestion.title}</p>
+                      <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </form>
         </div>
@@ -154,4 +234,3 @@ export default function HomePage() {
     </div>
   );
 }
-

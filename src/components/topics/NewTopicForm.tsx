@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Search, Sparkles, AlertTriangle, CheckCircle } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, CheckCircle } from "lucide-react"; // Removed Search
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createTopic, getAllTopicTitles, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions";
-import { checkTopicSimilarity, type CheckTopicSimilarityOutput } from "@/ai/flows/prevent-duplicate-topics";
+import { createTopic, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions"; // Removed getAllTopicTitles
+// Removed checkTopicSimilarity, type CheckTopicSimilarityOutput from AI flows
 import { generateTopicAnalysis } from "@/ai/flows/generate-topic-analysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -31,9 +31,7 @@ export function NewTopicForm() {
   const { toast } = useToast();
   const { user, userProfile, kycVerified, loading: authLoading, isSuspended } = useAuth();
   const [loading, setLoading] = React.useState(false);
-  const [existingTopicTitles, setExistingTopicTitles] = React.useState<string[]>([]);
-  const [checkingSimilarity, setCheckingSimilarity] = React.useState(false);
-  const [similarityResult, setSimilarityResult] = React.useState<CheckTopicSimilarityOutput | null>(null);
+  // Removed state related to similarity checking (existingTopicTitles, checkingSimilarity, similarityResult)
 
   const form = useForm<NewTopicFormValues>({
     resolver: zodResolver(formSchema),
@@ -41,73 +39,15 @@ export function NewTopicForm() {
   });
 
   React.useEffect(() => {
-    async function fetchTitles() {
-        try {
-            const titles = await getAllTopicTitles();
-            setExistingTopicTitles(titles);
-        } catch (error) {
-             console.error("Detailed error: Failed to fetch existing topic titles for similarity check:", error);
-             toast({
-                title: "Error Loading Topics",
-                description: "Could not load existing topics for similarity comparison. Please try again later.",
-                variant: "destructive"
-             });
-        }
-    }
-    fetchTitles();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-
-  React.useEffect(() => {
     const prefilledTitle = searchParams.get('title');
     if (prefilledTitle) {
       form.setValue('title', decodeURIComponent(prefilledTitle));
-      handleTitleChange({ target: { value: decodeURIComponent(prefilledTitle) } } as React.ChangeEvent<HTMLInputElement>);
+      // No need to call handleTitleChange as similarity check is removed
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, form]);
 
-
-  const titleDebounceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = event.target.value;
-    form.setValue("title", newTitle, { shouldValidate: true });
-    
-    if (titleDebounceTimeoutRef.current) {
-      clearTimeout(titleDebounceTimeoutRef.current);
-    }
-
-    if (newTitle.length >= 10 && existingTopicTitles.length > 0) { // Only check if titles are loaded
-      titleDebounceTimeoutRef.current = setTimeout(async () => {
-        setCheckingSimilarity(true);
-        setSimilarityResult(null);
-        try {
-          // Note: getAllTopicTitles() is called on mount. We use the state `existingTopicTitles` here.
-          // If you need truly real-time titles for every check, you might refetch here,
-          // but that could be expensive. The current approach uses titles fetched on form load.
-          const result = await checkTopicSimilarity({ newTopic: newTitle, existingTopics: existingTopicTitles });
-          setSimilarityResult(result);
-        } catch (error) {
-          console.error("Detailed error during topic similarity check (AI flow):", error);
-          toast({
-            title: "Similarity Check Error",
-            description: "Could not check topic similarity due to an AI service error. Please try again.",
-            variant: "destructive"
-          });
-        } finally {
-          setCheckingSimilarity(false);
-        }
-      }, 1000); 
-    } else {
-      setSimilarityResult(null); 
-      if(newTitle.length >=10 && existingTopicTitles.length === 0) {
-         console.warn("Similarity check skipped: existing topic titles not yet loaded or empty.");
-      }
-    }
-  };
-
+  // Removed handleTitleChange and titleDebounceTimeoutRef as similarity check on typing is removed
 
   async function onSubmit(values: NewTopicFormValues) {
     if (authLoading) { 
@@ -149,21 +89,14 @@ export function NewTopicForm() {
       return;
     }
 
-
-    if (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) {
-        toast({
-            title: "Topic May Be Too Similar",
-            description: `The topic "${values.title}" seems very similar to an existing one ("${similarityResult.closestMatch}"). Please consider revising your title for originality or check out the existing topic. This helps keep discussions focused.`,
-            variant: "destructive",
-            duration: 7000, 
-        });
-        return;
-    }
+    // Removed similarity check before submission
+    // if (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) { ... }
 
     setLoading(true);
     try {
       const newTopic = await createTopic(values.title, values.description, user.uid);
       
+      // AI summary generation remains
       generateTopicAnalysis({ topic: values.title })
         .then(analysisResult => {
           if (analysisResult.analysis && newTopic.id) {
@@ -172,6 +105,7 @@ export function NewTopicForm() {
         })
         .catch(err => {
           console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err);
+          // Optionally toast a non-critical error or log to an error monitoring service
         });
       
       toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
@@ -204,7 +138,7 @@ export function NewTopicForm() {
           <Sparkles className="h-6 w-6 text-rose-400" /> Create a New Debate Topic
         </CardTitle>
         <CardDescription className="text-white/50">
-          Craft a compelling topic that will spark engaging discussions. Our AI will help check for uniqueness against existing topics. The topic description will be enhanced by AI.
+          Craft a compelling topic that will spark engaging discussions. The topic description will be enhanced by AI after creation.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
@@ -221,27 +155,14 @@ export function NewTopicForm() {
                       <Input 
                         placeholder="e.g., Should AI advancements be regulated more strictly?" 
                         {...field} 
-                        onChange={handleTitleChange} 
+                        // Removed onChange={handleTitleChange}
                         className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                       />
-                       {checkingSimilarity && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-white/60" />}
+                       {/* Removed checkingSimilarity loader */}
                     </div>
                   </FormControl>
                   <FormMessage />
-                  {similarityResult && similarityResult.guidanceMessage && (
-                    <div className={`mt-2 p-3 rounded-md text-sm flex items-start gap-2 ${
-                      similarityResult.isSimilar ? 'bg-red-500/10 text-red-300 border border-red-500/30' : 'bg-green-500/10 text-green-300 border border-green-500/30'
-                    }`}>
-                      {similarityResult.isSimilar ? <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" /> : <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" />}
-                      <div>
-                        <p className="font-semibold">{similarityResult.isSimilar ? "Potential Duplicate Alert" : "Looking Good and Unique!"}</p>
-                        <p className="text-white/80">{similarityResult.guidanceMessage}</p>
-                        {similarityResult.isSimilar && similarityResult.closestMatch && (
-                          <p className="mt-1 text-white/80">Closest match identified: <span className="italic">"{similarityResult.closestMatch}"</span> (Similarity score: {((similarityResult.similarityScore || 0) * 100).toFixed(0)}%)</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {/* Removed similarityResult display block */}
                 </FormItem>
               )}
             />
@@ -263,8 +184,8 @@ export function NewTopicForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || checkingSimilarity || (similarityResult?.isSimilar && (similarityResult.similarityScore || 0) > 0.7) || isSuspended }>
-              {(loading || checkingSimilarity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || isSuspended }>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Topic
             </Button>
           </form>
@@ -273,4 +194,3 @@ export function NewTopicForm() {
     </Card>
   );
 }
-

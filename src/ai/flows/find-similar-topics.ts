@@ -1,10 +1,8 @@
-// 'use server'
 'use server';
-
 /**
  * @fileOverview AI-powered semantic search to find similar debate topics.
  *
- * - findSimilarTopics - A function that checks the similarity of a new topic with existing topics.
+ * - findSimilarTopics - A function that finds similar topics based on a query.
  * - FindSimilarTopicsInput - The input type for the findSimilarTopics function.
  * - FindSimilarTopicsOutput - The return type for the findSimilarTopics function.
  */
@@ -13,28 +11,24 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const FindSimilarTopicsInputSchema = z.object({
-  newTopic: z.string().describe('The title of the new debate topic.'),
-  existingTopics: z
+  query: z.string().describe("The user's search query or new topic title."),
+  existingTopicTitles: z
     .array(z.string())
-    .describe('An array of titles of existing debate topics.'),
+    .describe('An array of titles of existing debate topics to compare against.'),
+  topN: z.number().min(1).max(10).default(5).describe('The maximum number of similar topics to return.'),
+  similarityThreshold: z.number().min(0).max(1).default(0.75).describe('The minimum similarity score for a topic to be considered a match (0.0 to 1.0).'),
 });
 export type FindSimilarTopicsInput = z.infer<typeof FindSimilarTopicsInputSchema>;
 
+const SimilarTopicSuggestionSchema = z.object({
+  title: z.string().describe('The title of the similar existing topic.'),
+  score: z.number().min(0).max(1).describe('The semantic similarity score (0 to 1, where 1 is highly similar).'),
+});
+
 const FindSimilarTopicsOutputSchema = z.object({
-  isSimilar: z
-    .boolean()
-    .describe(
-      'Whether the new topic is similar to any of the existing topics based on semantic similarity.'
-    ),
-  closestMatch:
-    z.string().optional().describe('The existing topic that is most similar to the new topic.'),
-  similarityScore:
-    z.number().optional().describe('A score indicating the similarity between the new topic and the closest match.'),
-  guidanceMessage: z
-    .string()
-    .describe(
-      'A message to guide the user to create a novel topic, if the topic is similar, or encourage them if it is unique.'
-    ),
+  suggestions: z
+    .array(SimilarTopicSuggestionSchema)
+    .describe('An array of suggested similar topics, sorted by similarity score in descending order.'),
 });
 export type FindSimilarTopicsOutput = z.infer<typeof FindSimilarTopicsOutputSchema>;
 
@@ -46,29 +40,49 @@ const findSimilarTopicsPrompt = ai.definePrompt({
   name: 'findSimilarTopicsPrompt',
   input: {schema: FindSimilarTopicsInputSchema},
   output: {schema: FindSimilarTopicsOutputSchema},
-  prompt: `You are a debate topic originality checker.
+  prompt: `You are an advanced semantic search assistant for a debate platform.
+Your task is to identify existing debate topics that are semantically similar to a user's query.
 
-You are given a new debate topic and a list of existing debate topics.
+User's Query: "{{query}}"
 
-Determine if the new topic is similar to any of the existing topics based on semantic similarity.
-
-If it is similar, provide the closest matching existing topic, a similarity score (0-1, with 1 being identical), and a guidance message to help the user create a more novel topic.
-
-If it is not similar, set isSimilar to false and provide an encouraging message.
-
-New Topic: {{{newTopic}}}
-Existing Topics:
-{{#each existingTopics}}
-- {{{this}}}
+List of Existing Topic Titles to Search Within:
+{{#if existingTopicTitles.length}}
+{{#each existingTopicTitles}}
+- "{{this}}"
 {{/each}}
+{{else}}
+(No existing topics provided for comparison)
+{{/if}}
 
-Output in JSON format:
+Instructions:
+1. Analyze the User's Query and each Existing Topic Title for semantic meaning and intent.
+2. For each existing topic, calculate a similarity score between 0.0 (not similar) and 1.0 (very similar or identical) compared to the User's Query.
+3. Identify up to {{topN}} existing topics that have a similarity score greater than or equal to {{similarityThreshold}}.
+4. Sort these identified topics by their similarity score in descending order (most similar first).
+5. If no topics meet the threshold, return an empty array for "suggestions".
+
+Output the results STRICTLY in the following JSON format:
 {
-  "isSimilar": boolean,
-  "closestMatch": string (if similar),
-  "similarityScore": number (0-1, if similar),
-  "guidanceMessage": string
+  "suggestions": [
+    { "title": "Existing Topic Title 1", "score": 0.92 },
+    { "title": "Existing Topic Title 2", "score": 0.85 }
+  ]
 }
+
+Example of output if "Global Warming Solutions" is the query and existing topics are provided:
+{
+  "suggestions": [
+    { "title": "Effective strategies to combat climate change", "score": 0.95 },
+    { "title": "The impact of renewable energy on global warming", "score": 0.88 }
+  ]
+}
+
+Example of output if no sufficiently similar topics are found:
+{
+  "suggestions": []
+}
+
+Begin analysis.
 `,
 });
 
@@ -78,8 +92,23 @@ const findSimilarTopicsFlow = ai.defineFlow(
     inputSchema: FindSimilarTopicsInputSchema,
     outputSchema: FindSimilarTopicsOutputSchema,
   },
-  async input => {
-    const {output} = await findSimilarTopicsPrompt(input);
-    return output!;
+  async (input: FindSimilarTopicsInput) => {
+    // Ensure defaults are applied if not provided
+    const processedInput = {
+      ...input,
+      topN: input.topN ?? 5,
+      similarityThreshold: input.similarityThreshold ?? 0.75,
+    };
+
+    if (!processedInput.existingTopicTitles || processedInput.existingTopicTitles.length === 0) {
+      return { suggestions: [] };
+    }
+
+    const {output} = await findSimilarTopicsPrompt(processedInput);
+    // Ensure a valid output structure even if LLM output is null/undefined or malformed
+    if (output && Array.isArray(output.suggestions)) {
+        return output;
+    }
+    return { suggestions: [] };
   }
 );

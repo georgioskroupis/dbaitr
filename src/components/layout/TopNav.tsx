@@ -1,12 +1,11 @@
-
 // src/components/layout/TopNav.tsx
 "use client";
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type FormEvent, useEffect } from 'react';
-import { Home, User, UserPlus, Search, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
+import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react'; // Renamed Search to SearchIconLucide
+import { cn, debounce } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,9 @@ import { Input } from '@/components/ui/input';
 import { UserNav } from './UserNav';
 import { GavelIcon } from './GavelIcon';
 import { useToast } from '@/hooks/use-toast';
-import { findSimilarTopics } from '@/ai/flows/find-similar-topics';
-import { getAllTopicTitles, getTopicByTitle } from '@/lib/firestoreActions';
-
+import { getTopicByTitle } from '@/lib/firestoreActions';
+import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
+import type { FindSimilarTopicsOutput } from '@/ai/flows/find-similar-topics';
 
 interface TopNavProps {
   variant?: 'default' | 'landing';
@@ -29,65 +28,124 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [existingTopicTitles, setExistingTopicTitles] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false); // For main form submission
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const titles = await getAllTopicTitles();
-        setExistingTopicTitles(titles);
-      } catch (error) {
-        console.error("TopNav: Failed to load existing topic titles:", error);
-        // Non-critical, search will still work but without pre-check
+  const isLandingPage = variant === 'landing';
+
+  // Debounced function to fetch suggestions
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedFetchSuggestions = useCallback(
+    debounce(async (query: string) => {
+      if (isLandingPage) return; // No suggestions on landing page's top nav search
+      if (!query.trim() || query.length < 3) {
+         setSuggestions([]);
+        if(query.length > 0) setShowSuggestions(true); else setShowSuggestions(false);
+        return;
       }
+      setIsSuggestionLoading(true);
+      try {
+        const result = await getSemanticTopicSuggestions({ query });
+        setSuggestions(result.suggestions);
+      } catch (error) {
+        console.error("TopNav: Failed to fetch suggestions:", error);
+        setSuggestions([]);
+      } finally {
+        setIsSuggestionLoading(false);
+      }
+    }, 300),
+    [isLandingPage]
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (isLandingPage) return;
+
+    if (query.trim() === '') {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(true);
+      debouncedFetchSuggestions(query);
     }
-    if (variant === 'default') { // Only fetch for default variant search bar
-        fetchTopics();
+  };
+
+  const handleSuggestionClick = async (title: string) => {
+    if (isLandingPage) return;
+    setIsSearching(true);
+    setSearchQuery(title);
+    setShowSuggestions(false);
+    try {
+      const topic = await getTopicByTitle(title);
+      if (topic?.id) {
+        router.push(`/topics/${topic.id}`);
+      } else {
+        router.push(`/topics/new?title=${encodeURIComponent(title)}`);
+      }
+    } catch (error) {
+      toast({ title: "Navigation Error", variant: "destructive" });
+    } finally {
+      setIsSearching(false);
+      setSearchQuery(''); // Clear search after navigation
     }
-  }, [variant]);
+  };
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!searchQuery.trim()) {
-      toast({ title: "Empty Search", description: "Please enter a topic.", variant: "destructive" });
-      return;
-    }
+    if (isLandingPage || !searchQuery.trim()) return;
+    
     setIsSearching(true);
-    try {
-      const similarTopicsResult = await findSimilarTopics({
-        newTopic: searchQuery,
-        existingTopics: existingTopicTitles,
-      });
+    setShowSuggestions(false);
 
-      if (similarTopicsResult.isSimilar && similarTopicsResult.closestMatch) {
-        const existingTopic = await getTopicByTitle(similarTopicsResult.closestMatch);
-        if (existingTopic?.id) {
-          toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
-          router.push(`/topics/${existingTopic.id}`);
-          setSearchQuery(''); // Clear search
-          return;
-        }
+    const exactMatch = suggestions.find(s => s.title.toLowerCase() === searchQuery.toLowerCase());
+    if (exactMatch) {
+        await handleSuggestionClick(exactMatch.title);
+        return;
+    }
+
+    try {
+      const existingTopic = await getTopicByTitle(searchQuery);
+      if (existingTopic?.id) {
+        toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });
+        router.push(`/topics/${existingTopic.id}`);
+      } else {
+        toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
+        router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
       }
-      toast({ title: "Create New Topic", description: `Let's create "${searchQuery}".` });
-      router.push(`/topics/new?title=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery(''); // Clear search
+      setSearchQuery(''); // Clear search after action
     } catch (error: any) {
       toast({
         title: "Search Error",
-        description: `An error occurred during the search process. This could be due to a network issue or a problem with the AI topic analysis service. Please try again. Error details: ${error.message || "Could not perform search."}`,
+        description: `An error occurred: ${error.message || "Could not perform search."}`,
         variant: "destructive",
       });
     } finally {
       setIsSearching(false);
     }
   };
+  
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    if (isLandingPage) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [searchContainerRef, isLandingPage]);
+
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
   ];
-
-  const isLandingPage = variant === 'landing';
 
   return (
     <header className={cn(
@@ -96,7 +154,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         : "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-white border-b border-white/10 bg-black/70 backdrop-blur-md"
     )}>
       
-      {/* Left Section: Logo and Dashboard link for default variant */}
       {!isLandingPage && (
         <div className="flex items-center gap-x-4">
           <Logo width={100} href="/" />
@@ -119,32 +176,53 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         </div>
       )}
 
-      {/* Center Section: Search bar for default variant (Desktop) */}
       {!isLandingPage && (
         <div className="flex-1 hidden md:flex justify-center px-4">
-          <div className="w-full max-w-xs lg:max-w-sm xl:max-w-md">
+          <div className="w-full max-w-xs lg:max-w-sm xl:max-w-md relative" ref={searchContainerRef}>
             <form onSubmit={handleSearchSubmit} className="w-full">
               <div className="relative">
-                <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" /> {/* Gavel icon color updated */}
+                <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                 <Input
                   type="search"
-                  placeholder="What's the db8?" // Placeholder text updated
+                  placeholder="What's the db8?"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleInputChange}
+                  onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
                   className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-2 text-sm text-white placeholder-white/60 focus:ring-rose-500"
                   disabled={isSearching}
+                  autoComplete="off"
                 />
-                {isSearching && <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />}
+                {(isSearching || isSuggestionLoading) && <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />}
               </div>
+               {showSuggestions && !isLandingPage && (
+                <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
+                  {isSuggestionLoading && <p className="p-2 text-xs text-muted-foreground">Loading...</p>}
+                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >=3 && (
+                    <p className="p-2 text-xs text-muted-foreground">No similar topics.</p>
+                  )}
+                  {!isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
+                    <p className="p-2 text-xs text-muted-foreground">Keep typing...</p>
+                  )}
+                  {!isSuggestionLoading && suggestions.map((suggestion, index) => (
+                    <div
+                      key={index}
+                      className="p-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                      onClick={() => handleSuggestionClick(suggestion.title)}
+                       onMouseDown={(e) => e.preventDefault()}
+                    >
+                      <p className="font-medium text-xs text-foreground truncate">{suggestion.title}</p>
+                      <p className="text-xs text-muted-foreground">{(suggestion.score * 100).toFixed(0)}% match</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </form>
           </div>
         </div>
       )}
       
-      {/* Landing page specific nav items layout */}
       {isLandingPage && (
          <nav className="flex flex-1 items-center justify-between w-full">
-            {/* Dashboard link to the far left */}
             <Link
               href="/dashboard"
               className={cn(
@@ -157,7 +235,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
               Dashboard
             </Link>
             
-            {/* Auth related button to the far right */}
             <div className="flex items-center gap-2">
               {authLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
@@ -174,8 +251,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
          </nav>
       )}
 
-
-      {/* Right Section: Auth section for default variant (Desktop) */}
       {!isLandingPage && (
         <div className="flex items-center gap-2">
           {authLoading ? (
