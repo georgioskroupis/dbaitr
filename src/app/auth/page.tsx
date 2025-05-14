@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import * => z from "zod";
 import {
   fetchSignInMethodsForEmail,
   signInWithEmailAndPassword,
@@ -54,11 +54,12 @@ export default function UnifiedAuthPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const emailInputRef = React.useRef<HTMLInputElement>(null);
-  const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
-  const signupFullNameInputRef = React.useRef<HTMLInputElement>(null);
+  // Refs for programmatic focus - RHF's register will handle its own refs.
+  // We'll use IDs for focusing if these refs cause issues with RHF.
+  // const emailInputRef = React.useRef<HTMLInputElement>(null);
+  // const loginPasswordInputRef = React.useRef<HTMLInputElement>(null);
+  // const signupFullNameInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Moved form declarations before the useEffect that uses them
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
@@ -79,8 +80,8 @@ export default function UnifiedAuthPage() {
       password: ""
     },
     mode: "onChange", 
-    criteriaMode: "all", 
-    shouldFocusError: true, 
+    criteriaMode: "all", // Ensure all errors are caught
+    shouldFocusError: true, // Focus the first field with an error
   });
 
   React.useEffect(() => {
@@ -90,13 +91,13 @@ export default function UnifiedAuthPage() {
     // Auto-focus logic
     setTimeout(() => {
       if (phase === "email") {
-        emailInputRef.current?.focus();
+        document.getElementById('email-input')?.focus();
       } else if (phase === "login") {
         loginForm.setValue("email", email);
-        loginPasswordInputRef.current?.focus();
+        document.getElementById('login-password')?.focus();
       } else if (phase === "signup") {
         signupForm.setValue("email", email);
-        signupFullNameInputRef.current?.focus();
+        document.getElementById('signup-fullName')?.focus();
       }
     }, 0); // setTimeout ensures focus happens after potential DOM updates
   }, [phase, email, loginForm, signupForm]);
@@ -107,9 +108,6 @@ export default function UnifiedAuthPage() {
     try {
       const methods = await fetchSignInMethodsForEmail(auth, values.email);
       setEmail(values.email);
-      // loginForm.setValue("email", values.email); // Set by useEffect when phase changes
-      // signupForm.setValue("email", values.email); // Set by useEffect when phase changes
-
       if (methods.length > 0) {
         setPhase("login");
       } else {
@@ -183,8 +181,15 @@ export default function UnifiedAuthPage() {
   };
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
-    const isValid = await signupForm.trigger();
+    // Log values as received by handleSubmit and from getValues() *before* explicit trigger
+    if (process.env.NODE_ENV !== "production") {
+        console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
+        console.log("🧾 Values before explicit trigger (from signupForm.getValues()):", signupForm.getValues());
+    }
+  
+    const isValid = await signupForm.trigger(); // Explicitly trigger validation for all fields
     if (!isValid) {
+      // This toast indicates that RHF's validation, after trigger, found issues.
       toast({
         title: "Missing Fields",
         description: "Please fill in all required fields correctly.",
@@ -192,19 +197,18 @@ export default function UnifiedAuthPage() {
       });
       return;
     }
-  
+    // If we reach here, RHF considers the form valid.
+    // Now, let's log the values *again* after trigger, just to be sure.
     if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Values before submit (from signupForm.getValues()):", signupForm.getValues());
-        console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
+        console.log("🧾 Values after explicit trigger (from signupForm.getValues()):", signupForm.getValues());
     }
+
     setIsLoading(true);
     if (process.env.NODE_ENV !== "production") {
       console.log("ℹ️ Starting sign-up process...");
+      console.log("🚀 Attempting to sign up with email:", values.email); // 'values.email' should be correct here
     }
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🚀 Attempting to sign up with email:", values.email);
-    }
+    
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       if (process.env.NODE_ENV !== "production") {
@@ -253,7 +257,7 @@ export default function UnifiedAuthPage() {
           variant: "destructive",
         });
         setPhase("login");
-        // loginForm.setValue("email", values.email); // Handled by useEffect
+        // loginForm.setValue("email", values.email); // Handled by useEffect when phase changes to "login"
         return;
       }
 
@@ -281,12 +285,12 @@ export default function UnifiedAuthPage() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="email-input"
+                id="email-input" // ID for focusing
                 type="email"
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...emailForm.register("email")}
-                ref={emailInputRef}
+                // ref={emailInputRef} // Removed manual ref
               />
             </div>
             {emailForm.formState.errors.email && (
@@ -316,8 +320,8 @@ export default function UnifiedAuthPage() {
             <div className="relative mt-1">
               <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="login-password"
-                ref={loginPasswordInputRef}
+                id="login-password" // ID for focusing
+                // ref={loginPasswordInputRef} // Removed manual ref
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
@@ -353,13 +357,14 @@ export default function UnifiedAuthPage() {
     if (phase === "signup") {
       if (process.env.NODE_ENV !== "production") {
         console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
+        // console.log("👀 Watching signup form:", signupForm.watch());
       }
       return (
         <form
           className="space-y-6"
           onKeyDown={(e) => { 
             if (e.key === "Enter") {
-              if (!signupForm.formState.isValid) {
+              if (!signupForm.formState.isValid) { 
                 e.preventDefault(); 
                 signupForm.trigger(); 
                 toast({
@@ -368,7 +373,6 @@ export default function UnifiedAuthPage() {
                   variant: "destructive",
                 });
               }
-              // Allow Enter to submit if form is valid (handled by onSubmit)
             }
           }}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
@@ -386,7 +390,6 @@ export default function UnifiedAuthPage() {
           <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
             Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
-                // loginForm.setValue("email", email); // Handled by useEffect
                 setPhase("login");
             }}>Sign In</Button>
           </p>
@@ -395,11 +398,11 @@ export default function UnifiedAuthPage() {
             <div className="relative mt-1">
               <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
-                id="signup-fullName"
+                id="signup-fullName" // ID for focusing
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName")}
-                ref={signupFullNameInputRef}
+                // ref={signupFullNameInputRef} // Removed manual ref
               />
             </div>
             {(signupForm.formState.touchedFields.fullName || signupForm.formState.isSubmitted) && signupForm.formState.errors.fullName && (
@@ -447,6 +450,8 @@ export default function UnifiedAuthPage() {
     </div>
   );
 }
+    
+
     
 
     
