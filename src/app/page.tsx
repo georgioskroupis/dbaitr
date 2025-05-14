@@ -30,7 +30,7 @@ export default function HomePage() {
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
   const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-debate-icon-white.png?alt=media&token=498c3433-2870-440d-aa40-3634a450c8ad";
 
-  const MIN_CHARS_FOR_SEARCH = 1; // Adjusted to allow search from first character
+  const MIN_CHARS_FOR_SEARCH = 1; 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetchSuggestions = useCallback(
@@ -61,17 +61,17 @@ export default function HomePage() {
       } finally {
         setIsSuggestionLoading(false);
         if (process.env.NODE_ENV !== "production") {
-            console.log('landing suggestions final state:', suggestions, showSuggestions, isSuggestionLoading);
+            console.log('landing suggestions final state:', suggestions, 'showSuggestions is:', showSuggestions, 'isSuggestionLoading is:', isSuggestionLoading);
         }
       }
     }, 300),
-    []
+    [showSuggestions] 
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-    setActiveSuggestionIndex(-1); // Reset active suggestion on new input
+    setActiveSuggestionIndex(-1); 
     if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -136,7 +136,7 @@ export default function HomePage() {
     setShowSuggestions(false); 
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { // Only if no suggestion was actively selected by keyboard
+    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { 
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title); 
         return;
     }
@@ -267,7 +267,7 @@ export default function HomePage() {
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
                   {suggestions.map((suggestion, index) => (
                     <div
-                      key={suggestion.title + index} // Using index for key if titles aren't guaranteed unique
+                      key={suggestion.title + index} 
                       className={cn(
                         "p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
                         index === activeSuggestionIndex && "bg-accent text-accent-foreground"
@@ -283,11 +283,7 @@ export default function HomePage() {
                   ))}
                 </div>
               )}
-               {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && (
-                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 p-3 text-sm text-muted-foreground text-left">
-                    Loading suggestions...
-                  </div>
-               )}
+              {/* Removed the explicit "Loading suggestions..." div that was styled like a dropdown */}
             </div>
           </form>
         </div>

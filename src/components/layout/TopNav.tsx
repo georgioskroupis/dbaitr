@@ -69,11 +69,11 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       } finally {
         setIsSuggestionLoading(false);
         if (process.env.NODE_ENV !== "production") {
-            console.log('TopNav suggestions final state:', suggestions, showSuggestions, isSuggestionLoading);
+            console.log('TopNav suggestions final state:', suggestions, 'showSuggestions is:', showSuggestions, 'isSuggestionLoading is:', isSuggestionLoading);
         }
       }
     }, 300),
-    [isLandingPage] 
+    [isLandingPage, showSuggestions] 
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,11 +274,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                   ))}
                 </div>
               )}
-              {isSuggestionLoading && !isLandingPage && suggestions.length === 0 && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && (
-                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 p-2 text-xs text-muted-foreground text-left">
-                    Loading...
-                  </div>
-               )}
+              {/* Removed the explicit "Loading suggestions..." div that was styled like a dropdown */}
             </form>
           </div>
         </div>

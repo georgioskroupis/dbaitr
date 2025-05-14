@@ -61,7 +61,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
         setIsSuggestionLoading(false);
       }
     }, 300),
-    []
+    [showSuggestions] 
   );
 
   useEffect(() => {
@@ -251,11 +251,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
                   ))}
                 </div>
               )}
-              {isSuggestionLoading && suggestions.length === 0 && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && (
-                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 p-3 text-sm text-muted-foreground text-left">
-                    Loading...
-                  </div>
-               )}
+              {/* Removed the explicit "Loading suggestions..." div that was styled like a dropdown */}
           </div>
           <Button
             type="submit"
