@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
 import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react';
-import { cn, debounce } from '@/lib/utils';
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils'; // Updated import
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { GavelIcon } from './GavelIcon';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput } from '@/ai/flows/find-similar-topics';
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; // Updated import
 
 interface TopNavProps {
   variant?: 'default' | 'landing';
@@ -31,7 +31,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false); 
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
+  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]); // Updated type
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -56,11 +56,10 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
          if (process.env.NODE_ENV !== "production") {
             console.log('TopNav suggestions results:', result.suggestions, 'for query:', query);
         }
-        if (result.suggestions.length > 0) {
-          setSuggestions(result.suggestions);
+        setSuggestions(result.suggestions || []);
+        if (result.suggestions && result.suggestions.length > 0) {
           setShowSuggestions(true);
         } else {
-          setSuggestions([]);
           setShowSuggestions(false);
         }
       } catch (error) {
@@ -97,6 +96,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     setIsSearching(true); 
     setSearchQuery(title);
     setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
     try {
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
@@ -118,12 +118,13 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     
     setIsSearching(true);
     setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { // if user didn't use arrows
+     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { 
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
-    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) { // if user used arrows
+    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) { 
         await handleSuggestionClick(suggestions[activeSuggestionIndex].title);
         return;
     }
@@ -159,9 +160,8 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       e.preventDefault();
       setActiveSuggestionIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1));
     } else if (e.key === 'Enter') {
-      // Form submission will handle this if no suggestion is active
       if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-        e.preventDefault(); // Prevent form submission if suggestion is selected
+        e.preventDefault(); 
         handleSuggestionClick(suggestions[activeSuggestionIndex].title);
       }
     } else if (e.key === 'Escape') {
@@ -184,25 +184,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     };
   }, [searchContainerRef, isLandingPage]);
 
-  const renderHighlightedTitle = (title: string, matchedPhrase?: string) => {
-    if (!matchedPhrase || !title.toLowerCase().includes(matchedPhrase.toLowerCase())) {
-      return title;
-    }
-    const parts = title.split(new RegExp(`(${matchedPhrase})`, 'gi'));
-    return (
-      <>
-        {parts.map((part, index) =>
-          part.toLowerCase() === matchedPhrase.toLowerCase() ? (
-            <strong key={index} className="text-primary font-semibold">
-              {part}
-            </strong>
-          ) : (
-            part
-          )
-        )}
-      </>
-    );
-  };
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -245,17 +226,16 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                 <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                 <Input
                   ref={inputRef}
-                  type="text" // Changed from "search" to "text"
+                  type="text"
                   placeholder="What's the db8?"
                   value={searchQuery}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   onFocus={() => !isLandingPage && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
-                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-4 text-sm text-white placeholder-white/60 focus:ring-rose-500" // Removed pr-10 to not reserve space for a clear button
+                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-4 text-sm text-white placeholder-white/60 focus:ring-rose-500"
                   disabled={isSearching}
                   autoComplete="off"
                 />
-                {/* Loader2 component removed */}
               </div>
                {showSuggestions && !isLandingPage && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
@@ -270,7 +250,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                        onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-xs text-foreground truncate">
-                        {renderHighlightedTitle(suggestion.title, suggestion.matchedPhrase)}
+                        {highlightSemanticMatches(suggestion.title, suggestion.matches || [])}
                       </p>
                       <p className="text-xs text-muted-foreground">{(suggestion.score * 100).toFixed(0)}% match</p>
                     </div>

@@ -56,3 +56,28 @@ export function debounce<F extends (...args: any[]) => any>(func: F, waitFor: nu
   // This assertion is to help TypeScript understand the debounced function's signature.
   return debounced as (...args: Parameters<F>) => void;
 }
+
+export function highlightSemanticMatches(
+  title: string,
+  matches: string[] | undefined // Allow matches to be undefined
+): React.ReactNode[] {
+  if (!matches || matches.length === 0) {
+    return [<span key="title-full">{title}</span>];
+  }
+  // Create a regex that finds any of the match terms, case insensitively.
+  // Escape special characters in matches to prevent regex errors.
+  const escapedMatches = matches.map(match => match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedMatches.join("|")})`, "gi");
+  
+  return title.split(regex).map((part, i) => {
+    // Check if the current part is one of the matches (case-insensitive)
+    const isMatch = escapedMatches.some(
+      (escapedMatch) => part.toLowerCase() === escapedMatch.toLowerCase().replace(/\\/g, '') // Compare with unescaped match
+    );
+    return isMatch ? (
+      <span key={`match-${i}`} className="text-primary font-semibold">{part}</span> // Use text-primary for themed red
+    ) : (
+      <span key={`part-${i}`}>{part}</span>
+    );
+  });
+}

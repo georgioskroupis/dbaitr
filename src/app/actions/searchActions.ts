@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAllTopicTitles } from '@/lib/firestoreActions';
@@ -11,8 +12,8 @@ interface GetSemanticSuggestionsParams {
 
 export async function getSemanticTopicSuggestions(
   params: GetSemanticSuggestionsParams
-): Promise<FindSimilarTopicsOutput> {
-  const { query, topN = 5, similarityThreshold = 0.70 } = params; // Adjusted default threshold slightly
+): Promise<FindSimilarTopicsOutput> { // Ensure this returns the full output type
+  const { query, topN = 5, similarityThreshold = 0.70 } = params; 
 
   if (!query.trim()) {
     return { suggestions: [] };
@@ -37,16 +38,15 @@ export async function getSemanticTopicSuggestions(
       existingTopicTitles,
       topN,
       similarityThreshold,
-    } as FindSimilarTopicsInput); // Cast to ensure all defaults from schema are met if not passed by caller
+    } as FindSimilarTopicsInput); 
     
     if (process.env.NODE_ENV !== "production") {
-        console.log(`[getSemanticTopicSuggestions] AI found ${result.suggestions.length} suggestions.`);
+        console.log(`[getSemanticTopicSuggestions] AI found ${result.suggestions.length} suggestions. Full result:`, JSON.stringify(result, null, 2));
     }
-    return result;
+    return result; // Return the full FindSimilarTopicsOutput which includes the suggestions array
 
   } catch (error) {
     console.error('[getSemanticTopicSuggestions Server Action] Error:', error);
-    // Depending on the error, you might want to return a specific error structure or just empty suggestions
     return { suggestions: [] };
   }
 }

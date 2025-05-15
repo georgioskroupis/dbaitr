@@ -1,3 +1,4 @@
+
 // src/app/page.tsx
 "use client";
 
@@ -8,10 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
-import { cn, debounce } from '@/lib/utils';
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils'; // Updated import
 import { TopNav } from '@/components/layout/TopNav';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput } from '@/ai/flows/find-similar-topics';
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; // Updated import
 
 
 export default function HomePage() {
@@ -20,7 +21,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false); // For main form submission
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<FindSimilarTopicsOutput['suggestions']>([]);
+  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]); // Updated type
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -47,11 +48,10 @@ export default function HomePage() {
         if (process.env.NODE_ENV !== "production") {
             console.log('landing suggestions results:', result.suggestions, 'for query:', query);
         }
-        if (result.suggestions.length > 0) {
-          setSuggestions(result.suggestions);
+        setSuggestions(result.suggestions || []);
+        if (result.suggestions && result.suggestions.length > 0) {
           setShowSuggestions(true); 
         } else {
-          setSuggestions([]);
           setShowSuggestions(false);
         }
       } catch (error) {
@@ -65,7 +65,7 @@ export default function HomePage() {
         }
       }
     }, 300),
-    [showSuggestions] 
+    [] // Removed showSuggestions and suggestions from dependencies as they are managed within the callback
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,6 +85,7 @@ export default function HomePage() {
     setIsLoading(true); 
     setSearchQuery(title); 
     setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
     try {
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
@@ -134,6 +135,7 @@ export default function HomePage() {
     }
     setIsLoading(true);
     setShowSuggestions(false); 
+    setActiveSuggestionIndex(-1);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { 
@@ -174,26 +176,6 @@ export default function HomePage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [searchContainerRef]);
-
-  const renderHighlightedTitle = (title: string, matchedPhrase?: string) => {
-    if (!matchedPhrase || !title.toLowerCase().includes(matchedPhrase.toLowerCase())) {
-      return title;
-    }
-    const parts = title.split(new RegExp(`(${matchedPhrase})`, 'gi'));
-    return (
-      <>
-        {parts.map((part, index) =>
-          part.toLowerCase() === matchedPhrase.toLowerCase() ? (
-            <strong key={index} className="text-primary font-semibold">
-              {part}
-            </strong>
-          ) : (
-            part
-          )
-        )}
-      </>
-    );
-  };
 
 
   return (
@@ -276,14 +258,13 @@ export default function HomePage() {
                       onMouseDown={(e) => e.preventDefault()} 
                     >
                       <p className="font-medium text-sm text-foreground">
-                        {renderHighlightedTitle(suggestion.title, suggestion.matchedPhrase)}
+                        {highlightSemanticMatches(suggestion.title, suggestion.matches || [])}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
                   ))}
                 </div>
               )}
-              {/* Removed the explicit "Loading suggestions..." div that was styled like a dropdown */}
             </div>
           </form>
         </div>
