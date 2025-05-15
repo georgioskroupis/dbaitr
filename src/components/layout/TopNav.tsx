@@ -1,3 +1,4 @@
+
 // src/components/layout/TopNav.tsx
 "use client";
 
@@ -73,7 +74,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         }
       }
     }, 300),
-    [isLandingPage, showSuggestions] 
+    [isLandingPage] 
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,11 +104,11 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       } else {
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
+      setSearchQuery(''); 
     } catch (error) {
       toast({ title: "Navigation Error", description: "Could not navigate to suggested topic.", variant: "destructive" });
     } finally {
       setIsSearching(false);
-      setSearchQuery(''); 
     }
   };
 
@@ -119,8 +120,11 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     setShowSuggestions(false);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) {
+     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { // if user didn't use arrows
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
+        return;
+    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) { // if user used arrows
+        await handleSuggestionClick(suggestions[activeSuggestionIndex].title);
         return;
     }
     
@@ -155,8 +159,9 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       e.preventDefault();
       setActiveSuggestionIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1));
     } else if (e.key === 'Enter') {
+      // Form submission will handle this if no suggestion is active
       if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-        e.preventDefault();
+        e.preventDefault(); // Prevent form submission if suggestion is selected
         handleSuggestionClick(suggestions[activeSuggestionIndex].title);
       }
     } else if (e.key === 'Escape') {
@@ -240,19 +245,17 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                 <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
                 <Input
                   ref={inputRef}
-                  type="search"
+                  type="text" // Changed from "search" to "text"
                   placeholder="What's the db8?"
                   value={searchQuery}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  onFocus={() => !isLandingPage && searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
-                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-10 text-sm text-white placeholder-white/60 focus:ring-rose-500"
+                  onFocus={() => !isLandingPage && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
+                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-4 text-sm text-white placeholder-white/60 focus:ring-rose-500" // Removed pr-10 to not reserve space for a clear button
                   disabled={isSearching}
                   autoComplete="off"
                 />
-                {(isSearching || isSuggestionLoading) && !isLandingPage && (
-                  <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/60" />
-                )}
+                {/* Loader2 component removed */}
               </div>
                {showSuggestions && !isLandingPage && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
@@ -274,7 +277,6 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                   ))}
                 </div>
               )}
-              {/* Removed the explicit "Loading suggestions..." div that was styled like a dropdown */}
             </form>
           </div>
         </div>
