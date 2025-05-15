@@ -9,10 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils'; // Updated import
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
 import { TopNav } from '@/components/layout/TopNav';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; // Updated import
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics';
 
 
 export default function HomePage() {
@@ -21,11 +21,12 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false); // For main form submission
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]); // Updated type
+  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastFetchId = useRef<string|null>(null);
 
 
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
@@ -42,30 +43,46 @@ export default function HomePage() {
         setIsSuggestionLoading(false);
         return;
       }
+      
+      const fetchId = Math.random().toString(36).slice(2);
+      lastFetchId.current = fetchId;
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[LandingPage-${fetchId}] -> fetching suggestions for "${query}"`);
+      }
       setIsSuggestionLoading(true);
+
       try {
-        const result = await getSemanticTopicSuggestions({ query });
+        const result: FindSimilarTopicsOutput = await getSemanticTopicSuggestions({ query });
+        
+        if (lastFetchId.current !== fetchId) {
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[LandingPage-${fetchId}] Stale response for "${query}", ignoring.`);
+          }
+          return; 
+        }
+
+        const uniqueSuggestions = Array.from(new Map(result.suggestions.map(s => [s.title, s])).values());
+        
         if (process.env.NODE_ENV !== "production") {
-            console.log('landing suggestions results:', result.suggestions, 'for query:', query);
+          console.log(`[LandingPage-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
+          console.log('[LandingPage] suggestions (raw):', result.suggestions, 'showSuggestions is:', result.suggestions.length > 0, 'isSuggestionLoading is:', false);
+          console.log('[LandingPage] suggestions (unique):', uniqueSuggestions, 'showSuggestions is:', uniqueSuggestions.length > 0);
         }
-        setSuggestions(result.suggestions || []);
-        if (result.suggestions && result.suggestions.length > 0) {
-          setShowSuggestions(true); 
-        } else {
-          setShowSuggestions(false);
-        }
+
+        setSuggestions(uniqueSuggestions);
+        setShowSuggestions(uniqueSuggestions.length > 0);
+
       } catch (error) {
-        console.error("Failed to fetch suggestions:", error);
+        console.error("[LandingPage] Failed to fetch suggestions:", error);
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
-        setIsSuggestionLoading(false);
-        if (process.env.NODE_ENV !== "production") {
-            console.log('landing suggestions final state:', suggestions, 'showSuggestions is:', showSuggestions, 'isSuggestionLoading is:', isSuggestionLoading);
+        if (lastFetchId.current === fetchId) { // Only update loading state if this is the latest fetch
+          setIsSuggestionLoading(false);
         }
       }
     }, 300),
-    [] // Removed showSuggestions and suggestions from dependencies as they are managed within the callback
+    [] 
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,7 +112,7 @@ export default function HomePage() {
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
     } catch (error) {
-      console.error("Error navigating to suggested topic:", error);
+      console.error("[LandingPage] Error navigating to suggested topic:", error);
       toast({ title: "Navigation Error", description: "Could not navigate to the selected topic.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -258,7 +275,7 @@ export default function HomePage() {
                       onMouseDown={(e) => e.preventDefault()} 
                     >
                       <p className="font-medium text-sm text-foreground">
-                        {highlightSemanticMatches(suggestion.title, suggestion.matches || [])}
+                        {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
@@ -275,3 +292,4 @@ export default function HomePage() {
     </div>
   );
 }
+

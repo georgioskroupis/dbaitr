@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
 import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react';
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils'; // Updated import
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { GavelIcon } from './GavelIcon';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; // Updated import
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; 
 
 interface TopNavProps {
   variant?: 'default' | 'landing';
@@ -31,11 +31,12 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false); 
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]); // Updated type
+  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastFetchId = useRef<string|null>(null);
 
   const isLandingPage = variant === 'landing';
   const MIN_CHARS_FOR_SEARCH = 1;
@@ -50,26 +51,41 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         setIsSuggestionLoading(false);
         return;
       }
+
+      const fetchId = Math.random().toString(36).slice(2);
+      lastFetchId.current = fetchId;
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[TopNav-${fetchId}] -> fetching suggestions for "${query}"`);
+      }
       setIsSuggestionLoading(true);
+      
       try {
         const result = await getSemanticTopicSuggestions({ query });
-         if (process.env.NODE_ENV !== "production") {
-            console.log('TopNav suggestions results:', result.suggestions, 'for query:', query);
+        
+        if (lastFetchId.current !== fetchId) {
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[TopNav-${fetchId}] Stale response for "${query}", ignoring.`);
+          }
+          return;
         }
-        setSuggestions(result.suggestions || []);
-        if (result.suggestions && result.suggestions.length > 0) {
-          setShowSuggestions(true);
-        } else {
-          setShowSuggestions(false);
+
+        const uniqueSuggestions = Array.from(new Map(result.suggestions.map(s => [s.title, s])).values());
+
+        if (process.env.NODE_ENV !== "production") {
+            console.log(`[TopNav-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
+            console.log('[TopNav] suggestions (raw):', result.suggestions, 'showSuggestions is:', result.suggestions.length > 0);
+            console.log('[TopNav] suggestions (unique):', uniqueSuggestions, 'showSuggestions is:', uniqueSuggestions.length > 0);
         }
+        setSuggestions(uniqueSuggestions);
+        setShowSuggestions(uniqueSuggestions.length > 0);
+
       } catch (error) {
         console.error("TopNav: Failed to fetch suggestions:", error);
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
-        setIsSuggestionLoading(false);
-        if (process.env.NODE_ENV !== "production") {
-            console.log('TopNav suggestions final state:', suggestions, 'showSuggestions is:', showSuggestions, 'isSuggestionLoading is:', isSuggestionLoading);
+        if (lastFetchId.current === fetchId) {
+          setIsSuggestionLoading(false);
         }
       }
     }, 300),
@@ -250,7 +266,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                        onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-xs text-foreground truncate">
-                        {highlightSemanticMatches(suggestion.title, suggestion.matches || [])}
+                        {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
                       </p>
                       <p className="text-xs text-muted-foreground">{(suggestion.score * 100).toFixed(0)}% match</p>
                     </div>
@@ -310,3 +326,4 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     </header>
   );
 }
+

@@ -12,8 +12,8 @@ import { getTopicByTitle } from '@/lib/firestoreActions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { GavelIcon } from '@/components/layout/GavelIcon';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; // Updated import
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils'; // Updated import
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; 
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -26,11 +26,12 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false); 
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]); // Updated type
+  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastFetchId = useRef<string|null>(null);
 
   const MIN_CHARS_FOR_SEARCH = 1;
 
@@ -44,21 +45,41 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
         setIsSuggestionLoading(false);
         return;
       }
+      
+      const fetchId = Math.random().toString(36).slice(2);
+      lastFetchId.current = fetchId;
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[GlobalSearchModal-${fetchId}] -> fetching suggestions for "${query}"`);
+      }
       setIsSuggestionLoading(true);
+
       try {
         const result = await getSemanticTopicSuggestions({ query });
-        setSuggestions(result.suggestions || []);
-        if (result.suggestions && result.suggestions.length > 0) {
-          setShowSuggestions(true);
-        } else {
-          setShowSuggestions(false);
+        
+        if (lastFetchId.current !== fetchId) {
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[GlobalSearchModal-${fetchId}] Stale response for "${query}", ignoring.`);
+          }
+          return;
         }
+        
+        const uniqueSuggestions = Array.from(new Map(result.suggestions.map(s => [s.title, s])).values());
+        
+        if (process.env.NODE_ENV !== "production") {
+            console.log(`[GlobalSearchModal-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
+        }
+
+        setSuggestions(uniqueSuggestions);
+        setShowSuggestions(uniqueSuggestions.length > 0);
+
       } catch (error) {
         console.error("GlobalSearchModal: Failed to fetch suggestions:", error);
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
-        setIsSuggestionLoading(false);
+        if (lastFetchId.current === fetchId) {
+          setIsSuggestionLoading(false);
+        }
       }
     }, 300),
     [] 
@@ -226,7 +247,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-sm text-foreground">
-                         {highlightSemanticMatches(suggestion.title, suggestion.matches || [])}
+                         {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
@@ -257,3 +278,4 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     </Dialog>
   );
 }
+
