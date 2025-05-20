@@ -5,18 +5,18 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
-import { Home, User, UserPlus, Search as SearchIconLucide, Loader2 } from 'lucide-react';
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
+import { Home, UserPlus, Loader2 } from 'lucide-react'; // Removed SearchIconLucide
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx';
 import { useAuth } from '@/context/AuthContext';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserNav } from './UserNav';
-import { GavelIcon } from './GavelIcon';
+import { GavelHookIcon } from './GavelIcon'; // Changed to GavelIcon
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; 
+import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics';
 
 interface TopNavProps {
   variant?: 'default' | 'landing';
@@ -29,7 +29,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false); 
+  const [isSearching, setIsSearching] = useState(false);
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -73,8 +73,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
         if (process.env.NODE_ENV !== "production") {
             console.log(`[TopNav-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
-            console.log('[TopNav] suggestions (raw):', result.suggestions, 'showSuggestions is:', result.suggestions.length > 0);
-            console.log('[TopNav] suggestions (unique):', uniqueSuggestions, 'showSuggestions is:', uniqueSuggestions.length > 0);
+            console.log(`[TopNav-${fetchId}] Full result object for "${query}":`, JSON.stringify(result, null, 2));
         }
         setSuggestions(uniqueSuggestions);
         setShowSuggestions(uniqueSuggestions.length > 0);
@@ -89,7 +88,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         }
       }
     }, 300),
-    [isLandingPage] 
+    [isLandingPage]
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +108,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
 
   const handleSuggestionClick = async (title: string) => {
     if (isLandingPage) return;
-    setIsSearching(true); 
+    setIsSearching(true);
     setSearchQuery(title);
     setShowSuggestions(false);
     setActiveSuggestionIndex(-1);
@@ -120,7 +119,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       } else {
         router.push(`/topics/new?title=${encodeURIComponent(title)}`);
       }
-      setSearchQuery(''); 
+      setSearchQuery('');
     } catch (error) {
       toast({ title: "Navigation Error", description: "Could not navigate to suggested topic.", variant: "destructive" });
     } finally {
@@ -137,10 +136,10 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     setActiveSuggestionIndex(-1);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { 
+     if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) {
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
-    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) { 
+    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
         await handleSuggestionClick(suggestions[activeSuggestionIndex].title);
         return;
     }
@@ -154,7 +153,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
         toast({ title: "Create New Topic", description: `Let's create "${searchQuery.trim()}".` });
         router.push(`/topics/new?title=${encodeURIComponent(searchQuery.trim())}`);
       }
-      setSearchQuery(''); 
+      setSearchQuery('');
     } catch (error: any) {
       toast({
         title: "Search Error",
@@ -177,7 +176,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       setActiveSuggestionIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1));
     } else if (e.key === 'Enter') {
       if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-        e.preventDefault(); 
+        e.preventDefault();
         handleSuggestionClick(suggestions[activeSuggestionIndex].title);
       }
     } else if (e.key === 'Escape') {
@@ -208,13 +207,13 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   return (
     <header className={cn(
       isLandingPage
-        ? "absolute top-0 left-0 w-full z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-white bg-transparent"
-        : "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-white border-b border-white/10 bg-black/70 backdrop-blur-md"
+        ? "absolute top-0 left-0 w-full z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-foreground bg-transparent"
+        : "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 px-4 md:px-6 text-foreground border-b border-border bg-background/70 backdrop-blur-md"
     )}>
       
       {!isLandingPage && (
         <div className="flex items-center gap-x-4">
-          <Logo width={100} href="/" />
+          <Logo width={100} href="/" /> {/* dbaitr Logo */}
           <nav className="hidden md:flex items-center gap-1 sm:gap-2">
             {navItems.map((item) => (
               <Link
@@ -223,8 +222,8 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                 className={cn(
                   "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                   pathname === item.href || (item.href === "/dashboard" && pathname.startsWith("/topics"))
-                    ? "bg-rose-500/30 text-rose-300"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-primary/20 text-primary" 
+                    : "text-foreground/80 hover:bg-accent/10 hover:text-foreground" 
                 )}
               >
                 {item.label}
@@ -239,16 +238,16 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
           <div className="w-full max-w-xs lg:max-w-sm xl:max-w-md relative" ref={searchContainerRef}>
             <form onSubmit={handleSearchSubmit} className="w-full">
               <div className="relative">
-                <GavelIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
+                <GavelHookIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground" strokeWidth={2} /> 
                 <Input
                   ref={inputRef}
                   type="text"
-                  placeholder="What's the db8?"
+                  placeholder="What's the dbaitr?" 
                   value={searchQuery}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   onFocus={() => !isLandingPage && searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
-                  className="h-9 w-full rounded-md border-white/20 bg-white/5 pl-9 pr-4 text-sm text-white placeholder-white/60 focus:ring-rose-500"
+                  className="h-9 w-full rounded-md border-border bg-input pl-9 pr-4 text-sm text-foreground placeholder-muted-foreground focus:ring-primary" 
                   disabled={isSearching}
                   autoComplete="off"
                 />
@@ -259,7 +258,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                     <div
                       key={suggestion.title + index}
                       className={cn(
-                        "p-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
+                        "p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0", 
                         index === activeSuggestionIndex && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
@@ -285,8 +284,8 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
               className={cn(
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                  pathname === "/dashboard" || pathname.startsWith("/topics")
-                  ? "bg-rose-500/30 text-rose-300" 
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                  ? "bg-primary/20 text-primary" 
+                  : "text-foreground/80 hover:bg-accent/10 hover:text-foreground"
               )}
             >
               Dashboard
@@ -294,13 +293,13 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
             
             <div className="flex items-center gap-2">
               {authLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
               ) : user ? (
                 <UserNav />
               ) : (
-                <Button asChild size="sm" variant="outline" className="border-rose-500/70 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500">
+                <Button asChild size="sm" variant="outline" className="border-primary/70 text-primary hover:bg-primary/20 hover:text-primary hover:border-primary">
                   <Link href="/auth">
-                    <UserPlus className="mr-1.5 h-4 w-4" /> Join the db8
+                    <UserPlus className="mr-1.5 h-4 w-4" /> Join dbaitr 
                   </Link>
                 </Button>
               )}
@@ -311,13 +310,13 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
       {!isLandingPage && (
         <div className="flex items-center gap-2">
           {authLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-rose-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
           ) : user ? (
             <UserNav />
           ) : (
-            <Button asChild size="sm" variant="outline" className="border-rose-500/70 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500">
+            <Button asChild size="sm" variant="outline" className="border-primary/70 text-primary hover:bg-primary/20 hover:text-primary hover:border-primary">
               <Link href="/auth">
-                <UserPlus className="mr-1.5 h-4 w-4" /> Join the db8
+                <UserPlus className="mr-1.5 h-4 w-4" /> Join dbaitr 
               </Link>
             </Button>
           )}
@@ -326,4 +325,3 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
     </header>
   );
 }
-

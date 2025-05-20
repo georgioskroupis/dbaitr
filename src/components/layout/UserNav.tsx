@@ -2,7 +2,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader } from "lucide-react"; 
+import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,13 +30,13 @@ export function UserNav() {
     try {
       await signOut(auth);
       toast({ title: "Signed out successfully." });
-      router.push("/"); 
+      router.push("/");
     } catch (error: any) {
       console.error("Detailed error: Sign out failed:", error);
-      toast({ 
-        title: "Sign Out Failed", 
+      toast({
+        title: "Sign Out Failed",
         description: `An error occurred during sign out: ${error.message || 'Unknown error'}. Please try again.`,
-        variant: "destructive" 
+        variant: "destructive"
       });
     }
   };
@@ -44,17 +44,17 @@ export function UserNav() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-10 w-24">
-        <NavLoader className="h-5 w-5 animate-spin text-rose-500" />
+        <NavLoader className="h-5 w-5 animate-spin text-primary" /> {/* Use primary color */}
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <Button asChild className="text-sm border border-white/30 hover:border-white rounded-full px-4 py-1 bg-black/30 backdrop-blur-md text-white hover:bg-white/10 transition">
+    return ( // This button seems specific to db8 "Get Certified" - updated for dbaitr
+      <Button asChild className="text-sm border border-primary/50 hover:border-primary rounded-full px-4 py-1 bg-background/30 backdrop-blur-md text-foreground hover:bg-accent/10 transition">
         <Link href="/auth">
-          <Award className="mr-2 h-4 w-4" />
-          Get Certified
+          <UserPlus className="mr-2 h-4 w-4 text-primary" /> {/* Icon color to primary */}
+          Join dbaitr {/* Updated text */}
         </Link>
       </Button>
     );
@@ -74,34 +74,34 @@ export function UserNav() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10 border-2 border-rose-500/50 hover:border-rose-500 transition-colors">
+          <Avatar className="h-10 w-10 border-2 border-primary/50 hover:border-primary transition-colors"> {/* Use primary color */}
             <AvatarImage src={userProfile?.photoURL || user.photoURL || undefined} alt={displayNameForAvatar || "User"} />
-            <AvatarFallback className="bg-rose-500/20 text-rose-500 font-semibold">
+            <AvatarFallback className="bg-primary/20 text-primary font-semibold"> {/* Use primary color */}
               {getInitials(displayNameForAvatar)}
             </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 bg-black/70 backdrop-blur-md border-white/20 text-white" align="end" forceMount>
+      <DropdownMenuContent className="w-56 bg-card backdrop-blur-md border-border text-foreground" align="end" forceMount> {/* Theme colors */}
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none truncate">{displayNameForAvatar || "User"}</p>
-            <p className="text-xs leading-none text-white/70 truncate">
+            <p className="text-xs leading-none text-muted-foreground truncate"> {/* Muted text color */}
               {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-white/20" />
+        <DropdownMenuSeparator className="bg-border" /> {/* Theme color */}
         <DropdownMenuGroup>
           <Link href="/verify-identity" passHref>
-            <DropdownMenuItem disabled={kycVerified} className="focus:bg-white/10 focus:text-white">
-              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-green-400" /> : <ShieldAlert className="mr-2 h-4 w-4 text-yellow-400" />}
+            <DropdownMenuItem disabled={kycVerified} className="focus:bg-accent focus:text-accent-foreground"> {/* Theme colors */}
+              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-success" /> : <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />} {/* Using success/destructive for icons */}
               <span>{kycVerified ? "KYC Verified" : "Verify Identity"}</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator className="bg-white/20" />
-        <DropdownMenuItem onClick={handleSignOut} className="text-rose-400 focus:bg-rose-500/20 focus:text-rose-300">
+        <DropdownMenuSeparator className="bg-border" /> {/* Theme color */}
+        <DropdownMenuItem onClick={handleSignOut} className="text-primary focus:bg-primary/20 focus:text-primary"> {/* Use primary color */}
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

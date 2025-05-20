@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
+import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx';
 import { TopNav } from '@/components/layout/TopNav';
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
 import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics';
@@ -29,10 +29,10 @@ export default function HomePage() {
   const lastFetchId = useRef<string|null>(null);
 
 
-  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
-  const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-debate-icon-white.png?alt=media&token=498c3433-2870-440d-aa40-3634a450c8ad";
+  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media"; // This URL might need to be updated for dbaitr
+  const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media"; // Using gavel-hook as action icon
 
-  const MIN_CHARS_FOR_SEARCH = 1; 
+  const MIN_CHARS_FOR_SEARCH = 1;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetchSuggestions = useCallback(
@@ -58,19 +58,19 @@ export default function HomePage() {
           if (process.env.NODE_ENV !== "production") {
             console.log(`[LandingPage-${fetchId}] Stale response for "${query}", ignoring.`);
           }
-          return; 
+          return;
         }
 
         const uniqueSuggestions = Array.from(new Map(result.suggestions.map(s => [s.title, s])).values());
         
         if (process.env.NODE_ENV !== "production") {
           console.log(`[LandingPage-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
-          console.log('[LandingPage] suggestions (raw):', result.suggestions, 'showSuggestions is:', result.suggestions.length > 0, 'isSuggestionLoading is:', false);
-          console.log('[LandingPage] suggestions (unique):', uniqueSuggestions, 'showSuggestions is:', uniqueSuggestions.length > 0);
+          console.log('[LandingPage] suggestions (raw):', result.suggestions);
+          console.log('[LandingPage] suggestions (unique):', uniqueSuggestions);
         }
-
         setSuggestions(uniqueSuggestions);
         setShowSuggestions(uniqueSuggestions.length > 0);
+
 
       } catch (error) {
         console.error("[LandingPage] Failed to fetch suggestions:", error);
@@ -82,13 +82,13 @@ export default function HomePage() {
         }
       }
     }, 300),
-    [] 
+    []
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-    setActiveSuggestionIndex(-1); 
+    setActiveSuggestionIndex(-1);
     if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -99,8 +99,8 @@ export default function HomePage() {
   };
   
   const handleSuggestionClick = async (title: string) => {
-    setIsLoading(true); 
-    setSearchQuery(title); 
+    setIsLoading(true);
+    setSearchQuery(title);
     setShowSuggestions(false);
     setActiveSuggestionIndex(-1);
     try {
@@ -134,7 +134,7 @@ export default function HomePage() {
       );
     } else if (e.key === 'Enter') {
       if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-        e.preventDefault(); 
+        e.preventDefault();
         handleSuggestionClick(suggestions[activeSuggestionIndex].title);
       }
       // Allow form submission if Enter is pressed without an active suggestion
@@ -151,12 +151,12 @@ export default function HomePage() {
       return;
     }
     setIsLoading(true);
-    setShowSuggestions(false); 
+    setShowSuggestions(false);
     setActiveSuggestionIndex(-1);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { 
-        await handleSuggestionClick(exactMatchInCurrentSuggestions.title); 
+    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) {
+        await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
         return;
     }
 
@@ -199,7 +199,7 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col overflow-hidden">
       <TopNav variant="landing" />
       <div className={cn(
-        "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative", 
+        "flex flex-1 flex-col items-center justify-center p-4 md:p-8 relative",
       )}>
         <video
           autoPlay
@@ -211,10 +211,10 @@ export default function HomePage() {
           <source src={videoUrl} type="video/mp4" />
           Your browser does not support the video tag.
         </video>
-        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay for readability */}
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-          <Logo width={280} href="/" /> 
+          <Logo width={280} href="/" />
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
             <div className="relative group w-full max-w-xl mx-auto" ref={searchContainerRef}>
@@ -222,9 +222,9 @@ export default function HomePage() {
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth={2}
+                strokeWidth={2} // Stroke-based icon
                 stroke="currentColor"
-                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10"
+                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10" // Kept gavel animation for now
               >
                 <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
                 <path d="m16 16 6-6"></path>
@@ -238,9 +238,9 @@ export default function HomePage() {
                 value={searchQuery}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="What are you debating about?"
-                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
+                onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="What are you debating about?" // Kept placeholder
+                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" // Updated to use theme colors
                 disabled={isLoading}
                 aria-label="Search debate topic"
                 autoComplete="off"
@@ -249,15 +249,15 @@ export default function HomePage() {
                 type="submit"
                 disabled={isLoading || !searchQuery.trim()}
                 aria-label="Search or Create Topic"
-                className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition"
+                className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition" // Updated to use theme colors
               >
                 {isLoading && !isSuggestionLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-white/80" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <img
                     src={actionButtonIconUrl}
                     alt="Search"
-                    className="h-5 w-5"
+                    className="h-6 w-6" // Adjusted size
                   />
                 )}
               </button>
@@ -266,13 +266,13 @@ export default function HomePage() {
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto text-left">
                   {suggestions.map((suggestion, index) => (
                     <div
-                      key={suggestion.title + index} 
+                      key={suggestion.title + index}
                       className={cn(
-                        "p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
+                        "p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0", // Updated to use theme colors
                         index === activeSuggestionIndex && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
-                      onMouseDown={(e) => e.preventDefault()} 
+                      onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-sm text-foreground">
                         {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
@@ -285,11 +285,10 @@ export default function HomePage() {
             </div>
           </form>
         </div>
-        <p className="relative z-10 mt-auto pt-8 text-center text-base text-white/50 font-light footer-text">
-          &copy; {new Date().getFullYear()} db8. All rights reserved.
+        <p className="relative z-10 mt-auto pt-8 text-center text-base text-muted-foreground font-light footer-text"> {/* Updated text color */}
+          &copy; {new Date().getFullYear()} dbaitr. All rights reserved. {/* Changed from db8 */}
         </p>
       </div>
     </div>
   );
 }
-

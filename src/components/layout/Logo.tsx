@@ -2,29 +2,27 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { GavelHookIcon } from './GavelIcon'; // Corrected import path
 
 interface LogoProps {
   className?: string;
-  width?: number; 
-  href?: string; // href is now explicitly used
+  width?: number;
+  href?: string;
 }
 
-const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-logo.png?alt=media&token=ccea3f69-32c3-4960-9b5f-afa56e963347";
+// Placeholder for the main "dbai[gavel-hook]r" logo asset if it's a single image.
+// If it's text + icon, we render it below.
+// const DBAITR_TEXT_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-text-logo.png?alt=media";
 
-export function Logo({ className, width = 120, href = "/" }: LogoProps) { // Default width adjusted
-  const aspectRatio = 4; // Assuming logo is roughly 4:1 (e.g. 1000x250). Adjust if different.
-  const height = width / aspectRatio;
+export function Logo({ className, width = 120, href = "/" }: LogoProps) {
+  // For "dbai[gavel-hook]r" textual logo
+  const iconSize = width ? width * 0.2 : 24; // Adjust icon size relative to text
 
   return (
-    <Link href={href} className={cn("flex items-center gap-2 text-primary hover:opacity-90 transition-opacity", className)}>
-      <Image
-        src={LOGO_URL}
-        alt="db8 logo"
-        width={width}
-        height={height} 
-        priority 
-        // Consider adding style={{ objectFit: 'contain' }} if aspect ratio issues persist with various widths
-      />
+    <Link href={href} className={cn("flex items-center gap-1 text-foreground hover:opacity-90 transition-opacity", className)} style={{ fontSize: `${width / 5}px` /* Approximate scaling */ }}>
+      <span className="font-bold" style={{letterSpacing: '-0.05em'}}>dbai</span>
+      <GavelHookIcon className="inline-block text-primary" style={{ width: `${iconSize}px`, height: `${iconSize}px`, transform: 'translateY(-0.05em)' }} />
+      <span className="font-bold" style={{letterSpacing: '-0.05em'}}>r</span>
     </Link>
   );
 }
