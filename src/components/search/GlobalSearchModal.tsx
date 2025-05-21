@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { getTopicByTitle } from '@/lib/firestoreActions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
-import { GavelIcon } from '@/components/layout/GavelIcon';
+import { GavelHookIcon as GavelIcon } from '@/components/layout/GavelIcon'; // Corrected import
 import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
 import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; 
 import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
@@ -70,7 +70,13 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
         }
 
         setSuggestions(uniqueSuggestions);
-        setShowSuggestions(uniqueSuggestions.length > 0);
+        // setShowSuggestions(uniqueSuggestions.length > 0); // Controlled by new logic
+        if (uniqueSuggestions.length > 0) {
+          setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
+        }
+
 
       } catch (error) {
         console.error("GlobalSearchModal: Failed to fetch suggestions:", error);
@@ -144,8 +150,11 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     setActiveSuggestionIndex(-1);
 
     const exactMatchInCurrentSuggestions = suggestions.find(s => s.title.toLowerCase() === searchQuery.trim().toLowerCase());
-    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) {
+    if (exactMatchInCurrentSuggestions && activeSuggestionIndex === -1) { // Ensure no suggestion is actively selected by keyboard
         await handleSuggestionClick(exactMatchInCurrentSuggestions.title);
+        return;
+    } else if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) { // User selected via keyboard and pressed Enter
+        await handleSuggestionClick(suggestions[activeSuggestionIndex].title);
         return;
     }
     
@@ -185,6 +194,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
         e.preventDefault();
         handleSuggestionClick(suggestions[activeSuggestionIndex].title);
       }
+      // Allow form submission via handleSearchSubmit if Enter is pressed without an active suggestion
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);
@@ -209,27 +219,27 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[525px] bg-black/80 backdrop-blur-md border-white/10 text-white">
+      <DialogContent className="sm:max-w-[525px] bg-card backdrop-blur-md border-border text-foreground">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-2xl font-semibold text-rose-400">
-            <GavelIcon className="h-6 w-6 mr-2 text-rose-400" /> Start the db8
+          <DialogTitle className="flex items-center text-2xl font-semibold text-primary"> {/* text-rose-400 to text-primary */}
+            <GavelIcon className="h-6 w-6 mr-2 text-primary" /> Start the dbaitr {/* text-rose-400 to text-primary */}
           </DialogTitle>
-          <DialogDescription className="text-white/70">
+          <DialogDescription className="text-muted-foreground"> {/* text-white/70 to text-muted-foreground */}
             Search for an existing debate topic or create a new one.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSearchSubmit} className="space-y-4 pt-4">
           <div className="relative" ref={searchContainerRef}>
-            <SearchIconLucide className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
+            <SearchIconLucide className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /> {/* text-white/60 to text-muted-foreground */}
             <Input
               ref={inputRef}
               type="text"
               value={searchQuery}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onFocus={() => searchQuery.trim() && suggestions.length > 0 && setShowSuggestions(true)}
+              onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="What would you like to debate?"
-              className="w-full pl-10 pr-4 py-3 text-base rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-rose-500 backdrop-blur-md transition h-12"
+              className="w-full pl-10 pr-4 py-3 text-base rounded-lg border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
               autoComplete="off"
@@ -240,14 +250,14 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
                     <div
                       key={suggestion.title + index}
                       className={cn(
-                        "p-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0",
+                        "p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0",
                         index === activeSuggestionIndex && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-sm text-foreground">
-                         {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
+                         {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase as string] : []))}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
@@ -257,7 +267,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
           </div>
           <Button
             type="submit"
-            className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition"
+            className="w-full px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-black/20 transition"
             disabled={isLoading || !searchQuery.trim()}
           >
             {(isLoading && !isSuggestionLoading) ? (
@@ -278,4 +288,3 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     </Dialog>
   );
 }
-
