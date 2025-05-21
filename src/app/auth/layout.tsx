@@ -23,13 +23,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="absolute inset-0 z-[-1] bg-black/50"></div>
       
       <div className="relative z-10 mb-8 flex flex-col items-center">
-        <Logo width={160} href="/" />
+        <Logo width={160} href="/" /> {/* Use the Logo component with new SVG */}
       </div>
       <div className="relative z-10 w-full max-w-md bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10">
         {children}
       </div>
       <p className="relative z-10 mt-8 text-center text-sm text-white/50 font-light footer-text">
-        &copy; {new Date().getFullYear()} db8. All rights reserved.
+        &copy; {new Date().getFullYear()} dbaitr. All rights reserved. {/* Changed from db8 */}
       </p>
     </div>
   );

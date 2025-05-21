@@ -16,7 +16,7 @@ import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
 import { cn } from '@/lib/utils';
-import { Logo } from '@/components/layout/Logo';
+import { Logo } from '@/components/layout/Logo'; // Import the new Logo component
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, loading: authLoading, isSuspended, kycVerified } = useAuth();
@@ -43,7 +43,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground/80"> {/* Theme colors */}
         <Loader2 className="h-12 w-12 animate-spin text-primary" /> {/* Use primary color */}
-        <p className="mt-4 text-lg">Loading your dbaitr experience...</p> {/* Changed from db8 */}
+        <p className="mt-4 text-lg">Loading your dbaitr experience...</p>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       )}>
         {isMobile && (
           <div className="px-0 pb-4 md:hidden">
-            <Logo width={90} /> {/* dbaitr Logo */}
+            <Logo width={90} href="/" /> {/* Use the new Logo component for mobile */}
           </div>
         )}
         {showSuspensionBanner && (
@@ -82,7 +82,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <GlobalSearchModal isOpen={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
 
       <footer className="border-t border-border py-4 text-center text-sm text-muted-foreground bg-background/80 backdrop-blur-sm"> {/* Theme colors */}
-        © {new Date().getFullYear()} dbaitr - AI Powered Debates {/* Changed from db8 */}
+        © {new Date().getFullYear()} dbaitr - AI Powered Debates
       </footer>
       <Toaster />
     </div>

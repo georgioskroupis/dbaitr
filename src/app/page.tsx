@@ -29,8 +29,8 @@ export default function HomePage() {
   const lastFetchId = useRef<string|null>(null);
 
 
-  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media"; // This URL might need to be updated for dbaitr
-  const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media"; // Using gavel-hook as action icon
+  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
+  const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media";
 
   const MIN_CHARS_FOR_SEARCH = 1;
 
@@ -65,8 +65,8 @@ export default function HomePage() {
         
         if (process.env.NODE_ENV !== "production") {
           console.log(`[LandingPage-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
-          console.log('[LandingPage] suggestions (raw):', result.suggestions);
-          console.log('[LandingPage] suggestions (unique):', uniqueSuggestions);
+          // console.log('[LandingPage] suggestions (raw):', result.suggestions);
+          // console.log('[LandingPage] suggestions (unique):', uniqueSuggestions);
         }
         setSuggestions(uniqueSuggestions);
         setShowSuggestions(uniqueSuggestions.length > 0);
@@ -214,7 +214,7 @@ export default function HomePage() {
         <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay for readability */}
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-          <Logo width={280} href="/" />
+          <Logo width={280} href="/" /> {/* Use the Logo component with new SVG */}
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
             <div className="relative group w-full max-w-xl mx-auto" ref={searchContainerRef}>
@@ -222,9 +222,9 @@ export default function HomePage() {
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth={2} // Stroke-based icon
+                strokeWidth={2}
                 stroke="currentColor"
-                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10" // Kept gavel animation for now
+                className="absolute left-4 top-[20%] h-6 w-6 text-white animate-gavel-strike-paused origin-bottom-left z-10" 
               >
                 <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8"></path>
                 <path d="m16 16 6-6"></path>
@@ -239,8 +239,8 @@ export default function HomePage() {
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="What are you debating about?" // Kept placeholder
-                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" // Updated to use theme colors
+                placeholder="What are you debating about?"
+                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" 
                 disabled={isLoading}
                 aria-label="Search debate topic"
                 autoComplete="off"
@@ -249,7 +249,7 @@ export default function HomePage() {
                 type="submit"
                 disabled={isLoading || !searchQuery.trim()}
                 aria-label="Search or Create Topic"
-                className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition" // Updated to use theme colors
+                className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition" 
               >
                 {isLoading && !isSuggestionLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -257,7 +257,7 @@ export default function HomePage() {
                   <img
                     src={actionButtonIconUrl}
                     alt="Search"
-                    className="h-6 w-6" // Adjusted size
+                    className="h-6 w-6"
                   />
                 )}
               </button>
@@ -268,14 +268,14 @@ export default function HomePage() {
                     <div
                       key={suggestion.title + index}
                       className={cn(
-                        "p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0", // Updated to use theme colors
+                        "p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0", 
                         index === activeSuggestionIndex && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-sm text-foreground">
-                        {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase] : []))}
+                        {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase as string] : []))}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>
@@ -285,8 +285,8 @@ export default function HomePage() {
             </div>
           </form>
         </div>
-        <p className="relative z-10 mt-auto pt-8 text-center text-base text-muted-foreground font-light footer-text"> {/* Updated text color */}
-          &copy; {new Date().getFullYear()} dbaitr. All rights reserved. {/* Changed from db8 */}
+        <p className="relative z-10 mt-auto pt-8 text-center text-base text-muted-foreground font-light footer-text">
+          &copy; {new Date().getFullYear()} dbaitr. All rights reserved.
         </p>
       </div>
     </div>
