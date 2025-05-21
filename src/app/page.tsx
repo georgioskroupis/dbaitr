@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageSquare } from 'lucide-react'; // Added MessageSquare
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ export default function HomePage() {
 
 
   const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
-  const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media";
+  // const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media"; // Old gavel hook, not the bubble
 
   const MIN_CHARS_FOR_SEARCH = 1;
 
@@ -242,7 +242,7 @@ export default function HomePage() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="What are you debating about?"
-                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" 
+                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-lg border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" 
                 disabled={isLoading}
                 aria-label="Search debate topic"
                 autoComplete="off"
@@ -254,13 +254,9 @@ export default function HomePage() {
                 className="absolute right-[0.38rem] top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition" 
               >
                 {isLoading && !isSuggestionLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <img
-                    src={actionButtonIconUrl}
-                    alt="Search"
-                    className="h-6 w-6"
-                  />
+                  <MessageSquare className="h-6 w-6" /> // Replaced img with MessageSquare
                 )}
               </button>
              
@@ -294,3 +290,4 @@ export default function HomePage() {
     </div>
   );
 }
+
