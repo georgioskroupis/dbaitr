@@ -25,6 +25,8 @@ import { Loader2, Mail, KeyRound, User, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSafeEnterSubmit } from "@/hooks/useSafeEnterSubmit"; // Import the custom hook
 
+export const dynamic = 'force-dynamic'; // Prevent static prerendering
+
 const emailSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
 });
@@ -117,19 +119,29 @@ export default function UnifiedAuthPage() {
       const usersCollection = collection(db, "users");
       const userQuery = query(usersCollection, where("email", "==", sanitizedEmail));
 
-      console.log("🔥 Auth instance project:", auth.app.options.projectId);
-      console.log("📬 Email submitted:", sanitizedEmail);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🔥 Auth instance project:", auth.app.options.projectId);
+        console.log("📬 Email submitted:", sanitizedEmail);
+      }
+      
 
       const querySnapshot = await getDocs(userQuery);
-      console.log("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
+      }
+      
 
       setEmail(sanitizedEmail); // Use the sanitized email
 
       if (!querySnapshot.empty) {
-        console.log("🔑 Found user with this email in Firestore. Proceeding to login.");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("🔑 Found user with this email in Firestore. Proceeding to login.");
+        }
         setPhase("login");
       } else {
-        console.log("🆕 No user found with this email in Firestore. Proceeding to signup.");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("🆕 No user found with this email in Firestore. Proceeding to signup.");
+        }
         setPhase("signup");
       }
     } catch (error) {

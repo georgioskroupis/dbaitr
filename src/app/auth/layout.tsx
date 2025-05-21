@@ -2,6 +2,19 @@
 import type { ReactNode } from 'react';
 import { Logo } from '@/components/layout/Logo';
 import { cn } from '@/lib/utils';
+import { Suspense } from "react";
+import { Loader2 } from 'lucide-react';
+
+// Simple loading component for Suspense fallback
+function AuthLoadingFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[200px] text-white/80">
+      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+      <p>Loading authentication...</p>
+    </div>
+  );
+}
+
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -26,7 +39,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <Logo width={160} href="/" />
       </div>
       <div className="relative z-10 w-full max-w-md bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10">
-        {children}
+        <Suspense fallback={<AuthLoadingFallback />}>
+          {children}
+        </Suspense>
       </div>
       <p className="relative z-10 mt-8 text-center text-sm text-white/50 font-light footer-text">
         &copy; {new Date().getFullYear()} dbaitr. All rights reserved.
