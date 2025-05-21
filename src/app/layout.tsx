@@ -14,39 +14,39 @@ const fredoka = Fredoka({
   variable: '--font-fredoka', // Changed variable name
 });
 
-// Placeholder URLs - these should be updated with actual hosted dbaitr assets
-const DBAITR_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-logo-placeholder.png?alt=media"; // Placeholder
-const DBAITR_FAVICON_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media"; // Placeholder for the gavel-hook favicon
+// Updated Asset URLs
+const DBAITR_SVG_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-logo.svg?alt=media&token=4da903b9-22ac-486a-89f3-145bd84bec11";
+const DBAITR_SVG_FAVICON_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-favicon.svg?alt=media&token=0ede04eb-0397-435e-bea6-6d1a9dc705ae";
 
 export const metadata: Metadata = {
-  title: 'dbaitr - AI Powered Debates', // Changed from db8
-  description: 'Engage in structured debates with AI analysis on dbaitr.', // Changed from db8
+  title: 'dbaitr - AI Powered Debates',
+  description: 'Engage in structured debates with AI analysis on dbaitr.',
   icons: {
     icon: [
-      { url: DBAITR_FAVICON_URL, type: 'image/png' },
+      { url: DBAITR_SVG_FAVICON_URL, type: 'image/svg+xml' }, // Use SVG favicon
     ],
   },
   openGraph: {
-    title: 'dbaitr - AI Powered Debates', // Changed
-    description: 'Engage in structured debates with AI analysis on dbaitr.', // Changed
+    title: 'dbaitr - AI Powered Debates',
+    description: 'Engage in structured debates with AI analysis on dbaitr.',
     images: [
       {
-        url: DBAITR_LOGO_URL,
-        width: 1200,
-        height: 630,
-        alt: 'dbaitr Logo', // Changed
+        url: DBAITR_SVG_LOGO_URL, // Use SVG logo for social previews
+        width: 1200, // Adjust if SVG inherent size is different or known
+        height: 630,  // Adjust for OG aspect ratio
+        alt: 'dbaitr Logo',
       },
     ],
-    siteName: 'dbaitr', // Changed
+    siteName: 'dbaitr',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'dbaitr - AI Powered Debates', // Changed
-    description: 'Engage in structured debates with AI analysis on dbaitr.', // Changed
-    images: [DBAITR_LOGO_URL],
+    title: 'dbaitr - AI Powered Debates',
+    description: 'Engage in structured debates with AI analysis on dbaitr.',
+    images: [DBAITR_SVG_LOGO_URL], // Use SVG logo for Twitter cards
   },
-  manifest: '/manifest.json', // Assuming manifest will be updated/created for dbaitr
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -56,7 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${fredoka.variable} antialiased font-sans`}> {/* Use Fredoka variable */}
+      <body className={`${fredoka.variable} antialiased font-sans`}>
         <AppBootstrapper />
         <QueryProvider>
           <AuthProvider>

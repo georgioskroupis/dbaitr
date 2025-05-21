@@ -65,11 +65,13 @@ export default function HomePage() {
         
         if (process.env.NODE_ENV !== "production") {
           console.log(`[LandingPage-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
-          // console.log('[LandingPage] suggestions (raw):', result.suggestions);
-          // console.log('[LandingPage] suggestions (unique):', uniqueSuggestions);
         }
         setSuggestions(uniqueSuggestions);
-        setShowSuggestions(uniqueSuggestions.length > 0);
+        if (uniqueSuggestions.length > 0) {
+          setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
+        }
 
 
       } catch (error) {
@@ -214,7 +216,7 @@ export default function HomePage() {
         <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay for readability */}
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
-          <Logo width={280} href="/" /> {/* Use the Logo component with new SVG */}
+          <Logo width={280} href="/" />
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
             <div className="relative group w-full max-w-xl mx-auto" ref={searchContainerRef}>
@@ -240,7 +242,7 @@ export default function HomePage() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="What are you debating about?"
-                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" 
+                className="w-full pl-12 pr-12 py-3 text-base md:text-lg lg:text-xl placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl rounded-md border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12" 
                 disabled={isLoading}
                 aria-label="Search debate topic"
                 autoComplete="off"
