@@ -215,7 +215,7 @@ export default function HomePage() {
         </video>
         <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-[-1]"></div> {/* Overlay for readability */}
 
-        <div className="relative z-10 flex flex-col items-center w-full max-w-2xl text-center space-y-8">
+        <div className="relative z-10 flex flex-col items-center w-full max-w-2xl mx-auto text-center space-y-8">
           <Logo width={280} href="/" />
 
           <form onSubmit={handleSearchSubmit} className="w-full space-y-6">
@@ -256,7 +256,7 @@ export default function HomePage() {
                 {isLoading && !isSuggestionLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <MessageSquare className="h-6 w-6" /> // Replaced img with MessageSquare
+                  <MessageSquare className="h-6 w-6" /> 
                 )}
               </button>
              
