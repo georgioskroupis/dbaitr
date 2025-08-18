@@ -18,6 +18,10 @@ jobs:
       contents: read
       id-token: write
 
+    env:
+      WIP: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      SA_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +30,8 @@ jobs:
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER
- }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          workload_identity_provider: ${{ env.WIP }}
+          service_account: ${{ env.SA_EMAIL }}
           project_id: ${{ env.PROJECT_ID }}
 
       - id: deploy
