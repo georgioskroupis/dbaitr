@@ -1,0 +1,120 @@
+name: Deploy IDV to Cloud Run and Firebase Hosting
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  SERVICE: ${{ secrets.CLOUD_RUN_SERVICE_IDV || 'idv' }}
+
+jobs:
+  cloud-run:
+    name: Deploy Cloud Run (IDV)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER
+ }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - id: deploy
+        name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          source: ./services/idv
+          allow_unauthenticated: true
+          env_vars: |
+            FACE_SIMILARITY_MIN=0.65
+          flags: >-
+            --memory=2Gi
+            --cpu=2
+            --min-instances=0
+            --max-instances=3
+
+      - name: Show Cloud Run URL
+        run: echo "Cloud Run URL: ${{ steps.deploy.outputs.url }}"
+
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+
+  hosting:
+    name: Build and Deploy to Firebase Hosting
+    needs: cloud-run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      CI: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build (inject env)
+        env:
+          # Firebase Web Config — must be present in repo secrets
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY
+ || '' }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUT
+H_DOMAIN || '' }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJ
+ECT_ID || '' }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_
+STORAGE_BUCKET || '' }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIRE
+BASE_MESSAGING_SENDER_ID || '' }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID |
+| '' }}
+
+          # IDV flags (from secrets, with safe defaults)
+          NEXT_PUBLIC_IDV_ONDEVICE: ${{ secrets.NEXT_PUBLIC_IDV_ONDEVICE || 'tru
+e' }}
+          NEXT_PUBLIC_IDV_AI_APPROVAL: ${{ secrets.NEXT_PUBLIC_IDV_AI_APPROVAL |
+| 'true' }}
+          NEXT_PUBLIC_IDV_STRICT_MINIMAL: ${{ secrets.NEXT_PUBLIC_IDV_STRICT_MIN
+IMAL || 'true' }}
+          NEXT_PUBLIC_HUMAN_MODELS_URL: ${{ secrets.NEXT_PUBLIC_HUMAN_MODELS_URL
+ || '/vendor/human/models/' }}
+          NEXT_PUBLIC_TESSERACT_BASE_URL: ${{ secrets.NEXT_PUBLIC_TESSERACT_BASE
+_URL || '/vendor/tesseract/' }}
+          NEXT_ENABLE_IDV_CSP: ${{ secrets.NEXT_ENABLE_IDV_CSP || 'false' }}
+
+          # Cloud Run URL from previous job
+          CLOUD_RUN_IDV_URL: ${{ needs.cloud-run.outputs.url }}
+        run: npm run -s build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
