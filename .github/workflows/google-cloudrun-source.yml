@@ -25,19 +25,19 @@ jobs:
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER
- }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDE
+R }}"
+          service_account: "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}"
+          project_id: "${{ env.PROJECT_ID }}"
 
       - id: deploy
         name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          project_id: ${{ env.PROJECT_ID }}
-          service: ${{ env.SERVICE }}
-          region: ${{ env.REGION }}
-          source: ./services/idv
+          project_id: "${{ env.PROJECT_ID }}"
+          service: "${{ env.SERVICE }}"
+          region: "${{ env.REGION }}"
+          source: "./services/idv"
           allow_unauthenticated: true
           env_vars: |
             FACE_SIMILARITY_MIN=0.65
