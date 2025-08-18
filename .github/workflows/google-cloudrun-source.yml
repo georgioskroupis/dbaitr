@@ -2,7 +2,8 @@ name: Deploy to Cloud Run from Source (IDV)
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch: {}
 
 env:
@@ -25,27 +26,27 @@ jobs:
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDE
-R }}"
-          service_account: "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}"
-          project_id: "${{ env.PROJECT_ID }}"
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER
+ }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          project_id: ${{ env.PROJECT_ID }}
 
       - id: deploy
         name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          project_id: "${{ env.PROJECT_ID }}"
-          service: "${{ env.SERVICE }}"
-          region: "${{ env.REGION }}"
-          source: "./services/idv"
+          project_id: ${{ env.PROJECT_ID }}
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          source: ./services/idv
           allow_unauthenticated: true
           env_vars: |
             FACE_SIMILARITY_MIN=0.65
-          flags: >-
+          flags: |
             --memory=2Gi
             --cpu=2
             --min-instances=0
             --max-instances=3
 
       - name: Show Cloud Run URL
-        run: echo "Cloud Run URL: ${{ steps.deploy.outputs.url }}"
+        run: echo Cloud_Run_URL=${{ steps.deploy.outputs.url }}
