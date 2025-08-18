@@ -42,10 +42,10 @@ jobs:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           source: ./services/idv
-          allow_unauthenticated: true
           env_vars: |
             FACE_SIMILARITY_MIN=0.65
           flags: |
+            --allow-unauthenticated
             --memory=2Gi
             --cpu=2
             --min-instances=0
