@@ -74,8 +74,16 @@ service cloud.firestore {
       allow update: if request.auth != null && resource.data.createdBy == request.auth.uid &&
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'lastEditedAt']) ||
                      // Allow backend to update position and aiConfidence
-                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true &&
+                     ((get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
                       request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt']));
+
+      // Allow deletion by author or moderators/admins
+      allow delete: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
     }
 
     // Threads (Questions/Responses) Subcollection
@@ -93,9 +101,37 @@ service cloud.firestore {
                        request.resource.data.type is string &&
                        request.resource.data.type in ['question', 'response'];
       
-      // Generally, thread nodes are not editable once posted to maintain conversation integrity.
-      allow update: if false; 
-      allow delete: if false; // Or allow creator to delete within a short time window, or admin moderation.
+      // Edits by authors are not allowed to preserve conversation integrity.
+      // Moderators/admins may edit content for policy enforcement.
+      allow update: if request.auth != null && (
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+      );
+
+      // Allow deletion by author of the node, or moderators/admins
+      allow delete: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+
+    // Aggregations subcollection under a statement (readable by all, writable only by admins/moderators)
+    match /topics/{topicId}/statements/{statementId}/aggregations/{aggId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+    // Topic-wide aggregations
+    match /topics/{topicId}/aggregations/{aggId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
     }
   }
 }

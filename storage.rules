@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Public assets (if any) can be read by anyone
+    match /public/{allPaths=**} {
+      allow read;
+    }
+
+    // ID documents: only the authenticated owner may read/write their own
+    match /id_documents/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
+

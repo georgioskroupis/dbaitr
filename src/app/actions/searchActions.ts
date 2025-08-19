@@ -3,6 +3,7 @@
 
 import { getAllTopicTitles } from '@/lib/firestoreActions';
 import { findSimilarTopics, type FindSimilarTopicsOutput, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
+import { logger } from '@/lib/logger';
 
 interface GetSemanticSuggestionsParams {
   query: string;
@@ -29,9 +30,7 @@ export async function getSemanticTopicSuggestions(
       return { suggestions: [] };
     }
     
-    if (process.env.NODE_ENV !== "production") {
-        console.log(`[getSemanticTopicSuggestions] Checking query "${query}" against ${existingTopicTitles.length} titles.`);
-    }
+    logger.debug(`[getSemanticTopicSuggestions] Checking query "${query}" against ${existingTopicTitles.length} titles.`);
 
     const result = await findSimilarTopics({
       query,
@@ -40,13 +39,11 @@ export async function getSemanticTopicSuggestions(
       similarityThreshold,
     } as FindSimilarTopicsInput); 
     
-    if (process.env.NODE_ENV !== "production") {
-        console.log(`[getSemanticTopicSuggestions] AI found ${result.suggestions.length} suggestions. Full result:`, JSON.stringify(result, null, 2));
-    }
+    logger.debug(`[getSemanticTopicSuggestions] AI found ${result.suggestions.length} suggestions. Full result:`, JSON.stringify(result, null, 2));
     return result; // Return the full FindSimilarTopicsOutput which includes the suggestions array
 
   } catch (error) {
-    console.error('[getSemanticTopicSuggestions Server Action] Error:', error);
+    logger.error('[getSemanticTopicSuggestions Server Action] Error:', error);
     return { suggestions: [] };
   }
 }

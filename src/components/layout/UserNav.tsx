@@ -18,8 +18,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { logger } from '@/lib/logger';
+import { BrandTooltip } from '@/components/branding/BrandTooltip';
 
 export function UserNav() {
   const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
@@ -32,7 +34,7 @@ export function UserNav() {
       toast({ title: "Signed out successfully." });
       router.push("/");
     } catch (error: any) {
-      console.error("Detailed error: Sign out failed:", error);
+      logger.error("Detailed error: Sign out failed:", error);
       toast({
         title: "Sign Out Failed",
         description: `An error occurred during sign out: ${error.message || 'Unknown error'}. Please try again.`,
@@ -50,11 +52,11 @@ export function UserNav() {
   }
 
   if (!user) {
-    return ( // This button seems specific to db8 "Get Certified" - updated for dbaitr
+    return (
       <Button asChild className="text-sm border border-primary/50 hover:border-primary rounded-full px-4 py-1 bg-background/30 backdrop-blur-md text-foreground hover:bg-accent/10 transition">
         <Link href="/auth">
-          <UserPlus className="mr-2 h-4 w-4 text-primary" /> {/* Icon color to primary */}
-          Join dbaitr {/* Updated text */}
+          <UserPlus className="mr-2 h-4 w-4 text-primary" />
+          Be a <BrandTooltip side="bottom" avoidCollisions collisionPadding={12}><span className="cursor-help inline align-baseline">dbaitr</span></BrandTooltip>
         </Link>
       </Button>
     );
@@ -73,10 +75,12 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10 border-2 border-primary/50 hover:border-primary transition-colors"> {/* Use primary color */}
+        <Button
+          className="relative h-10 w-10 rounded-full border border-primary/50 bg-background/30 backdrop-blur-md text-foreground hover:bg-primary/20 hover:text-primary hover:border-primary transition-colors"
+        >
+          <Avatar className="h-10 w-10 border-2 border-primary/50 hover:border-primary transition-colors">
             <AvatarImage src={userProfile?.photoURL || user.photoURL || undefined} alt={displayNameForAvatar || "User"} />
-            <AvatarFallback className="bg-primary/20 text-primary font-semibold"> {/* Use primary color */}
+            <AvatarFallback className="bg-primary/20 text-primary font-semibold">
               {getInitials(displayNameForAvatar)}
             </AvatarFallback>
           </Avatar>
@@ -93,6 +97,13 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border" /> {/* Theme color */}
         <DropdownMenuGroup>
+          <Link href="/manifesto" passHref>
+            <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+              <Award className="mr-2 h-4 w-4 text-primary" />
+              <span>Manifesto</span>
+            </DropdownMenuItem>
+          </Link>
+          <DropdownMenuSeparator className="bg-border" />
           <Link href="/verify-identity" passHref>
             <DropdownMenuItem disabled={kycVerified} className="focus:bg-accent focus:text-accent-foreground"> {/* Theme colors */}
               {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-success" /> : <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />} {/* Using success/destructive for icons */}

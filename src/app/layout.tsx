@@ -1,18 +1,18 @@
 
 import type { Metadata } from 'next';
-import { Fredoka } from 'next/font/google'; // Changed from Poppins to Fredoka
 import './globals.css';
+// Self-hosted Fredoka via @fontsource to avoid network fetch during build
+import '@fontsource/fredoka/300.css';
+import '@fontsource/fredoka/400.css';
+import '@fontsource/fredoka/500.css';
+import '@fontsource/fredoka/600.css';
+import '@fontsource/fredoka/700.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/AuthContext';
 import QueryProvider from '@/context/QueryProvider';
 import AppBootstrapper from '@/components/AppBootstrapper';
 
-// Setup Fredoka font
-const fredoka = Fredoka({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'], // Adjusted weights for Fredoka
-  variable: '--font-fredoka', // Changed variable name
-});
+// Define CSS variable in globals.css; using @fontsource-loaded family 'Fredoka'
 
 // Updated Asset URLs
 const DBAITR_SVG_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-logo.svg?alt=media&token=4da903b9-22ac-486a-89f3-145bd84bec11";
@@ -56,7 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${fredoka.variable} antialiased font-sans`}>
+      <body className={`antialiased font-sans`}>
         <AppBootstrapper />
         <QueryProvider>
           <AuthProvider>

@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Send, MessageSquare } from "lucide-react";
+import { Loader2, Send, MessageSquare, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -17,6 +17,7 @@ import { createStatement, checkIfUserHasPostedStatement } from "@/lib/firestoreA
 import type { Topic } from "@/types";
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { logger } from '@/lib/logger';
 
 
 const formSchema = z.object({
@@ -51,7 +52,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           const hasPosted = await checkIfUserHasPostedStatement(user.uid, topic.id);
           setHasPostedStatement(hasPosted);
         } catch (error) {
-          console.error(`Detailed error: Could not check if user ${user.uid} has posted a statement for topic ${topic.id}:`, error);
+          logger.error(`Detailed error: Could not check if user ${user.uid} has posted a statement for topic ${topic.id}:`, error);
           toast({
             title: "Error Checking Statement Status",
             description: "Could not determine if you've already posted. Please try refreshing.",
@@ -101,16 +102,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       return;
     }
 
-    if (!kycVerified) {
-      toast({ 
-        title: "Identity Verification Required", 
-        description: "To ensure a fair and accountable debate, identity verification (KYC) is required to post statements. Please complete the verification process (you have a 10-day grace period). You'll be redirected and can return here afterwards.", 
-        variant: "destructive",
-        duration: 7000,
-      });
-      router.push('/verify-identity'); 
-      return;
-    }
+    // Unverified users can still post until the deadline; blocked only when suspended.
     if (hasPostedStatement) {
       toast({ 
         title: "Statement Already Submitted",
@@ -134,7 +126,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       setHasPostedStatement(true); 
       if (onStatementCreated) onStatementCreated();
     } catch (error: any) {
-      console.error("Detailed error: Failed to create statement. Values:", values, "Topic ID:", topic.id, "Error:", error);
+      logger.error("Detailed error: Failed to create statement. Values:", values, "Topic ID:", topic.id, "Error:", error);
       toast({ 
         title: "Failed to Submit Statement",
         description: `Your statement could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the statement to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
@@ -185,6 +177,39 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 bg-black/40 backdrop-blur-md p-6 rounded-xl shadow-md border border-white/10 mt-6">
+        {!authLoading && !user && (
+          <Alert className="mb-2 border-primary/30 bg-primary/10 text-left">
+            <AlertTitle className="text-primary font-semibold flex items-center">
+              <Lock className="h-4 w-4 mr-2" /> Sign in to post your truth
+            </AlertTitle>
+            <AlertDescription className="text-white/80">
+              You can read everything, but to post a statement please
+              <Button variant="link" className="p-0 h-auto text-primary underline hover:text-white transition ml-1" onClick={() => {
+                const currentPath = window.location.pathname + window.location.search;
+                router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`);
+              }}>Be a dbaitr</Button>.
+            </AlertDescription>
+          </Alert>
+        )}
+        {user && isSuspended && (
+          <Alert className="mb-2 border-yellow-500/30 bg-yellow-500/10 text-left">
+            <AlertTitle className="text-yellow-300 font-semibold flex items-center">
+              <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to post
+            </AlertTitle>
+            <AlertDescription className="text-white/80">
+              Your identity verification deadline has expired. Please
+              <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
+                <Link href="/verify-identity">verify your identity</Link>
+              </Button>
+              to unlock posting.
+            </AlertDescription>
+            <div className="mt-2">
+              <Button asChild size="sm" variant="outline" className="border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20 hover:text-yellow-200">
+                <Link href="/verify-identity">Verify now</Link>
+              </Button>
+            </div>
+          </Alert>
+        )}
         <div>
         <FormLabel className="text-lg font-semibold mb-2 block text-white">Your Statement</FormLabel>
         <FormField
@@ -219,19 +244,12 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Send className="mr-2 h-4 w-4" />
+            (!user || isSuspended) ? <Lock className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />
           )}
-          Submit Statement
+          Post your truth
         </Button>
         
-        {!user && !authLoading && ( 
-           <p className="mt-2 text-xs text-rose-400">
-            <Button variant="link" className="p-0 text-rose-400 underline hover:text-white transition h-auto" onClick={() => {
-                 const currentPath = window.location.pathname + window.location.search;
-                 router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`); 
-            }}>Sign in</Button> to participate.
-          </p>
-        )}
+        {!user && !authLoading && null}
         {user && !kycVerified && !authLoading && !isSuspended && ( 
           <p className="mt-2 text-xs text-rose-400">
             You need to <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify your ID</Link> to participate (10-day grace period).

@@ -45,7 +45,7 @@ export default function AccountSuspendedPage() {
         </CardHeader>
         <CardContent className="space-y-6 text-center p-0">
           <p className="text-white/80">
-            To restore full access to db8, including posting and creating debates, please complete your identity verification.
+            To restore full access to dbaitr, including posting and creating debates, please complete your identity verification.
           </p>
           <Button asChild size="lg" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">
             <Link href="/verify-identity">Complete Verification</Link>

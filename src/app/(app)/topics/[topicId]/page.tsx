@@ -7,16 +7,15 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 interface TopicPageProps {
-  params: {
+  params: Promise<{
     topicId: string;
-  };
+  }>;
 }
 
-export const dynamic = 'force-dynamic';
+// Default to automatic/static rendering. Server actions revalidate paths after writes.
 
 export default async function TopicPage({ params }: TopicPageProps) {
-  const resolvedParams = await params;
-  const topicId = resolvedParams.topicId;
+  const { topicId } = await params;
   
   const topic = await getTopicById(topicId);
   

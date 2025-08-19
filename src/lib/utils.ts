@@ -5,4 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Debounce function removed from here, moved to utils.tsx
+// Debounce function (pure, no React/JSX)
+export function debounce<F extends (...args: any[]) => any>(
+  func: F,
+  waitFor: number
+) {
+  let timeout: NodeJS.Timeout | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  return debounced as (...args: Parameters<F>) => void;
+}

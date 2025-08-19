@@ -15,17 +15,17 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"; // Import Firestore functions
-import { auth } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase";
 import { createUserProfile } from "@/lib/firestoreActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, KeyRound, User, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, KeyRound, User, Eye, EyeOff, Apple, Chrome } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSafeEnterSubmit } from "@/hooks/useSafeEnterSubmit"; // Import the custom hook
+import { useFormEnterSubmit, focusById } from "@/hooks/useFormEnterSubmit";
+import { logger } from '@/lib/logger';
 
-export const dynamic = 'force-dynamic'; // Prevent static prerendering
 
 const emailSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -57,6 +57,7 @@ export default function UnifiedAuthPage() {
   const [email, setEmail] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [signInHints, setSignInHints] = React.useState<string[]>([]); // e.g., ['google.com','apple.com']
 
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
@@ -83,21 +84,17 @@ export default function UnifiedAuthPage() {
   });
 
   React.useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🌀 Auth Phase changed:", phase);
-    }
+    logger.debug("🌀 Auth Phase changed:", phase);
     // Auto-focus logic
-    setTimeout(() => {
-      if (phase === "email") {
-        document.getElementById('email-input')?.focus();
-      } else if (phase === "login") {
-        loginForm.setValue("email", email);
-        document.getElementById('login-password')?.focus();
-      } else if (phase === "signup") {
-        signupForm.setValue("email", email);
-        document.getElementById('signup-fullName')?.focus();
-      }
-    }, 0);
+    if (phase === "email") {
+      focusById('email-input');
+    } else if (phase === "login") {
+      loginForm.setValue("email", email);
+      focusById('login-password');
+    } else if (phase === "signup") {
+      signupForm.setValue("email", email);
+      focusById('signup-fullName');
+    }
   }, [phase, email, loginForm, signupForm]);
 
 
@@ -119,34 +116,42 @@ export default function UnifiedAuthPage() {
       const usersCollection = collection(db, "users");
       const userQuery = query(usersCollection, where("email", "==", sanitizedEmail));
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("🔥 Auth instance project:", auth.app.options.projectId);
-        console.log("📬 Email submitted:", sanitizedEmail);
-      }
-      
+      logger.debug("🔥 Auth instance project:", auth.app.options.projectId);
+      logger.debug("📬 Email submitted:", sanitizedEmail);
+
+      // Check sign-in methods early to provide guidance if not password-based
+      try {
+        const methods = await fetchSignInMethodsForEmail(auth, sanitizedEmail);
+        setSignInHints(methods);
+        if (methods.length && !methods.includes('password')) {
+          const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
+          toast({
+            title: 'Use your original sign-in method',
+            description: `This email is registered with ${provider}. Please sign in with ${provider} or reset your password if you added one.`,
+            variant: 'destructive',
+          });
+        }
+      } catch {}
 
       const querySnapshot = await getDocs(userQuery);
-      if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
-      }
-      
+      logger.debug("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
 
       setEmail(sanitizedEmail); // Use the sanitized email
 
       if (!querySnapshot.empty) {
         if (process.env.NODE_ENV !== "production") {
-          console.log("🔑 Found user with this email in Firestore. Proceeding to login.");
+          logger.debug("🔑 Found user with this email in Firestore. Proceeding to login.");
         }
         setPhase("login");
       } else {
         if (process.env.NODE_ENV !== "production") {
-          console.log("🆕 No user found with this email in Firestore. Proceeding to signup.");
+          logger.debug("🆕 No user found with this email in Firestore. Proceeding to signup.");
         }
         setPhase("signup");
       }
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
-        console.error("🔥 Full Auth Error (Email Check):", error);
+        logger.error("🔥 Full Auth Error (Email Check):", error);
       }
       toast({
         title: "Error",
@@ -160,15 +165,16 @@ export default function UnifiedAuthPage() {
 
   const handleLoginSubmit: SubmitHandler<LoginFormValues> = async (values) => {
     setIsLoading(true);
+    const emailSanitized = (values.email || '').trim().toLowerCase();
+    const passwordSanitized = (values.password || '').trim();
     if (process.env.NODE_ENV !== "production") {
-      console.log("🚨 Attempting login with:", values);
-      console.log("🚀 Attempting to sign in with email:", values.email);
+      logger.debug("🚨 Attempting login with (sanitized):", { emailSanitized, hasPassword: !!passwordSanitized });
     }
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, emailSanitized, passwordSanitized);
       if (process.env.NODE_ENV !== "production") {
-        console.log("✅ Sign in successful. Firebase User Credential:", userCredential);
-        console.log("👤 Firebase currentUser after sign in:", auth.currentUser);
+        logger.debug("✅ Sign in successful. Firebase User Credential:", userCredential);
+        logger.debug("👤 Firebase currentUser after sign in:", auth.currentUser);
       }
 
       if (userCredential.user) {
@@ -190,7 +196,7 @@ export default function UnifiedAuthPage() {
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log("User after login state stabilization:", auth.currentUser);
+        logger.debug("User after login state stabilization:", auth.currentUser);
       }
 
       toast({ title: "Signed in successfully!" });
@@ -199,14 +205,41 @@ export default function UnifiedAuthPage() {
     } catch (error) {
       const authError = error as AuthError;
       if (process.env.NODE_ENV !== "production") {
-        console.error("🔥 Full Auth Error (Login):", error);
-        console.error("🔥 Login Error Code:", authError.code);
-        console.error("🔥 Login Error Message:", authError.message);
+        logger.error("🔥 Full Auth Error (Login):", error);
+        logger.error("🔥 Login Error Code:", authError.code);
+        logger.error("🔥 Login Error Message:", authError.message);
       }
+      // Friendlier error mapping with provider guidance
+      const code = authError.code;
+      if (code === 'auth/invalid-credential') {
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, emailSanitized);
+          if (methods.length && !methods.includes('password')) {
+            const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
+            toast({
+              title: 'Use your original sign-in method',
+              description: `This email is registered with ${provider}. Please sign in with ${provider} or reset your password if you added one.`,
+              variant: 'destructive',
+            });
+          } else {
+            toast({ title: 'Invalid email or password', description: 'Please check your credentials and try again.', variant: 'destructive' });
+          }
+        } catch {
+          toast({ title: 'Invalid credentials', description: 'Please check your email and password.', variant: 'destructive' });
+        }
+        return;
+      }
+
+      const friendly: Record<string, string> = {
+        'auth/too-many-requests': 'Too many attempts. Please try again later.',
+        'auth/user-disabled': 'This account has been disabled. Contact support if this is unexpected.',
+        'auth/invalid-email': 'The email format is invalid.',
+        'auth/network-request-failed': 'Network error. Please check your connection and try again.',
+      };
       toast({
-        title: "Sign In Failed",
-        description: authError.message || "An unexpected error occurred.",
-        variant: "destructive",
+        title: 'Sign In Failed',
+        description: friendly[code] || authError.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -215,27 +248,27 @@ export default function UnifiedAuthPage() {
 
   const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
     if (process.env.NODE_ENV !== "production") {
-        console.log("📨 Signup form submitted with (from submit handler 'values' arg):", values);
+      logger.debug("📨 Signup form submitted with (from submit handler 'values' arg):", values);
         const currentRHFValues = signupForm.getValues();
-        console.log("🧾 Values in RHF before explicit trigger (from signupForm.getValues()):", currentRHFValues);
+      logger.debug("🧾 Values in RHF before explicit trigger (from signupForm.getValues()):", currentRHFValues);
         if(values.password !== currentRHFValues.password) {
-            console.warn("PASSWORD MISMATCH DETECTED (PRE-TRIGGER): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field.");
+            logger.warn("PASSWORD MISMATCH DETECTED (PRE-TRIGGER): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field.");
         }
          if (!currentRHFValues.password || currentRHFValues.password.length < 6) {
-            console.error("SIGNUP SUBMIT DIAGNOSTIC (PRE-TRIGGER): Password in RHF (getValues) appears invalid or empty:", `"${currentRHFValues.password}"`);
+            logger.error("SIGNUP SUBMIT DIAGNOSTIC (PRE-TRIGGER): Password in RHF (getValues) appears invalid or empty:", `"${currentRHFValues.password}"`);
         }
     }
 
     const isValid = await signupForm.trigger();
     if (process.env.NODE_ENV !== "production") {
         const postTriggerRHFValues = signupForm.getValues();
-        console.log("🧾 Values in RHF after explicit trigger (from signupForm.getValues()):", postTriggerRHFValues);
-        console.log("🧾 Form validity after trigger:", isValid);
+      logger.debug("🧾 Values in RHF after explicit trigger (from signupForm.getValues()):", postTriggerRHFValues);
+      logger.debug("🧾 Form validity after trigger:", isValid);
          if(values.password !== postTriggerRHFValues.password && isValid) {
-            console.warn("PASSWORD MISMATCH DETECTED (POST-TRIGGER & VALID): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field, even though form is considered valid.");
+            logger.warn("PASSWORD MISMATCH DETECTED (POST-TRIGGER & VALID): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field, even though form is considered valid.");
         }
         if (!postTriggerRHFValues.password || postTriggerRHFValues.password.length < 6) {
-            console.error("SIGNUP SUBMIT DIAGNOSTIC (POST-TRIGGER): Password in RHF (getValues) appears invalid or empty AFTER trigger:", `"${postTriggerRHFValues.password}"`);
+            logger.error("SIGNUP SUBMIT DIAGNOSTIC (POST-TRIGGER): Password in RHF (getValues) appears invalid or empty AFTER trigger:", `"${postTriggerRHFValues.password}"`);
         }
     }
 
@@ -250,15 +283,17 @@ export default function UnifiedAuthPage() {
 
     setIsLoading(true);
     const finalValuesForFirebase = signupForm.getValues(); // Use getValues after trigger for most certainty
+    finalValuesForFirebase.email = (finalValuesForFirebase.email || '').trim().toLowerCase();
+    finalValuesForFirebase.password = (finalValuesForFirebase.password || '').trim();
     if (process.env.NODE_ENV !== "production") {
-      console.log("ℹ️ Starting sign-up process with FINAL values for Firebase:", finalValuesForFirebase);
-      console.log("🚀 Attempting to sign up with email:", finalValuesForFirebase.email, "and password:", finalValuesForFirebase.password ? "********" : "(empty)");
+      logger.debug("ℹ️ Starting sign-up process with FINAL values for Firebase:", finalValuesForFirebase);
+      logger.debug("🚀 Attempting to sign up with email:", finalValuesForFirebase.email, "and password:", finalValuesForFirebase.password ? "********" : "(empty)");
     }
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, finalValuesForFirebase.email, finalValuesForFirebase.password);
       if (process.env.NODE_ENV !== "production") {
-        console.log("✅ Sign up successful. Firebase User Credential:", userCredential);
+        logger.debug("✅ Sign up successful. Firebase User Credential:", userCredential);
       }
 
       if (userCredential.user) {
@@ -271,7 +306,7 @@ export default function UnifiedAuthPage() {
         );
       }
       if (process.env.NODE_ENV !== "production") {
-        console.log("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);
+        logger.debug("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);
       }
 
       await new Promise<void>((resolve) => {
@@ -283,9 +318,14 @@ export default function UnifiedAuthPage() {
         });
       });
 
+      // Send email verification (best effort)
+      try {
+        const { sendEmailVerification } = await import('firebase/auth');
+        if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+      } catch {}
       toast({
-        title: "Account Created Successfully!",
-        description: "Please verify your identity within 10 days to maintain full access.",
+        title: "Account Created!",
+        description: "Verification email sent. Please verify your email.",
         duration: 7000,
       });
       const returnTo = searchParams.get("returnTo");
@@ -293,9 +333,9 @@ export default function UnifiedAuthPage() {
     } catch (error) {
       const authError = error as AuthError;
       if (process.env.NODE_ENV !== "production") {
-       console.error("🔥 Full Auth Error (Signup):", error);
-       console.error("🔥 Signup Error Code:", authError.code);
-       console.error("🔥 Signup Error Message:", authError.message);
+       logger.error("🔥 Full Auth Error (Signup):", error);
+       logger.error("🔥 Signup Error Code:", authError.code);
+       logger.error("🔥 Signup Error Message:", authError.message);
       }
 
       if (authError.code === "auth/email-already-in-use") {
@@ -319,15 +359,15 @@ export default function UnifiedAuthPage() {
     }
   };
 
-  const safeEmailSubmit = useSafeEnterSubmit(emailForm.handleSubmit, handleEmailSubmit);
-  const safeLoginSubmit = useSafeEnterSubmit(loginForm.handleSubmit, handleLoginSubmit);
-  const safeSignupSubmit = useSafeEnterSubmit(signupForm.handleSubmit, handleSignUpSubmit);
+  const safeEmailSubmit = useFormEnterSubmit(emailForm.handleSubmit, handleEmailSubmit);
+  const safeLoginSubmit = useFormEnterSubmit(loginForm.handleSubmit, handleLoginSubmit);
+  const safeSignupSubmit = useFormEnterSubmit(signupForm.handleSubmit, handleSignUpSubmit);
 
 
   const renderFormContent = () => {
     if (phase === "email") {
       if (process.env.NODE_ENV !== "production") {
-        console.log("🧪 Rendering EMAIL form with values:", emailForm.getValues());
+        logger.debug("🧪 Rendering EMAIL form with values:", emailForm.getValues());
       }
       return (
         <form 
@@ -365,7 +405,7 @@ export default function UnifiedAuthPage() {
 
     if (phase === "login") {
       if (process.env.NODE_ENV !== "production") {
-        console.log("🧪 Rendering LOGIN form with values:", loginForm.getValues());
+        logger.debug("🧪 Rendering LOGIN form with values:", loginForm.getValues());
       }
       return (
         <form 
@@ -412,20 +452,34 @@ export default function UnifiedAuthPage() {
               <a href="/forgot-password">Forgot Password?</a>
             </Button>
           </div>
+          {(signInHints.includes('google.com') || signInHints.includes('apple.com')) && (
+            <div className="mt-2 flex items-center justify-center gap-2">
+              {signInHints.includes('google.com') && (
+                <Button variant="outline" disabled title="Use your Google sign-in">
+                  <Chrome className="mr-2 h-4 w-4" /> Sign in with Google
+                </Button>
+              )}
+              {signInHints.includes('apple.com') && (
+                <Button variant="outline" disabled title="Use your Apple sign-in">
+                  <Apple className="mr-2 h-4 w-4" /> Sign in with Apple
+                </Button>
+              )}
+            </div>
+          )}
         </form>
       );
     }
 
     if (phase === "signup") {
       if (process.env.NODE_ENV !== "production") {
-        console.log("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
+        logger.debug("🧪 Rendering SIGNUP form with values:", signupForm.getValues());
       }
       return (
         <form
           onKeyDown={safeSignupSubmit}
           onSubmit={signupForm.handleSubmit(handleSignUpSubmit, (errors) => {
             if (process.env.NODE_ENV !== "production") {
-                console.warn("❌ Signup form validation failed on submit:", errors);
+                logger.warn("❌ Signup form validation failed on submit:", errors);
             }
             toast({
                 title: "Missing Fields on Submit",
@@ -450,7 +504,7 @@ export default function UnifiedAuthPage() {
                 id="signup-fullName"
                 placeholder="Your Full Name"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                {...signupForm.register("fullName")}
+                {...signupForm.register("fullName", { setValueAs: v => (v ?? '').toString().trim() })}
               />
             </div>
             {(signupForm.formState.touchedFields.fullName || signupForm.formState.isSubmitted) && signupForm.formState.errors.fullName && (
@@ -466,7 +520,7 @@ export default function UnifiedAuthPage() {
                 type="password"
                 placeholder="•••••••• (min. 6 characters)"
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
-                {...signupForm.register("password")}
+                {...signupForm.register("password", { setValueAs: v => (v ?? '').toString().trim() })}
               />
               <Button
                 type="button"

@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,8 @@ import { useAuth } from "@/context/AuthContext";
 import { createThreadNode, getUserQuestionCountForStatement } from "@/lib/firestoreActions";
 import type { ThreadNode } from "@/types";
 import Link from "next/link"; 
+import { logger } from '@/lib/logger';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   content: z.string().min(5, "Content must be at least 5 characters.").max(1000, "Content must be at most 1000 characters."),
@@ -64,7 +66,7 @@ export function ThreadPostForm({
           const count = await getUserQuestionCountForStatement(user.uid, statementId, topicId);
           setCurrentUserQuestionCount(count);
         } catch (error) {
-          console.error("Failed to fetch user question count for statement:", statementId, error);
+          logger.error("Failed to fetch user question count for statement:", statementId, error);
           toast({ title: "Error", description: "Could not verify your question limit for this statement.", variant: "destructive" });
         } finally {
           setIsLoadingQuestionCount(false);
@@ -137,7 +139,7 @@ export function ThreadPostForm({
       form.reset();
       onSuccess(); 
     } catch (error: any) {
-      console.error(`Error submitting thread node (type: ${type}):`, error);
+      logger.error(`Error submitting thread node (type: ${type}):`, error);
       toast({
         title: `Failed to Submit ${type.charAt(0).toUpperCase() + type.slice(1)}`,
         description: error.message || "An unexpected error occurred.",
@@ -149,15 +151,45 @@ export function ThreadPostForm({
   }
   
   const defaultPlaceholder = type === 'question' 
-    ? "Ask a clarifying question or challenge a point..." 
+    ? "Every question sharpens the truth. Ask away." 
     : "Provide your response...";
-  const defaultSubmitText = type === 'question' ? "Ask Question" : "Post Response";
+  const defaultSubmitText = type === 'question' ? "Ask away" : "Post Response";
 
   const isDisabled = isSubmitting || authLoading || isLoadingQuestionCount || (type === 'question' && currentUserQuestionCount >= 3) || isSuspended;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-2 py-3 px-1 border-t border-dashed border-white/10">
+        {!authLoading && !user && (
+          <Alert className="mb-2 border-primary/30 bg-primary/10 text-left">
+            <AlertTitle className="text-primary font-semibold flex items-center">
+              <Lock className="h-4 w-4 mr-2" /> Sign in to join the thread
+            </AlertTitle>
+            <AlertDescription className="text-white/80">
+              You can read everything, but to ask questions or respond please
+              <Button variant="link" className="p-0 h-auto text-primary underline hover:text-white transition ml-1" onClick={() => router.push(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>Be a dbaitr</Button>.
+            </AlertDescription>
+          </Alert>
+        )}
+        {user && isSuspended && (
+          <Alert className="mb-2 border-yellow-500/30 bg-yellow-500/10 text-left">
+            <AlertTitle className="text-yellow-300 font-semibold flex items-center">
+              <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to participate
+            </AlertTitle>
+            <AlertDescription className="text-white/80">
+              Your identity verification deadline has expired. Please
+              <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
+                <Link href="/verify-identity">verify your identity</Link>
+              </Button>
+              to unlock posting.
+            </AlertDescription>
+            <div className="mt-2">
+              <Button asChild size="sm" variant="outline" className="border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20 hover:text-yellow-200">
+                <Link href="/verify-identity">Verify now</Link>
+              </Button>
+            </div>
+          </Alert>
+        )}
         <FormField
           control={form.control}
           name="content"
@@ -170,7 +202,7 @@ export function ThreadPostForm({
                   className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition min-h-[80px] resize-none text-sm"
                   rows={3}
                   {...field}
-                  disabled={isDisabled || !user || !kycVerified} 
+                  disabled={isDisabled || !user} 
                 />
               </FormControl>
               <FormMessage />
@@ -178,7 +210,7 @@ export function ThreadPostForm({
           )}
         />
         <div className="flex justify-end items-center gap-2">
-            {type === 'question' && !isLoadingQuestionCount && user && kycVerified && !isSuspended &&(
+            {type === 'question' && !isLoadingQuestionCount && user && !isSuspended &&(
                  <p className="text-xs text-white/50">
                     Questions asked for this statement: {currentUserQuestionCount}/3
                 </p>
@@ -190,9 +222,13 @@ export function ThreadPostForm({
             type="submit" 
             size="sm" 
             className="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold shadow-lg shadow-black/20 transition"
-            disabled={isDisabled || !user || !kycVerified}
+            disabled={isDisabled || !user}
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              (!user || isSuspended) ? <Lock className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />
+            )}
             {submitButtonText || defaultSubmitText}
           </Button>
         </div>

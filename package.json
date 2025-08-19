@@ -9,9 +9,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:bootstrap": "bash scripts/dev/bootstrap.sh",
+    "check:boundaries": "node scripts/checks/no-server-actions-in-client.mjs",
+    "ai": "node scripts/ai/codex-run.mjs",
+    "ai:review": "node scripts/ai/codex-run.mjs --session review -p docs/ai/templates/code-review.md",
+    "ai:refactor": "node scripts/ai/codex-run.mjs --session refactor -p docs/ai/templates/refactor.md",
+    "dev:seed": "node scripts/seed/seed.mjs"
   },
   "dependencies": {
+    "@fontsource/fredoka": "^5.1.0",
     "@genkit-ai/googleai": "^1.8.0",
     "@genkit-ai/next": "^1.8.0",
     "@hookform/resolvers": "^4.1.3",
@@ -37,11 +44,15 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@tanstack-query-firebase/react": "^1.0.5",
     "@tanstack/react-query": "^5.66.0",
+    "@vladmandic/human": "^3.9.1",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "firebase": "^11.7.0",
+    "firebase-admin": "^12.5.0",
     "genkit": "^1.8.0",
     "lucide-react": "^0.475.0",
     "next": "15.2.3",
@@ -53,7 +64,8 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "tesseract.js": "^5.1.0"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "^5.66.0",

@@ -2,9 +2,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Sparkles, AlertTriangle, CheckCircle } from "lucide-react"; // Removed Search
+import { Loader2, Sparkles, AlertTriangle, CheckCircle, Lock } from "lucide-react"; // Removed Search
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from 'next/link';
 import * as React from "react";
+import { logger } from '@/lib/logger';
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ import { createTopic, updateTopicDescriptionWithAISummary } from "@/lib/firestor
 // Removed checkTopicSimilarity, type CheckTopicSimilarityOutput from AI flows
 import { generateTopicAnalysis } from "@/ai/flows/generate-topic-analysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   title: z.string().min(10, "Title must be at least 10 characters.").max(150, "Title must be at most 150 characters."),
@@ -70,22 +73,10 @@ export function NewTopicForm() {
     if (isSuspended) {
       toast({
         title: "Account Access Restricted",
-        description: "Your account is currently restricted. Please complete your identity verification to create new topics.",
+        description: "You can browse freely, but creating new topics is locked until you verify your identity.",
         variant: "destructive",
         duration: 7000,
       });
-      router.push('/account-suspended');
-      return;
-    }
-    
-    if (!kycVerified) {
-      toast({ 
-        title: "Identity Verification Required", 
-        description: "To ensure a fair and accountable debate, identity verification (KYC) is needed to create new topics. Please complete the verification process (you have a 10-day grace period). You'll be redirected to the verification page and can return here afterwards.", 
-        variant: "destructive",
-        duration: 7000,
-      });
-      router.push('/verify-identity'); 
       return;
     }
 
@@ -104,14 +95,14 @@ export function NewTopicForm() {
           }
         })
         .catch(err => {
-          console.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err);
+          logger.error("Background task: Failed to generate AI topic summary after topic creation. Topic ID:", newTopic.id, "Error:", err);
           // Optionally toast a non-critical error or log to an error monitoring service
         });
       
       toast({ title: "Topic Created Successfully!", description: `Your debate topic "${values.title}" is now live and ready for discussion.` });
       router.push(`/topics/${newTopic.id}`);
     } catch (error: any) {
-      console.error("Detailed error: Failed to create new topic. Values:", values, "Error:", error);
+      logger.error("Detailed error: Failed to create new topic. Values:", values, "Error:", error);
       toast({ 
         title: "Failed to Create Topic", 
         description: `An error occurred while trying to create your new topic. The system reported: ${error.message || "An unspecified error."} Please try submitting again. If the issue persists, it might be a temporary server problem or an issue with the provided details.`, 
@@ -142,8 +133,41 @@ export function NewTopicForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
+        {!authLoading && !user && (
+          <Alert className="mb-4 border-primary/30 bg-primary/10">
+            <AlertTitle className="text-primary font-semibold flex items-center">
+              <Lock className="h-4 w-4 mr-2" /> Sign in to create topics
+            </AlertTitle>
+            <AlertDescription className="text-white/80">
+              You can browse freely, but to create a new topic please
+              <Button variant="link" className="p-0 h-auto text-primary underline hover:text-white transition ml-1" onClick={() => {
+                const currentPath = window.location.pathname + window.location.search;
+                router.push(`/auth?returnTo=${encodeURIComponent(currentPath)}`);
+              }}>Be a dbaitr</Button>.
+            </AlertDescription>
+          </Alert>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {user && isSuspended && (
+              <Alert className="-mt-2 mb-2 border-yellow-500/30 bg-yellow-500/10">
+                <AlertTitle className="text-yellow-300 font-semibold flex items-center">
+                  <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to create topics
+                </AlertTitle>
+                <AlertDescription className="text-white/80">
+                  Your identity verification deadline has expired. Please
+                  <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
+                    <Link href="/verify-identity">verify your identity</Link>
+                  </Button>
+                  to unlock posting.
+                </AlertDescription>
+                <div className="mt-2">
+                  <Button asChild size="sm" variant="outline" className="border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20 hover:text-yellow-200">
+                    <Link href="/verify-identity">Verify now</Link>
+                  </Button>
+                </div>
+              </Alert>
+            )}
             <FormField
               control={form.control}
               name="title"
@@ -184,8 +208,12 @@ export function NewTopicForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || isSuspended }>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" disabled={loading || isSuspended || !user}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                (!user || isSuspended) ? <Lock className="mr-2 h-4 w-4" /> : null
+              )}
               Create Topic
             </Button>
           </form>

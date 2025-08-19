@@ -1,6 +1,6 @@
 {
-  "name": "db8 - AI Powered Debates",
-  "short_name": "db8",
+  "name": "dbaitr - AI Powered Debates",
+  "short_name": "dbaitr",
   "description": "Engage in structured debates with AI analysis and KYC verification.",
   "start_url": "/",
   "display": "standalone",

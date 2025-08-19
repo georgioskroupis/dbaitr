@@ -4,6 +4,7 @@
 import type { ThreadNode } from '@/types';
 import { ThreadItem } from './ThreadItem';
 import { Skeleton } from '@/components/ui/skeleton';
+import { logger } from '@/lib/logger';
 
 interface ThreadListProps {
   threads: ThreadNode[];
@@ -38,11 +39,11 @@ export function ThreadList({ threads, statementId, topicId, statementAuthorId, i
   const rootNodes = threads.filter(node => !node.parentId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   
   // Log received threads and identified root nodes for debugging
-  console.log(`[ThreadList] For statement ${statementId} - Received ${threads.length} total threads. Identified ${rootNodes.length} root nodes. Threads:`, JSON.parse(JSON.stringify(threads)));
+  logger.debug(`[ThreadList] For statement ${statementId} - Received ${threads.length} total threads. Identified ${rootNodes.length} root nodes. Threads:`, JSON.parse(JSON.stringify(threads)));
 
 
   if (threads.length === 0) {
-    return <p className="text-sm text-muted-foreground mt-4 text-center py-4">No questions or responses yet for this statement.</p>;
+    return <p className="text-sm sm:text-base text-muted-foreground mt-4 text-center py-4">No questions or responses yet for this statement.</p>;
   }
   
   // If threads are present but no root nodes are found (e.g. all have parentId),
@@ -65,4 +66,3 @@ export function ThreadList({ threads, statementId, topicId, statementAuthorId, i
     </div>
   );
 }
-

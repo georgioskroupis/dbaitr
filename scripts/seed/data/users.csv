@@ -1,0 +1,10 @@
+uid,email,fullName,kycVerified
+u1,alice@example.com,Alice Anders,true
+u2,bob@example.com,Bob Brown,true
+u3,carla@example.com,Carla Cruz,true
+u4,dan@example.com,Dan Dorner,true
+u5,emi@example.com,Emi Endo,true
+u6,fatih@example.com,Fatih Faruk,true
+u7,gwen@example.com,Gwen Gao,true
+u8,hassan@example.com,Hassan Hakim,true
+

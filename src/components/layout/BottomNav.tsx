@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Home, User, UserPlus, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
-import { GavelHookIcon as GavelIcon } from './GavelIcon'; // Changed to GavelHookIcon and aliased
 import type { Dispatch, SetStateAction } from 'react';
 
 interface BottomNavProps {
@@ -21,15 +20,15 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
     { href: '/dashboard', icon: Home, label: 'Dashboard', id: 'dashboard' },
     { 
       action: () => setSearchModalOpen(true), 
-      icon: GavelIcon, 
-      label: 'Start dbaitr', // Changed from db8
+      icon: null as any, 
+      label: 'Start dbaitr',
       id: 'start-dbaitr' 
     },
     { 
       href: user ? '/profile' : '/auth', 
       icon: user ? User : UserPlus, 
-      label: user ? 'Profile' : 'Join dbaitr', // Changed from db8
-      id: user ? 'profile' : 'join-dbaitr', // Changed from db8
+      label: user ? 'Profile' : 'Be a dbaitr',
+      id: user ? 'profile' : 'join-dbaitr',
       authRequired: false 
     },
   ];
@@ -51,7 +50,7 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
       <div className="flex h-full items-center justify-around">
         {navItems.map((item) => {
           const isActive = item.href ? pathname === item.href || (item.href === "/dashboard" && pathname.startsWith("/topics")) : false;
-          const Icon = item.icon;
+          const Icon = item.icon as any;
           
           const itemKey = item.href || item.id;
           
@@ -74,7 +73,15 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
           if (item.action) {
             return (
               <button key={itemKey} {...commonProps} onClick={item.action} aria-label={item.label}>
-                <Icon className={cn("h-6 w-6", item.id === 'start-dbaitr' ? "text-white" : "")} /> {/* Gavel icon is white */}
+                {item.id === 'start-dbaitr' ? (
+                  <img
+                    src="https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-favicon.svg?alt=media&token=0ede04eb-0397-435e-bea6-6d1a9dc705ae"
+                    alt="dbaitr icon"
+                    className="h-6 w-6 invert brightness-0 animate-gavel-strike-paused origin-bottom"
+                  />
+                ) : (
+                  <Icon className={cn("h-6 w-6")} />
+                )}
               </button>
             );
           }

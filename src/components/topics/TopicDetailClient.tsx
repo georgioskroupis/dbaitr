@@ -3,7 +3,9 @@
 
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
-import { PositionTally } from './PositionTally';
+import { SentimentDensity } from '@/components/analytics/SentimentDensity';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
 import { useEffect, useState, useCallback } from 'react';
@@ -15,6 +17,8 @@ import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types';
 import { format, isValid, parseISO } from 'date-fns'; 
+import { logger } from '@/lib/logger';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 
 interface TopicDetailClientProps {
@@ -28,6 +32,8 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   const [isLoadingTopicDetails, setIsLoadingTopicDetails] = useState<boolean>(!initialTopic.description);
   const [isLoadingStatements, setIsLoadingStatements] = useState<boolean>(false);
   const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
+  const [sentimentBins, setSentimentBins] = useState<number[] | null>(null);
+  const [sentimentMean, setSentimentMean] = useState<number | undefined>(undefined);
   const { toast } = useToast();
   
   const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
@@ -43,7 +49,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         }
       } catch (e) {
         setClientTopicCreatedAtDate('N/A');
-        console.error("Error parsing initialTopic.createdAt:", e);
+        logger.error("Error parsing initialTopic.createdAt:", e);
       }
     } else {
       setClientTopicCreatedAtDate('N/A');
@@ -73,10 +79,10 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
             await updateTopicDescriptionWithAISummary(topic.id, analysisResult.analysis);
             setTopic(prev => ({ ...prev, description: analysisResult.analysis }));
           } else {
-            console.warn("AI topic summary result was empty for topic:", topic.title);
+            logger.warn("AI topic summary result was empty for topic:", topic.title);
           }
         } catch (error: any) {
-          console.error(`Detailed error: Failed to generate or fetch AI topic summary for topic "${topic.title}" (ID: ${topic.id}):`, error);
+          logger.error(`Detailed error: Failed to generate or fetch AI topic summary for topic "${topic.title}" (ID: ${topic.id}):`, error);
           toast({
             title: "AI Summary Unavailable",
             description: `Could not load the AI-generated summary for this topic. This may be a temporary issue. Error: ${error.message || 'Unknown AI error.'}`,
@@ -96,6 +102,33 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic?.id, topic?.title, toast]); 
 
+  useEffect(() => {
+    async function loadSentimentAgg() {
+      try {
+        if (!topic?.id) return;
+        // Prefer topic-wide aggregation
+        const ref = doc(db, 'topics', topic.id, 'aggregations', 'sentiment');
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d = snap.data() as any;
+          if (Array.isArray(d.sentimentDist) && d.sentimentDist.length === 101) setSentimentBins(d.sentimentDist);
+          if (typeof d.mean === 'number') setSentimentMean(d.mean);
+        }
+      } catch (e) {}
+    }
+    loadSentimentAgg();
+  }, [topic?.id]);
+
+  // Helper to derive label from mean score (0..100)
+  const sentimentLabel = (score?: number) => {
+    if (typeof score !== 'number') return undefined;
+    if (score <= 20) return 'Very Negative';
+    if (score <= 40) return 'Negative';
+    if (score <= 60) return 'Neutral';
+    if (score <= 80) return 'Positive';
+    return 'Very Positive';
+  };
+
   const refreshData = useCallback(async () => {
     if (!topic?.id) return; 
     setIsLoadingStatements(true);
@@ -113,7 +146,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         }));
       }
     } catch (error: any) {
-      console.error(`Detailed error: Failed to refresh data for topic "${topic.title}" (ID: ${topic.id}):`, error);
+      logger.error(`Detailed error: Failed to refresh data for topic "${topic.title}" (ID: ${topic.id}):`, error);
       toast({
         title: "Data Refresh Failed",
         description: `Could not update data for this topic. Error: ${error.message || 'Unknown error.'}`,
@@ -139,20 +172,20 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl md:text-4xl font-semibold text-white mb-2">{topic.title}</h1>
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-white mb-2">{topic.title}</h1>
          {clientTopicCreatedAtDate && (
-            <p className="text-sm text-white/50">
+            <p className="text-xs sm:text-sm text-white/50">
                 Created by {creatorNameDisplay} on {clientTopicCreatedAtDate}
             </p>
         )}
         <TopicAnalysis analysis={topic.description} isLoading={isLoadingTopicDetails && !topic.description} />
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <h2 className="text-2xl font-semibold text-white">Debate Area</h2>
+      <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
+        <div className="md:col-span-2 space-y-4 sm:space-y-6">
+          <h2 className="text-xl md:text-2xl font-semibold text-white">Debate Area</h2>
           {isLoadingStatements ? (
              Array.from({ length: 3 }).map((_, index) => (
                 <Card className="mb-4 bg-black/20 backdrop-blur-sm p-0 rounded-xl shadow-md border border-white/10" key={index}>
@@ -174,16 +207,29 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
           ) : (
             <Alert className="border-rose-500/30 bg-rose-500/5">
               <Terminal className="h-4 w-4 text-rose-400" />
-              <AlertTitle className="text-rose-300 font-semibold">No Statements Yet!</AlertTitle>
-              <AlertDescription className="text-white/80">
-                This debate is just getting started. Be the first to share your statement!
-              </AlertDescription>
+              <AlertTitle className="text-rose-300 font-semibold">Silence isn’t truth.</AlertTitle>
+              <AlertDescription className="text-white/80">Add your voice.</AlertDescription>
             </Alert>
           )}
         </div>
-        <div className="md:col-span-1 space-y-6">
-           <PositionTally topic={topic} isLoading={isLoadingTopicDetails} /> 
-           <PostForm topic={topic} onStatementCreated={refreshData} />
+        <div className="md:col-span-1 space-y-4 sm:space-y-6">
+          {/* Topic-wide sentiment density above "Your Statement" */}
+          {sentimentBins && (
+            <div className="p-3 rounded-md border border-white/10 bg-black/30">
+              {typeof sentimentMean === 'number' && (
+                <div className="flex items-baseline justify-between mb-2">
+                  <p className="text-sm text-white">Result</p>
+                  <p className="text-sm text-white/70">
+                    {sentimentLabel(sentimentMean)}
+                    <span className="text-white/40"> · {Math.round(sentimentMean)}%</span>
+                  </p>
+                </div>
+              )}
+              <SentimentDensity bins={sentimentBins} mean={sentimentMean} />
+            </div>
+          )}
+
+          <PostForm topic={topic} onStatementCreated={refreshData} />
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { seedMultiTopicTestData } from "@/lib/seedDatabase"; 
+import { logger } from '@/lib/logger';
 import { Loader2, DatabaseZap } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,7 @@ export default function SeedFirestorePage() {
         });
       }
     } catch (error: any) {
-      console.error("Client-side error encountered while calling the seed function:", error);
+      logger.error("Client-side error encountered while calling the seed function:", error);
       toast({
         title: "Client Error",
         description: `An unexpected error occurred on the client-side when trying to trigger the seed process. Details: ${error.message || 'Unknown client error. Check console for more information.'}`,

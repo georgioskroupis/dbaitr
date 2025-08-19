@@ -24,8 +24,10 @@ export type FindSimilarTopicsInput = z.infer<typeof FindSimilarTopicsInputSchema
 const SimilarTopicSuggestionSchema = z.object({
   title: z.string().describe('The title of the similar existing topic.'),
   score: z.number().min(0).max(1).describe('The semantic similarity score (0 to 1, where 1 is highly similar).'),
-  matches: z.array(z.string()).optional().describe('Specific words or short phrases in the title that semantically match the user query.'),
-  matchedPhrase: z.string().optional().describe('A representative phrase from the title that best matches the query, for highlighting.'), // Kept for compatibility if previous change was partial
+  matches: z
+    .array(z.string())
+    .default([])
+    .describe('Specific words or short phrases in the title that semantically match the user query.'),
 });
 export type SimilarTopicSuggestion = z.infer<typeof SimilarTopicSuggestionSchema>;
 
@@ -63,23 +65,23 @@ Instructions:
 1. Analyze the User's Query and each Existing Topic Title for semantic meaning and intent.
 2. For each existing topic, calculate a similarity score between 0.0 (not similar) and 1.0 (very similar or identical) compared to the User's Query.
 3. Identify up to {{topN}} existing topics that have a similarity score greater than or equal to {{similarityThreshold}}.
-4. For each identified topic, determine an array of specific words or short phrases ("matches") from its title that are most semantically relevant to the User's Query. Also determine a single representative "matchedPhrase" from the title that best encapsulates the semantic link to the query, suitable for highlighting.
+4. For each identified topic, determine an array of specific words or short phrases ("matches") from its title that are most semantically relevant to the User's Query.
 5. Sort these identified topics by their similarity score in descending order (most similar first).
 6. If no topics meet the threshold, return an empty array for "suggestions".
 
 Output the results STRICTLY in the following JSON format:
 {
   "suggestions": [
-    { "title": "Existing Topic Title 1", "score": 0.92, "matches": ["word1", "phrase2"], "matchedPhrase": "word1 phrase2" },
-    { "title": "Existing Topic Title 2", "score": 0.85, "matches": ["relevant part"], "matchedPhrase": "relevant part" }
+    { "title": "Existing Topic Title 1", "score": 0.92, "matches": ["word1", "phrase2"] },
+    { "title": "Existing Topic Title 2", "score": 0.85, "matches": ["relevant part"] }
   ]
 }
 
 Example of output if "Global Warming Solutions" is the query and existing topics are provided:
 {
   "suggestions": [
-    { "title": "Effective strategies to combat climate change", "score": 0.95, "matches": ["climate change", "strategies"], "matchedPhrase": "climate change" },
-    { "title": "The impact of renewable energy on global warming", "score": 0.88, "matches": ["renewable energy", "global warming"], "matchedPhrase": "global warming" }
+    { "title": "Effective strategies to combat climate change", "score": 0.95, "matches": ["climate change", "strategies"] },
+    { "title": "The impact of renewable energy on global warming", "score": 0.88, "matches": ["renewable energy", "global warming"] }
   ]
 }
 
@@ -111,9 +113,15 @@ const findSimilarTopicsFlow = ai.defineFlow(
     }
 
     const {output} = await findSimilarTopicsPrompt(processedInput);
-    // Ensure a valid output structure even if LLM output is null/undefined or malformed
+    // Ensure a valid output structure and normalize matches to []
     if (output && Array.isArray(output.suggestions)) {
-        return output;
+      return {
+        suggestions: output.suggestions.map(s => ({
+          title: s.title,
+          score: s.score,
+          matches: Array.isArray((s as any).matches) ? (s as any).matches : [],
+        })),
+      };
     }
     return { suggestions: [] };
   }

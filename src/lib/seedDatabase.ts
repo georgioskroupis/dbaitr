@@ -1,10 +1,11 @@
 
 'use server';
 
-import { db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase';
 import type { UserProfile, Topic, Statement, Question, ThreadNode } from '@/types'; // Added ThreadNode
 import { doc, Timestamp, writeBatch, collection, getDocs, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { createStatement, createThreadNode } from './firestoreActions'; // Import createStatement and createThreadNode
+import { logger } from '@/lib/logger';
 
 // This function seeds a specific set of test data as requested for a "strict Firestore write test".
 // The old seedTestData function is kept for reference or potential future use but is no longer the primary export.
@@ -18,10 +19,10 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
 
 
     if (someOldTopicsExist && !topicsSnapshot.empty) {
-      console.log('⚠️ Firestore already contains some old topic data. Auto-seeding skipped (oldSeedTestData).');
+      logger.debug('⚠️ Firestore already contains some old topic data. Auto-seeding skipped (oldSeedTestData).');
       return { success: true, message: 'Firestore already contains some old topic data. Auto-seeding skipped (oldSeedTestData).' };
     }
-    console.log('ℹ️ No existing old topics found. Proceeding with initial data seed (oldSeedTestData).');
+    logger.debug('ℹ️ No existing old topics found. Proceeding with initial data seed (oldSeedTestData).');
 
     const batch = writeBatch(db);
     const testUserId = 'user_test_old_seed'; 
@@ -35,7 +36,8 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
         fullName: "Test User (Old Seed)",
         email: "test-old@example.com",
         kycVerified: true,
-        createdAt: Timestamp.now().toDate().toISOString()
+        createdAt: Timestamp.now().toDate().toISOString(),
+        registeredAt: Timestamp.now().toDate().toISOString(),
         };
         batch.set(userRef, userTestData);
     }
@@ -100,9 +102,9 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
         batch.set(topicRefSocialCensorship, topicDataSocialCensorship);
     }
 
-    console.log('⏳ Committing test data batch (oldSeedTestData for users, topics)...');
+    logger.debug('⏳ Committing test data batch (oldSeedTestData for users, topics)...');
     await batch.commit();
-    console.log('✅ Test data batch committed (oldSeedTestData for users, topics).');
+    logger.debug('✅ Test data batch committed (oldSeedTestData for users, topics).');
 
     // STEP 3: Add Statements sequentially using createStatement and get their IDs
     
@@ -118,7 +120,7 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "Banning TikTok undermines digital freedom. Users should choose what apps to use."
     );
-    console.log(`✅ Created 2 statements for topic ${topicTikTokHardcodedId} (old seed)`);
+    logger.debug(`✅ Created 2 statements for topic ${topicTikTokHardcodedId} (old seed)`);
     
     // For AI Jobs Topic
     const createdStatementAIJobsFor = await createStatement(
@@ -132,7 +134,7 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "Replacing people with AI erodes dignity. Work isn't just economic — it's part of identity and community. We risk widespread social displacement."
     );
-    console.log(`✅ Created 2 statements for topic ${topicAIJobsHardcodedId} (old seed)`);
+    logger.debug(`✅ Created 2 statements for topic ${topicAIJobsHardcodedId} (old seed)`);
 
     // For Eating Meat Topic
     const createdStatementMeatFor = await createStatement(
@@ -145,7 +147,7 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "With viable plant-based and cultivated meat alternatives increasingly available, the continued large-scale suffering of sentient animals for food is no longer ethically justifiable."
     );
-    console.log(`✅ Created 2 statements for topic ${topicEatingMeatHardcodedId} (old seed)`);
+    logger.debug(`✅ Created 2 statements for topic ${topicEatingMeatHardcodedId} (old seed)`);
 
     // For Social Censorship Topic
     const createdStatementSocialFor = await createStatement(
@@ -159,12 +161,12 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
       testUserId,
       "Censorship, even with good intentions, is a slippery slope and more dangerous in the long run than falsehoods. The public should be empowered to discern truth, not have it dictated by platforms."
     );
-    console.log(`✅ Created 2 statements for topic ${topicSocialCensorshipHardcodedId} (old seed)`);
-    console.log('✅ Statements seeded sequentially via createStatement (oldSeedTestData).');
+    logger.debug(`✅ Created 2 statements for topic ${topicSocialCensorshipHardcodedId} (old seed)`);
+    logger.debug('✅ Statements seeded sequentially via createStatement (oldSeedTestData).');
 
 
     // Seed questions using createThreadNode with dynamic statement IDs
-    console.log('⏳ Seeding questions via createThreadNode (oldSeedTestData)...');
+    logger.debug('⏳ Seeding questions via createThreadNode (oldSeedTestData)...');
     if (createdStatement1TikTok?.id) {
         await createThreadNode({
         topicId: topicTikTokHardcodedId, statementId: createdStatement1TikTok.id, statementAuthorId: testUserId,
@@ -189,11 +191,11 @@ async function oldSeedTestData(): Promise<{ success: boolean; message: string }>
         parentId: null, content: "How do we define 'misinformation' and 'harmful content' consistently and without inherent political or ideological bias, especially at a global scale?", createdBy: testUserId, type: 'question'
         });
     }
-    console.log('✅ Questions seeded via createThreadNode (oldSeedTestData).');
+        logger.debug('✅ Questions seeded via createThreadNode (oldSeedTestData).');
     
     return { success: true, message: '✅ Sample data including new topics successfully written to Firestore (oldSeedTestData).' };
   } catch (error) {
-    console.error('Error writing sample data (oldSeedTestData):', error);
+    logger.error('Error writing sample data (oldSeedTestData):', error);
     let errorMessage = 'An unknown error occurred during seeding (oldSeedTestData).';
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -228,10 +230,10 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
 
 
     if (allRequiredTopicsExist && !topicsSnapshot.empty) { // Check if topicsSnapshot is not empty as an additional guard
-      console.log('✅ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
+      logger.debug('✅ Firestore already contains the new multi-topic dataset. Auto-seeding skipped.');
       return { success: true, message: 'Firestore already contains the new multi-topic dataset. Auto-seeding skipped.' };
     }
-    console.log('ℹ️ Not all required topics found or topics collection was empty. Proceeding with multi-topic data seed.');
+    logger.debug('ℹ️ Not all required topics found or topics collection was empty. Proceeding with multi-topic data seed.');
 
     const batch = writeBatch(db);
     const testUserId = 'user_test'; 
@@ -244,7 +246,8 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
         fullName: "Test User Prime", 
         email: "test@example.com",
         kycVerified: true,
-        createdAt: Timestamp.now().toDate().toISOString()
+        createdAt: Timestamp.now().toDate().toISOString(),
+        registeredAt: Timestamp.now().toDate().toISOString(),
       };
       batch.set(userRef, userTestData);
     }
@@ -271,13 +274,13 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
           slug: topic.slug
         });
       } else {
-        console.log(`Topic ${topic.id} already exists. Scores will be updated by createStatement calls if statements are re-seeded.`);
+        logger.debug(`Topic ${topic.id} already exists. Scores will be updated by createStatement calls if statements are re-seeded.`);
       }
     }
     
-    console.log('⏳ Committing multi-topic test data batch (users, topics)...');
+    logger.debug('⏳ Committing multi-topic test data batch (users, topics)...');
     await batch.commit();
-    console.log('✅ Multi-topic test data batch committed (users, topics).');
+    logger.debug('✅ Multi-topic test data batch committed (users, topics).');
 
     // Statements and Questions Data (to be created sequentially after topics)
     const statementsAndQuestions = [
@@ -311,7 +314,7 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
       }
     ];
 
-    console.log('⏳ Seeding statements and questions sequentially for multi-topic data using createStatement...');
+    logger.debug('⏳ Seeding statements and questions sequentially for multi-topic data using createStatement...');
     for (const topicData of statementsAndQuestions) {
       let statementsCreatedCount = 0;
       for (const stmt of topicData.statements) {
@@ -323,7 +326,7 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
         );
         statementsCreatedCount++;
         
-        console.log(`📝 Statement created with ID: ${createdStatement.id} for topic ${topicData.topicId}. Position: ${createdStatement.position}`);
+        logger.debug(`📝 Statement created with ID: ${createdStatement.id} for topic ${topicData.topicId}. Position: ${createdStatement.position}`);
 
         if (stmt.question && createdStatement.id) { // Ensure createdStatement.id is valid
           await createThreadNode({
@@ -335,17 +338,17 @@ export async function seedMultiTopicTestData(): Promise<{ success: boolean; mess
             createdBy: testUserId,
             type: 'question'
           });
-          console.log(`❓ Question seeded for statement ID: ${createdStatement.id}`);
+          logger.debug(`❓ Question seeded for statement ID: ${createdStatement.id}`);
         }
       }
-      console.log(`✅ Created ${statementsCreatedCount} statements for topic ${topicData.topicId}`);
+      logger.debug(`✅ Created ${statementsCreatedCount} statements for topic ${topicData.topicId}`);
     }
-    console.log('✅ Statements and questions for multi-topic data seeded sequentially.');
+    logger.debug('✅ Statements and questions for multi-topic data seeded sequentially.');
     
     return { success: true, message: '✅ New multi-topic sample data successfully written/verified in Firestore.' };
 
   } catch (error) {
-    console.error('Error writing multi-topic sample data:', error);
+    logger.error('Error writing multi-topic sample data:', error);
     let errorMessage = 'An unknown error occurred during multi-topic seeding.';
     if (error instanceof Error) {
       errorMessage = error.message;

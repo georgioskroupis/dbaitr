@@ -8,12 +8,14 @@ import { Loader2, Search as SearchIconLucide, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 import { getTopicByTitle } from '@/lib/firestoreActions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { GavelHookIcon as GavelIcon } from '@/components/layout/GavelIcon'; // Corrected import
-import { getSemanticTopicSuggestions } from '@/app/actions/searchActions';
-import type { FindSimilarTopicsOutput, SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics'; 
-import { cn, debounce, highlightSemanticMatches } from '@/lib/utils.tsx'; 
+import { cn } from '@/lib/utils';
+import { highlightSemanticMatches } from '@/lib/react-utils'; 
+import { useSemanticSuggestions } from '@/hooks/useSemanticSuggestions';
+import type { SimilarTopicSuggestion } from '@/ai/flows/find-similar-topics';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -25,79 +27,23 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false); 
-  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SimilarTopicSuggestion[]>([]);
+  const { suggestions, loading: isSuggestionLoading, debouncedFetchSuggestions, clear } = useSemanticSuggestions({ minChars: 1, debounceMs: 300 });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastFetchId = useRef<string|null>(null);
 
-  const MIN_CHARS_FOR_SEARCH = 1;
-
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedFetchSuggestions = useCallback(
-    debounce(async (query: string) => {
-      if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setIsSuggestionLoading(false);
-        return;
-      }
-      
-      const fetchId = Math.random().toString(36).slice(2);
-      lastFetchId.current = fetchId;
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[GlobalSearchModal-${fetchId}] -> fetching suggestions for "${query}"`);
-      }
-      setIsSuggestionLoading(true);
-
-      try {
-        const result = await getSemanticTopicSuggestions({ query });
-        
-        if (lastFetchId.current !== fetchId) {
-          if (process.env.NODE_ENV !== "production") {
-            console.log(`[GlobalSearchModal-${fetchId}] Stale response for "${query}", ignoring.`);
-          }
-          return;
-        }
-        
-        const uniqueSuggestions = Array.from(new Map(result.suggestions.map(s => [s.title, s])).values());
-        
-        if (process.env.NODE_ENV !== "production") {
-            console.log(`[GlobalSearchModal-${fetchId}] <- results for "${query}":`, uniqueSuggestions.map(s => s.title));
-        }
-
-        setSuggestions(uniqueSuggestions);
-        // setShowSuggestions(uniqueSuggestions.length > 0); // Controlled by new logic
-        if (uniqueSuggestions.length > 0) {
-          setShowSuggestions(true);
-        } else {
-          setShowSuggestions(false);
-        }
-
-
-      } catch (error) {
-        console.error("GlobalSearchModal: Failed to fetch suggestions:", error);
-        setSuggestions([]);
-        setShowSuggestions(false);
-      } finally {
-        if (lastFetchId.current === fetchId) {
-          setIsSuggestionLoading(false);
-        }
-      }
-    }, 300),
-    [] 
-  );
+  useEffect(() => {
+    setShowSuggestions(suggestions.length > 0);
+  }, [suggestions]);
 
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
-      setSuggestions([]);
+      clear();
       setShowSuggestions(false);
       setIsLoading(false);
-      setIsSuggestionLoading(false);
       setActiveSuggestionIndex(-1);
     } else {
         setTimeout(() => {
@@ -110,10 +56,9 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     const query = e.target.value;
     setSearchQuery(query);
     setActiveSuggestionIndex(-1);
-     if (!query.trim() || query.length < MIN_CHARS_FOR_SEARCH) {
-      setSuggestions([]);
+     if (!query.trim() || query.length < 1) {
+      clear();
       setShowSuggestions(false);
-      setIsSuggestionLoading(false);
     } else {
       debouncedFetchSuggestions(query);
     }
@@ -133,6 +78,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
       }
       onOpenChange(false); 
     } catch (error) {
+      logger.error("GlobalSearchModal: Navigation error:", error);
       toast({ title: "Navigation Error", description: "Could not navigate to suggested topic.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -169,7 +115,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
       }
       onOpenChange(false); 
     } catch (error: any) {
-      console.error("GlobalSearchModal: Error during topic search/create:", error);
+      logger.error("GlobalSearchModal: Error during topic search/create:", error);
       toast({
         title: "Search/Create Topic Error",
         description: `Something went wrong: ${error.message || 'Unknown error.'}`,
@@ -221,11 +167,11 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px] bg-card backdrop-blur-md border-border text-foreground">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-2xl font-semibold text-primary"> {/* text-rose-400 to text-primary */}
-            <GavelIcon className="h-6 w-6 mr-2 text-primary" /> Start the dbaitr {/* text-rose-400 to text-primary */}
+          <DialogTitle className="flex items-center text-2xl font-semibold text-primary">
+            <GavelIcon className="h-6 w-6 mr-2 text-primary" /> Welcome, de-baiter. Truth deserves a worthy opponent.
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground"> {/* text-white/70 to text-muted-foreground */}
-            Search for an existing debate topic or create a new one.
+          <DialogDescription className="text-muted-foreground">
+            This is where click-bait dies, and real debate lives.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSearchSubmit} className="space-y-4 pt-4">
@@ -237,8 +183,8 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
               value={searchQuery}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onFocus={() => searchQuery.trim().length >= MIN_CHARS_FOR_SEARCH && suggestions.length > 0 && setShowSuggestions(true)}
-              placeholder="What would you like to debate?"
+              onFocus={() => searchQuery.trim().length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+              placeholder="What's the debate?"
               className="w-full pl-10 pr-4 py-3 text-base rounded-lg border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
@@ -250,14 +196,14 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
                     <div
                       key={suggestion.title + index}
                       className={cn(
-                        "p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0",
-                        index === activeSuggestionIndex && "bg-accent text-accent-foreground"
+                        "suggestion-item p-3 hover:bg-accent hover:text-accent-foreground cursor-pointer border-b border-border last:border-b-0",
+                        index === activeSuggestionIndex && "bg-accent text-accent-foreground is-active"
                       )}
                       onClick={() => handleSuggestionClick(suggestion.title)}
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       <p className="font-medium text-sm text-foreground">
-                         {highlightSemanticMatches(suggestion.title, suggestion.matches || (suggestion.matchedPhrase ? [suggestion.matchedPhrase as string] : []))}
+                         {highlightSemanticMatches(suggestion.title, suggestion.matches)}
                       </p>
                       <p className="text-xs text-muted-foreground">Similarity: {(suggestion.score * 100).toFixed(0)}%</p>
                     </div>

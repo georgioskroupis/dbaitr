@@ -1,11 +1,12 @@
 
 "use server";
 
-import { auth, db } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase';
 import type { Topic, Statement, UserProfile, Question, ThreadNode } from '@/types';
 import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc, query, where, getDocs, updateDoc, Timestamp, limit, orderBy, runTransaction, FieldValue, increment } from 'firebase/firestore'; 
 import { revalidatePath } from 'next/cache';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
+import { logger } from '@/lib/logger';
 
 // Helper to convert Firestore data with Timestamps to data with ISO strings
 const convertTimestampsToISO = (timestampFields: string[], data: Record<string, any>): Record<string, any> => {
@@ -57,9 +58,7 @@ export async function createUserProfile(
         provider: provider,
       };
       await setDoc(userProfileRef, userProfileData);
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[firestoreActions] User profile CREATED for UID: ${userId} with provider: ${provider}`);
-      }
+      logger.debug(`[firestoreActions] User profile CREATED for UID: ${userId} with provider: ${provider}`);
       // Return a representation matching UserProfile type, actual timestamp will be on server
       return {
         ...userProfileData,
@@ -68,40 +67,41 @@ export async function createUserProfile(
       } as UserProfile;
     } else {
       // Profile exists, optionally update if provider changed or if there's new info
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider and registeredAt are up-to-date.`);
-      }
+      logger.debug(`[firestoreActions] User profile already exists for UID: ${userId}. Ensuring provider and registeredAt are up-to-date.`);
       const existingData = docSnap.data() as UserProfile;
-      const updates: Partial<UserProfile> & {updatedAt?: FieldValue, registeredAt?: FieldValue} = {};
+      type ProfileDocUpdates = Omit<Partial<UserProfile>, 'registeredAt' | 'updatedAt'> & {
+        updatedAt?: FieldValue;
+        registeredAt?: FieldValue;
+      };
+      const docUpdates: ProfileDocUpdates = {};
       if (existingData.provider !== provider && provider !== 'unknown') {
-        updates.provider = provider;
+        docUpdates.provider = provider;
       }
       if (!existingData.fullName && fullNameToSet !== 'Anonymous User') {
-        updates.fullName = fullNameToSet;
+        docUpdates.fullName = fullNameToSet;
       }
-      // If registeredAt is missing (for older users), set it.
-      if (!existingData.registeredAt) {
-        updates.registeredAt = serverTimestamp() as unknown as string; // Cast needed due to FieldValue vs string in UserProfile
+      // If registeredAt is missing (for older users), set it on the document with a server timestamp.
+      const willSetRegisteredAt = !existingData.registeredAt;
+      if (willSetRegisteredAt) {
+        docUpdates.registeredAt = serverTimestamp();
       }
 
-      if (Object.keys(updates).length > 0) {
-        updates.updatedAt = serverTimestamp();
-        await setDoc(userProfileRef, updates, { merge: true });
-         if (process.env.NODE_ENV !== "production") {
-          console.log(`[firestoreActions] User profile UPDATED for UID: ${userId} with changes:`, updates);
-         }
+      if (Object.keys(docUpdates).length > 0) {
+        docUpdates.updatedAt = serverTimestamp();
+        await setDoc(userProfileRef, docUpdates, { merge: true });
+         logger.debug(`[firestoreActions] User profile UPDATED for UID: ${userId} with changes:`, docUpdates);
          return {
           ...existingData,
-          ...updates,
+          ...docUpdates,
           createdAt: existingData.createdAt, 
           updatedAt: new Date().toISOString(), 
-          registeredAt: updates.registeredAt ? new Date().toISOString() : existingData.registeredAt,
+          registeredAt: willSetRegisteredAt ? new Date().toISOString() : existingData.registeredAt,
         } as UserProfile;
       }
       return convertTimestampsToISO(['createdAt', 'updatedAt', 'registeredAt'], existingData) as UserProfile;
     }
   } catch (error) {
-    console.error(`[firestoreActions] Error in createUserProfile for UID ${userId}:`, error);
+    logger.error(`[firestoreActions] Error in createUserProfile for UID ${userId}:`, error);
     throw new Error(`Failed to create or check user profile: ${(error as Error).message}`);
   }
 }
@@ -130,7 +130,18 @@ export async function updateUserVerificationStatus(userId: string, idDocumentUrl
 
 
 export async function createTopic(title: string, initialDescription: string | undefined, userId: string): Promise<Topic> {
+  // Enforce weekly topic creation quotas based on subscription tier
+  const userProfile = await getUserProfile(userId);
+  const isPlus = (userProfile as any)?.subscription === 'plus';
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const topicsCollection = collection(db, "topics");
+  const qCount = query(topicsCollection, where('createdBy', '==', userId), where('createdAt', '>=', Timestamp.fromDate(weekAgo)));
+  const countSnap = await getDocs(qCount);
+  const limitPerWeek = isPlus ? 5 : 1;
+  if (countSnap.size >= limitPerWeek) {
+    throw new Error(isPlus ? 'Topic limit reached for this week (dbaitr+ limit).' : 'Topic limit reached for this week. Upgrade to dbaitr+ for higher limits.');
+  }
   const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
   const newTopicServerData = { 
@@ -163,9 +174,25 @@ export async function createTopic(title: string, initialDescription: string | un
 }
 
 export async function createStatement(topicId: string, userId: string, content: string, userName?: string, userPhotoURL?: string): Promise<Statement> {
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[createStatement] Called with:", { topicId, userId, content });
+  // Enforce weekly statement quotas based on subscription tier
+  const profile = await getUserProfile(userId);
+  const isPlus = (profile as any)?.subscription === 'plus';
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const statementsCollection = collection(db, "topics", topicId, "statements");
+  const qCount = query(statementsCollection, where('createdBy', '==', userId), where('createdAt', '>=', Timestamp.fromDate(weekAgo)));
+  const countSnap = await getDocs(qCount);
+  const limitPerWeek = isPlus ? 20 : 3;
+  if (countSnap.size >= limitPerWeek) {
+    throw new Error(isPlus ? 'Statement limit reached for this week (dbaitr+ limit).' : 'Statement limit reached for this week. Upgrade to dbaitr+ for higher limits.');
   }
+  // Enforce single statement per user per topic
+  const dupQ = query(statementsCollection, where('createdBy', '==', userId), limit(1));
+  const dupSnap = await getDocs(dupQ);
+  if (!dupSnap.empty) {
+    throw new Error('You have already posted a statement for this topic.');
+  }
+  logger.debug("[createStatement] Called with:", { topicId, userId, content });
 
   const topicRef = doc(db, "topics", topicId);
   
@@ -177,21 +204,17 @@ export async function createStatement(topicId: string, userId: string, content: 
   if (!topicDataForClassification || !topicDataForClassification.title) {
     throw new Error("Topic data is invalid, cannot retrieve title for classification.");
   }
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[createStatement] Calling classifyPostPosition with:", {
+  logger.debug("[createStatement] Calling classifyPostPosition with:", {
       topicTitle: topicDataForClassification.title,
       post: content,
     });
-  }
 
   let classificationResult;
   try {
     classificationResult = await classifyPostPosition({ topic: topicDataForClassification.title, post: content });
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[createStatement] Classification result:", classificationResult);
-    }
+    logger.debug("[createStatement] Classification result:", classificationResult);
   } catch (err) {
-    console.error("[createStatement] AI classification failed:", err);
+    logger.error("[createStatement] AI classification failed:", err);
     throw new Error("AI classification failed. Cannot continue creating statement.");
   }
   
@@ -199,11 +222,11 @@ export async function createStatement(topicId: string, userId: string, content: 
   const aiConfidence = classificationResult.confidence;
 
   if (!['for', 'against', 'neutral'].includes(position)) {
-    console.error("[createStatement] Invalid position returned by AI:", position);
+    logger.error("[createStatement] Invalid position returned by AI:", position);
     throw new Error("Invalid classification result. Statement creation aborted.");
   }
 
-  const statementsCollection = collection(db, "topics", topicId, "statements");
+  // statementsCollection already defined for checks above
   let newStatementRefId: string | null = null;
 
   await runTransaction(db, async (transaction) => {
@@ -220,7 +243,7 @@ export async function createStatement(topicId: string, userId: string, content: 
     } else if (position === 'neutral') {
       topicScoreUpdateData.scoreNeutral = increment(1);
     } else {
-      console.warn(`createStatement: Unhandled position '${position}' for score update. Scores will not be incremented for this statement.`);
+      logger.warn(`createStatement: Unhandled position '${position}' for score update. Scores will not be incremented for this statement.`);
     }
     
     if (Object.keys(topicScoreUpdateData).length > 0) {
@@ -248,11 +271,9 @@ export async function createStatement(topicId: string, userId: string, content: 
   if (!newStatementRefId) {
     throw new Error("Failed to create statement reference within transaction.");
   }
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[createStatement] Statement successfully created with ID:", newStatementRefId);
-  }
+  logger.debug("[createStatement] Statement successfully created with ID:", newStatementRefId);
 
-  return {
+  const result: Statement = {
     id: newStatementRefId,
     topicId,
     content,
@@ -261,7 +282,12 @@ export async function createStatement(topicId: string, userId: string, content: 
     aiConfidence,
     createdAt: new Date().toISOString(), 
     lastEditedAt: new Date().toISOString(), 
-  };
+  } as Statement;
+  // Fire-and-forget sentiment enrichment (non-blocking) for initial statements only
+  try {
+    void fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/sentiment`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'statement', topicId, statementId: newStatementRefId, text: content }) });
+  } catch {}
+  return result;
 }
 
 export async function getTopics(): Promise<Topic[]> {
@@ -311,6 +337,19 @@ export async function getStatementsForTopic(topicId: string): Promise<Statement[
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnapshot => {
     const data = docSnapshot.data();
+    // Safely convert nested sentiment.updatedAt if present (Firestore Timestamp -> ISO)
+    if (data && typeof data === 'object' && data.sentiment && data.sentiment.updatedAt) {
+      const u = (data.sentiment as any).updatedAt as any;
+      try {
+        if (u instanceof Timestamp) {
+          (data.sentiment as any).updatedAt = (u as Timestamp).toDate().toISOString();
+        } else if (u && typeof u === 'object' && 'seconds' in u && 'nanoseconds' in u) {
+          (data.sentiment as any).updatedAt = new Timestamp(u.seconds, u.nanoseconds).toDate().toISOString();
+        } else if (u instanceof Date) {
+          (data.sentiment as any).updatedAt = u.toISOString();
+        }
+      } catch {}
+    }
     return {
       id: docSnapshot.id,
       ...convertTimestampsToISO(['createdAt', 'lastEditedAt'], data),
@@ -444,7 +483,7 @@ export async function createThreadNode(data: {
   const newThreadNodeRef = await addDoc(threadsCollection, newThreadNodeServerData);
   revalidatePath(`/(app)/topics/${topicId}`); 
 
-  return {
+  const result: ThreadNode = {
     id: newThreadNodeRef.id,
     topicId,
     statementId,
@@ -454,6 +493,7 @@ export async function createThreadNode(data: {
     type,
     createdAt: new Date().toISOString(), 
   } as ThreadNode;
+  return result;
 }
 
 export async function getThreadsForStatement(topicId: string, statementId: string): Promise<ThreadNode[]> {
@@ -482,7 +522,7 @@ export async function getUserQuestionCountForStatement(userId: string, statement
 // Deprecated - remove or refactor if this specific old schema is ever needed.
 // Old Question/Answer System - to be deprecated or refactored for new ThreadNode system
 export async function createQuestion(topicId: string, statementId: string, content: string, askedBy: string): Promise<Question> {
-  console.warn("DEPRECATED: createQuestion is called. Use createThreadNode instead.");
+  logger.warn("DEPRECATED: createQuestion is called. Use createThreadNode instead.");
   const threadNode = await createThreadNode({
     topicId,
     statementId,
@@ -504,7 +544,7 @@ export async function createQuestion(topicId: string, statementId: string, conte
 }
 
 export async function getQuestionsForStatement(topicId: string, statementId: string): Promise<Question[]> {
-  console.warn("DEPRECATED: getQuestionsForStatement is called. Use getThreadsForStatement instead and filter for type 'question'.");
+  logger.warn("DEPRECATED: getQuestionsForStatement is called. Use getThreadsForStatement instead and filter for type 'question'.");
   const threads = await getThreadsForStatement(topicId, statementId);
   return threads
     .filter(node => node.type === 'question' && !node.parentId) 
@@ -520,10 +560,9 @@ export async function getQuestionsForStatement(topicId: string, statementId: str
 }
 
 export async function answerQuestion(topicId: string, statementId: string, questionId: string, answer: string): Promise<void> {
-  console.warn("DEPRECATED: answerQuestion is called. Use createThreadNode (type: 'response') instead.");
+  logger.warn("DEPRECATED: answerQuestion is called. Use createThreadNode (type: 'response') instead.");
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error("User not authenticated to answer question.");
   
   throw new Error("answerQuestion is deprecated. Use createThreadNode with type 'response'. Ensure statementAuthorId is correctly passed.");
 }
-

@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase";
+import { logger } from '@/lib/logger';
+import { useFormEnterSubmit, focusById } from '@/hooks/useFormEnterSubmit';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -33,7 +35,6 @@ export function ForgotPasswordForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = React.useState(false);
-  const emailInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(formSchema),
@@ -43,9 +44,7 @@ export function ForgotPasswordForm() {
   });
 
   React.useEffect(() => {
-    setTimeout(() => {
-      emailInputRef.current?.focus();
-    }, 0);
+    focusById('forgot-email-input');
   }, []);
 
   async function onSubmit(values: ForgotPasswordFormValues) {
@@ -60,7 +59,7 @@ export function ForgotPasswordForm() {
       // Optionally redirect or clear form
       // router.push("/auth"); 
     } catch (error: any) {
-      console.error("Detailed error: Password reset request failed:", error);
+      logger.error("Detailed error: Password reset request failed:", error);
       // Avoid disclosing whether an email exists or not for security reasons.
       // The message above is generic enough.
       // If more specific Firebase errors need to be handled, they can be added here.
@@ -74,9 +73,11 @@ export function ForgotPasswordForm() {
     }
   }
 
+  const enterSubmit = useFormEnterSubmit(form.handleSubmit, onSubmit);
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onKeyDown={enterSubmit} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="email"
@@ -89,7 +90,7 @@ export function ForgotPasswordForm() {
                   <Input 
                     placeholder="you@example.com" 
                     {...field} 
-                    ref={emailInputRef}
+                    id="forgot-email-input"
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition"
                   />
                 </div>

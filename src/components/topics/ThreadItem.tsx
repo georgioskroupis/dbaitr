@@ -13,7 +13,8 @@ import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { getAuthorStatusBadge } from '@/lib/utils';
+import { getAuthorStatusBadge } from '@/lib/react-utils';
+import { logger } from '@/lib/logger';
 
 interface ThreadItemProps {
   node: ThreadNode;
@@ -53,7 +54,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
                 const count = await getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId);
                 setUserQuestionCountOnStatement(count);
             } catch (error) {
-                console.error("Error fetching user question count in ThreadItem for statement:", node.statementId, error);
+                logger.error("Error fetching user question count in ThreadItem for statement:", node.statementId, error);
             } finally {
                 setIsLoadingQuestionCount(false);
             }
@@ -79,8 +80,8 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
     return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   };
 
-  const canAskFollowUpQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountOnStatement < 3 && !currentUserIsSuspended;
-  const canReplyToQuestion = user && kycVerified && user.uid === statementAuthorId && !hasResponse && !currentUserIsSuspended;
+  const canAskFollowUpQuestion = user && !isLoadingQuestionCount && userQuestionCountOnStatement < 3 && !currentUserIsSuspended;
+  const canReplyToQuestion = user && user.uid === statementAuthorId && !hasResponse && !currentUserIsSuspended;
 
 
   const handleFormSuccess = () => {
@@ -108,7 +109,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
   return (
     <div className={`py-2 ${borderClass}`} style={{ marginLeft: `${level * 10}px` }}>
       <Card className={`shadow-sm ${cardBg} backdrop-blur-sm p-0 rounded-lg border border-white/10`}>
-        <CardHeader className="flex flex-row items-start space-x-3 p-3">
+        <CardHeader className="flex flex-row items-start space-x-3 p-2.5 sm:p-3">
           <Avatar className="h-8 w-8 mt-1 border border-rose-500/30">
             <AvatarImage src={photoURL} alt={displayName} data-ai-hint="profile avatar" />
             <AvatarFallback className="text-xs bg-rose-500/10 text-rose-400 font-semibold">
@@ -118,31 +119,31 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
           <div className="flex-1">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                   <p className="text-xs font-semibold text-white">{displayName}</p>
+                   <p className="text-xs sm:text-sm font-semibold text-white">{displayName}</p>
                     {authorStatusBadge && (
-                        <Badge variant={authorStatusBadge.variant as any} className={`text-xs py-0 px-1 h-4 leading-tight ${authorStatusBadge.variant === 'destructive' ? 'bg-red-700/80 border-red-500/50 text-red-200' : 'bg-yellow-600/20 border-yellow-500/50 text-yellow-300'}`}>
+                        <Badge variant={authorStatusBadge.variant as any} className={`text-[10px] sm:text-xs py-0 px-1 h-4 leading-tight ${authorStatusBadge.variant === 'destructive' ? 'bg-red-700/80 border-red-500/50 text-red-200' : 'bg-yellow-600/20 border-yellow-500/50 text-yellow-300'}`}>
                            {authorStatusBadge.icon && React.cloneElement(authorStatusBadge.icon, {className: "h-2.5 w-2.5 mr-0.5"})}
                            {authorStatusBadge.label}
                         </Badge>
                     )}
                 </div>
-                <p className="text-xs text-white/50">{timeAgo}</p>
+                <p className="text-[10px] sm:text-xs text-white/50">{timeAgo}</p>
             </div>
-             <p className={`text-xs font-medium ${node.type === 'question' ? 'text-rose-400' : 'text-green-400'}`}>
+             <p className={`text-[10px] sm:text-xs font-medium ${node.type === 'question' ? 'text-rose-400' : 'text-green-400'}`}>
                 {node.type === 'question' ? 'Question' : 'Response'}
             </p>
           </div>
         </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <p className="text-sm text-white/80 whitespace-pre-wrap">{node.content}</p>
+        <CardContent className="p-2.5 sm:p-3 pt-0">
+          <p className="text-sm sm:text-base text-white/80 whitespace-pre-wrap">{node.content}</p>
         </CardContent>
         {!authLoading && user && kycVerified && !currentUserIsSuspended && (
-            <CardFooter className="p-3 pt-1 flex justify-end">
+            <CardFooter className="p-2.5 sm:p-3 pt-1 flex justify-end">
                 {node.type === 'question' && canReplyToQuestion && (
                     <Button 
                       size="sm" 
                       onClick={() => toggleReplyForm('response')}
-                      className="px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
+                      className="px-3 sm:px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
                     >
                         <CornerDownRight className="h-3 w-3 mr-1" /> Reply
                     </Button>
@@ -151,13 +152,13 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
                     <Button 
                       size="sm" 
                       onClick={() => toggleReplyForm('question')}
-                      className="px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
+                      className="px-3 sm:px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
                     >
-                        <MessageSquare className="h-3 w-3 mr-1" /> Ask Follow-up
+                        <MessageSquare className="h-3 w-3 mr-1" /> Ask away
                     </Button>
                 )}
                  {node.type === 'response' && !isLoadingQuestionCount && userQuestionCountOnStatement >= 3 && (
-                    <div className="flex items-center text-xs text-white/50">
+                    <div className="flex items-center text-[10px] sm:text-xs text-white/50">
                         <AlertCircle className="h-3 w-3 mr-1 text-yellow-400" /> You've reached your question limit for this statement.
                     </div>
                 )}
@@ -174,8 +175,8 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
             parentId={node.id} 
             type={showReplyFormForTypeRef.current} 
             onSuccess={handleFormSuccess}
-            placeholderText={showReplyFormForTypeRef.current === 'response' ? 'Your response to this question...' : 'Ask a follow-up question...'}
-            submitButtonText={showReplyFormForTypeRef.current === 'response' ? 'Post Response' : 'Ask Question'}
+            placeholderText={showReplyFormForTypeRef.current === 'response' ? 'Your response to this question...' : 'Every question sharpens the truth. Ask away.'}
+            submitButtonText={showReplyFormForTypeRef.current === 'response' ? 'Post Response' : 'Ask away'}
           />
         </div>
       )}

@@ -7,7 +7,8 @@ import type { DocumentData } from 'firebase/firestore';
 import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore'; // Import Timestamp
 import * as React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '@/lib/firebase/config';
+import { logger } from '@/lib/logger';
+import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 import { createUserProfile } from '@/lib/firestoreActions'; 
 
@@ -54,13 +55,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("📡 [AuthContext] onAuthStateChanged triggered:", firebaseUser);
+      logger.debug("📡 [AuthContext] onAuthStateChanged triggered:", firebaseUser);
       setLoading(true); 
       if (firebaseUser) {
         setUser(firebaseUser);
 
         try {
-          console.log(`[AuthContext] Ensuring profile for UID: ${firebaseUser.uid}`);
+          logger.debug(`[AuthContext] Ensuring profile for UID: ${firebaseUser.uid}`);
           await createUserProfile(
             firebaseUser.uid,
             firebaseUser.email,
@@ -68,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             firebaseUser.providerData[0]?.providerId
           );
         } catch (profileError: any) {
-          console.error(`[AuthContext] Error ensuring user profile for ${firebaseUser.uid}:`, profileError.message);
+          logger.error(`[AuthContext] Error ensuring user profile for ${firebaseUser.uid}:`, profileError.message);
         }
 
         const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -79,11 +80,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserProfile(processedProfileData);
           } else {
             setUserProfile(null); 
-            console.warn(`[AuthContext] User profile document not found for UID: ${firebaseUser.uid} after creation attempt.`);
+            logger.warn(`[AuthContext] User profile document not found for UID: ${firebaseUser.uid} after creation attempt.`);
           }
           setLoading(false); 
         }, (error) => {
-          console.error("[AuthContext] Error listening to user profile:", error);
+          logger.error("[AuthContext] Error listening to user profile:", error);
           setUserProfile(null);
           setLoading(false); 
         });
@@ -104,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const registeredDate = new Date(userProfile.registeredAt); 
         if (isNaN(registeredDate.getTime())) {
-          console.warn("[AuthContext] Invalid registeredAt date for suspension check:", userProfile.registeredAt);
+          logger.warn("[AuthContext] Invalid registeredAt date for suspension check:", userProfile.registeredAt);
           setIsSuspended(false); 
           return;
         }
@@ -113,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const now = new Date();
         setIsSuspended(now > gracePeriodEndDate);
       } catch (e) {
-        console.error("[AuthContext] Error calculating suspension status:", e);
+        logger.error("[AuthContext] Error calculating suspension status:", e);
         setIsSuspended(false);
       }
     } else {
@@ -135,4 +136,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
