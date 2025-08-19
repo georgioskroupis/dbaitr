@@ -1,6 +1,9 @@
 name: Deploy IDV Service to Cloud Run
 
 on:
+  push:
+      branches:
+        - main
   workflow_dispatch:
     inputs:
       service:
