@@ -26,6 +26,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Debug source path
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE/services"
+          ls -la "$GITHUB_WORKSPACE/services/idv" || true
+
       - id: auth
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -41,7 +48,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          source: ./services/idv
+          source: ${{ github.workspace }}/services/idv
           env_vars: |
             FACE_SIMILARITY_MIN=0.65
           flags: |
