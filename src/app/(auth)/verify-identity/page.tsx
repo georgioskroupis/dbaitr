@@ -1,5 +1,6 @@
 
 import { IdvWizard } from '@/components/idv/IdvWizard';
+export const dynamic = 'force-dynamic';
 
 export default function VerifyIdentityPage() {
   return (

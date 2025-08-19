@@ -41,11 +41,12 @@ export default function IdvDiagnosticsPage() {
         s.ZXing = z ? 'loaded' : 'failed';
       } catch { s.ZXing = 'failed'; }
 
-      // Human
+      // Human (global script check only)
       try {
-        const mod: any = await import('@vladmandic/human');
-        s.Human = mod ? 'loaded' : 'failed';
-      } catch { s.Human = 'failed'; }
+        // @ts-ignore
+        const Human = (window as any).Human;
+        s.Human = Human ? 'available' : 'unavailable';
+      } catch { s.Human = 'unavailable'; }
 
       // Tesseract (load only, no recognize)
       try {
@@ -87,4 +88,3 @@ export default function IdvDiagnosticsPage() {
     </div>
   );
 }
-

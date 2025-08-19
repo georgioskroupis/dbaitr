@@ -1,11 +1,12 @@
-// Human loader with self-hosted model support. Falls back gracefully.
+// Human loader without bundling the package. Expects a global Human class if you include it via script tag.
 let humanInstance: any | null = null;
 export async function loadHuman(): Promise<any | null> {
   if (typeof window === 'undefined') return null;
   if (humanInstance) return humanInstance;
   try {
-    const mod: any = await import('@vladmandic/human');
-    const Human = mod.default || mod.Human || mod;
+    const anyWin = window as any;
+    const Human = anyWin?.Human || anyWin?.human?.constructor;
+    if (!Human) return null;
     const modelsUrl = (process.env.NEXT_PUBLIC_HUMAN_MODELS_URL || '/vendor/human/models/') as string;
     const human = new Human({
       cacheSensitivity: 0,
