@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* THESE ARE LIGHT THEME VALUES - Not the primary focus but updated for consistency */
+    --background: 0 0% 100%; 
+    --foreground: 0 0% 3.9%; 
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 355 79% 59%; /* Accent Red #E63946 */
+    --primary-foreground: 0 0% 95%; /* Soft White #F2F2F2 */
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 53%; 
+    --accent: 355 79% 59%; 
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 100% 42%; /* Error Red #D50000 */
+    --destructive-foreground: 0 0% 95%;
+    --success: 145 100% 39%; 
+    --success-foreground: 0 0% 0%; 
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%; 
+    --ring: 355 79% 65%; 
+    --chart-1: 355 70% 50%;
+    --chart-2: 355 60% 60%;
+    --chart-3: 355 50% 70%;
+    --chart-4: 355 80% 45%;
+    --chart-5: 355 75% 55%;
+    --radius: 0.75rem; /* 12px, new card rounded-xl. Buttons use calc(var(--radius) - 6px) = 6px rounded-lg */
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 355 79% 59%;
+    --sidebar-primary-foreground: 0 0% 95%;
+    --sidebar-accent: 0 0% 96.1%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 89.8%;
+    --sidebar-ring: 355 79% 65%;
+  }
+
+  .dark {
+    --background: 0 0% 0%; /* True Black #000000 */
+    --foreground: 0 0% 96%; /* #F5F5F5 Brighter Off-white */
+    --card: 0 0% 2.5%; /* Approx rgba(0,0,0,0.4) on black -> ~#0A0A0A. Was #121212 */
+    --card-foreground: 0 0% 96%; /* #F5F5F5 */
+    --popover: 0 0% 2.5%; 
+    --popover-foreground: 0 0% 96%;
+    --primary: 355 79% 59%; /* Accent Red #E63946 */
+    --primary-foreground: 0 0% 96%; 
+    --secondary: 0 0% 10%; 
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 4%; /* Approx rgba(255,255,255,0.05) on black -> ~#0D0D0D. Was #111111 */
+    --muted-foreground: 0 0% 80%; /* #CCCCCC For placeholders. Was #888888 */
+    --accent: 355 79% 59%; 
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 72% 51%; /* #E63946 - Using primary red for destructive too */
+    --destructive-foreground: 0 0% 96%;
+    --success: 145 63% 49%; /* #4CAF50 or similar green */
+    --success-foreground: 0 0% 96%;
+    --border: 0 0% 13%; /* Approx rgba(255,255,255,0.1) on black -> ~#1A1A1A. Was #333333 */
+    --input: 0 0% 13%; 
+    --ring: 0 0% 25%; /* Approx rgba(255,255,255,0.4) on black -> ~#404040. Was --primary */
+    
+    --chart-1: 355 70% 50%;
+    --chart-2: 355 60% 60%;
+    --chart-3: 355 50% 70%;
+    --chart-4: 355 80% 45%;
+    --chart-5: 355 75% 55%;
+
+    --sidebar-background: 0 0% 2.5%; /* Darker, e.g. rgba(0,0,0,0.6) on black */
+    --sidebar-foreground: 0 0% 90%; 
+    --sidebar-primary: 355 79% 59%;
+    --sidebar-primary-foreground: 0 0% 96%;
+    --sidebar-accent: 0 0% 6%; /* Hover/active background for sidebar items */
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 13%;
+    --sidebar-ring: 355 79% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans; 
+    font-family: 'Poppins', sans-serif; /* Ensure Poppins is default */
+    line-height: 1.5; 
+  }
+
+  /* Apply Poppins to common elements with !important to ensure override */
+  html, body, input, button, textarea, select, label, div, p, span, a, h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em; 
+    line-height: 1.2; 
+  }
+  h1 { 
+    @apply text-4xl font-bold; 
+    letter-spacing: -0.0125em; 
+    font-weight: 700 !important; /* Poppins Bold */
+  }
+  h2 { 
+    @apply text-3xl font-semibold; 
+    letter-spacing: -0.0078125em; 
+    font-weight: 600 !important; /* Poppins Semi-Bold */
+  }
+  h3 { 
+    @apply text-2xl font-medium;
+    font-weight: 500 !important; /* Poppins Medium */
+  }
+
+  /* Default body text should use Poppins Regular or Medium */
+  body, p, div /* Add other common text containers */ {
+    font-weight: 400 !important; /* Poppins Regular for body */
+  }
+  
+  label, button, input::placeholder {
+    font-weight: 500 !important; /* Poppins Medium for interactive elements */
+  }
+
+  .text-subtext { 
+    @apply text-xs font-light; 
+    font-weight: 300 !important; /* Poppins Light */
+  }
+
+  .footer-text {
+    font-weight: 300 !important; /* Poppins Light */
+  }
+
+  /* Updated Input placeholder styles for dark theme (already in component classNames but good fallback) */
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: hsl(var(--muted-foreground)); /* #CCCCCC */
+    font-weight: 500 !important;
+  }
+
+  /* Updated Card background for auth form container (already in component classNames) */
+  .dark .auth-layout .bg-card { /* This class might not be used anymore if specific card styling is applied */
+    background-color: hsl(var(--card)); 
+  }
+}
+
+/* Remove auth-background-glow as video is used */
+.auth-layout {
+  /* Styles for the auth layout container if needed, but background is on body/video */
+}

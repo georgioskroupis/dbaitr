@@ -1,0 +1,137 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users Collection
+    match /users/{userId} {
+      // Allow user to read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow user to create their own profile document once
+      // (typically done on signup or first login)
+      allow create: if request.auth != null && request.auth.uid == userId &&
+                       request.resource.data.uid == userId && // Ensure they are setting their own UID
+                       request.resource.data.email == request.auth.token.email && // Match email
+                       !exists(/databases/$(database)/documents/users/$(userId)); // Only if doc doesn't exist yet for create
+
+      // Allow user to update their own profile (e.g., fullName, photoURL, kycVerified by admin/system)
+      // Careful with kycVerified - should ideally be updated by a trusted backend process.
+      // For client update, ensure only specific fields are updatable by the user.
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                       // User can update their fullName, photoURL
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'photoURL', 'updatedAt']) ||
+                       // Allow trusted backend/admin to update kycVerified (example, needs specific role check)
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true && 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['kycVerified', 'updatedAt', 'idDocumentUrl']))); 
+                        // ^ Example admin rule, adjust as needed.
+                        // For simplicity, if kycVerified is only set server-side after ID upload, then client update rule for kycVerified can be removed.
+                        // The current `updateUserVerificationStatus` is a server-action, so it's trusted.
+
+      // Generally, users should not be able to delete their own profiles directly.
+      // Deletion should be handled by a backend process if needed (e.g., GDPR request).
+      allow delete: if false; // Or specific admin role
+    }
+
+    // Topics Collection
+    match /topics/{topicId} {
+      allow read: if true; // Topics are public
+      allow list: if true; // List topics publicly
+
+      // Allow authenticated users to create topics
+      allow create: if request.auth != null && 
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+                       request.resource.data.scoreFor == 0 && // Ensure initial scores are zero
+                       request.resource.data.scoreAgainst == 0 &&
+                       request.resource.data.scoreNeutral == 0;
+      
+      // Allow topic creator to update description (e.g. AI summary update by system or user edit)
+      // Scores should only be updated by trusted backend/server actions (like createStatement)
+      allow update: if request.auth != null && resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description', 'updatedAt']) ||
+                     // Allow backend to update scores and description
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true); // Example for backend/admin updates
+    }
+
+    // Statements Subcollection
+    match /topics/{topicId}/statements/{statementId} {
+      allow read: if true; // Statements are public
+      allow list: if true; // List statements publicly
+
+      // Allow authenticated users to create statements
+      // KYC verification check should ideally happen server-side before calling createStatement
+      allow create: if request.auth != null &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.topicId == topicId &&
+                       request.resource.data.content is string && request.resource.data.content.size() > 0 &&
+                       request.resource.data.position is string && 
+                       request.resource.data.position in ['for', 'against', 'neutral', 'pending'];
+      
+      // Allow statement creator to edit their statement (content, lastEditedAt)
+      // Position and aiConfidence should ideally be updated by a trusted backend process after AI re-classification.
+      allow update: if request.auth != null && resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'lastEditedAt']) ||
+                     // Allow backend to update position and aiConfidence
+                     ((get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt']));
+
+      // Allow deletion by author or moderators/admins
+      allow delete: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+
+    // Threads (Questions/Responses) Subcollection
+    match /topics/{topicId}/statements/{statementId}/threads/{threadNodeId} {
+      allow read: if true; // Threads are public
+      allow list: if true; // List threads publicly
+
+      // Allow authenticated users to create thread nodes (questions/responses)
+      // Business logic (3 questions per user, only statement author responds) should be enforced server-side.
+      allow create: if request.auth != null &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.topicId == topicId &&
+                       request.resource.data.statementId == statementId &&
+                       request.resource.data.content is string && request.resource.data.content.size() > 0 &&
+                       request.resource.data.type is string &&
+                       request.resource.data.type in ['question', 'response'];
+      
+      // Edits by authors are not allowed to preserve conversation integrity.
+      // Moderators/admins may edit content for policy enforcement.
+      allow update: if request.auth != null && (
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+      );
+
+      // Allow deletion by author of the node, or moderators/admins
+      allow delete: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+
+    // Aggregations subcollection under a statement (readable by all, writable only by admins/moderators)
+    match /topics/{topicId}/statements/{statementId}/aggregations/{aggId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+    // Topic-wide aggregations
+    match /topics/{topicId}/aggregations/{aggId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+  }
+}

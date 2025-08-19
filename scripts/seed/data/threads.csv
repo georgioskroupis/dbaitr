@@ -1,0 +1,16 @@
+id,topicId,statementId,type,parentId,createdBy,content
+t1,topic_ai_elections,s1,question,,u3,"How do you prevent abuse if ads are allowed?"
+t2,topic_ai_elections,s1,response,t1,u2,"Disclosure + registries; educate voters rather than ban."
+t3,topic_ai_elections,s2,question,,u5,"Would you support limited bans just before elections?"
+t4,topic_ai_elections,s2,response,t3,u3,"Yes, blackout periods are a sensible middle ground."
+t5,topic_gene_editing,s5,question,,u7,"Where do you draw the line between therapy and enhancement?"
+t6,topic_gene_editing,s5,response,t5,u1,"Start with monogenic diseases only; strict oversight."
+t7,topic_gene_editing,s6,question,,u1,"What about families suffering now who could benefit?"
+t8,topic_gene_editing,s6,response,t7,u3,"We need global norms before opening the floodgates."
+t9,topic_content_moderation,s9,question,,u8,"How do small startups handle liability costs?"
+t10,topic_content_moderation,s9,response,t9,u2,"Safe harbors for small services could mitigate burdens."
+t11,topic_climate_lockdowns,s14,question,,u8,"What metrics would end a lockdown once started?"
+t12,topic_climate_lockdowns,s14,response,t11,u4,"Temperature/air quality thresholds with clear sunset clauses."
+t13,topic_surveillance,s18,question,,u6,"How would you prevent data misuse?"
+t14,topic_surveillance,s18,response,t13,u3,"Independent audits, retention limits, and strict warrant requirements."
+

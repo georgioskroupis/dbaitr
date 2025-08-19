@@ -1,0 +1,185 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Self-hosted Fredoka via @fontsource; expose as CSS variable for Tailwind */
+    --font-fredoka: Fredoka, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    /* dbaitr Light Theme Values (less focus, but updated for consistency) */
+    --background-light: 0 0% 100%; /* White */
+    --foreground-light: 0 0% 3.9%; /* Dark Gray */
+    --card-light: 0 0% 100%;
+    --card-foreground-light: 0 0% 3.9%;
+    --popover-light: 0 0% 100%;
+    --popover-foreground-light: 0 0% 3.9%;
+    --primary-light: 355 84% 55%; /* Deep Red #ec2733 */
+    --primary-foreground-light: 0 0% 98%; /* White */
+    --secondary-light: 0 0% 96.1%; /* Light Gray */
+    --secondary-foreground-light: 0 0% 9%; /* Dark Gray */
+    --muted-light: 0 0% 96.1%;
+    --muted-foreground-light: 0 0% 45.1%; /* Mid Gray */
+    --accent-light: 355 84% 55%; /* Deep Red */
+    --accent-foreground-light: 0 0% 98%;
+    --destructive-light: 0 84.2% 60.2%; /* Error Red (can be same as primary or a bit brighter) */
+    --destructive-foreground-light: 0 0% 98%;
+    --success-light: 142.1 76.2% 36.3%; /* Green */
+    --success-foreground-light: 0 0% 98%;
+    --border-light: 0 0% 89.8%; /* Light Gray Border */
+    --input-light: 0 0% 89.8%;
+    --ring-light: 355 84% 65%; /* Lighter Red for ring */
+    --chart-1-light: 355 70% 50%;
+    --chart-2-light: 355 60% 60%;
+    --chart-3-light: 355 50% 70%;
+    --chart-4-light: 355 80% 45%;
+    --chart-5-light: 355 75% 55%;
+    --radius: 8px; /* New default radius based on 8px unit */
+  }
+
+  .dark {
+    /* dbaitr Dark Theme Values */
+    --background: 0 0% 4%; /* Charcoal Black (e.g. #0A0A0A) */
+    --foreground: 0 0% 95%; /* Soft White (e.g. #F2F2F2) */
+    --card: 0 0% 7%; /* Darker Charcoal for cards (e.g. #121212) */
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 355 84% 55%; /* Deep Red #ec2733 */
+    --primary-foreground: 0 0% 98%; /* White */
+    --secondary: 0 0% 12%; /* Dark Gray for secondary elements */
+    --secondary-foreground: 0 0% 80%; /* Lighter Gray for secondary text */
+    --muted: 0 0% 10%; /* Muted background */
+    --muted-foreground: 0 0% 60%; /* Muted text (Placeholder #777 maps to ~50%)*/
+    --accent: 355 84% 55%; /* Deep Red #ec2733 */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%; /* Error Red (can be same as primary) #E63946 */
+    --destructive-foreground: 0 0% 98%;
+    --success: 145 63% 49%; /* Green #4CAF50 */
+    --success-foreground: 0 0% 98%;
+    --border: 0 0% 20%; /* Border color for dark theme (e.g. #333333) */
+    --input: 0 0% 8%; /* Input background (e.g. #141414) */
+    --ring: 355 84% 65%; /* Lighter Red for focus rings */
+
+    --chart-1: 355 70% 50%;
+    --chart-2: 355 60% 60%;
+    --chart-3: 355 50% 70%;
+    --chart-4: 355 80% 45%;
+    --chart-5: 355 75% 55%;
+
+    /* Sidebar variables might be deprecated with new nav, but updated for consistency */
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 355 84% 55%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 355 84% 65%;
+  }
+}
+
+@layer components {
+  /* Simpler: on hover/active, force all text in the row to white */
+  .suggestion-item:hover,
+  .suggestion-item:hover *,
+  .suggestion-item.is-active,
+  .suggestion-item.is-active * {
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  /* Manifesto: drop cap for first paragraph */
+  .dropcap:first-letter {
+    float: left;
+    font-size: 2.6rem;
+    line-height: 1;
+    padding-right: 0.35rem;
+    color: hsl(var(--primary));
+    font-weight: 600;
+  }
+
+  /* Emphasis utility for highlighted inline words */
+  .emphasis {
+    color: hsl(var(--primary));
+    font-weight: 600;
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in srgb, hsl(var(--primary)) 40%, transparent);
+    text-underline-offset: 4px;
+  }
+
+  /* Animated gradient divider */
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .gradient-divider {
+    background-size: 200% 200%;
+    animation: gradient-shift 8s ease-in-out infinite;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'var(--font-fredoka)', sans-serif; /* Apply Fredoka globally */
+    line-height: 1.5;
+  }
+
+  html, body, input, button, textarea, select, label, div, p, span, a, h1, h2, h3, h4, h5, h6 {
+    font-family: 'var(--font-fredoka)', sans-serif !important; /* Ensure Fredoka */
+  }
+
+  /* Adjust font weights based on Fredoka's characteristics and Design System */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+  h1 {
+    @apply text-4xl; /* Font size from design system for H1 */
+    font-weight: 700 !important; /* Fredoka Bold */
+  }
+  h2 {
+    @apply text-3xl; /* Font size from design system for H2 */
+    font-weight: 600 !important; /* Fredoka Semi-Bold */
+  }
+  h3 {
+    @apply text-2xl; /* Font size from design system for H3 */
+    font-weight: 500 !important; /* Fredoka Medium */
+  }
+
+  body, p, div {
+    font-weight: 400 !important; /* Fredoka Regular for body */
+  }
+
+  label, button, input::placeholder {
+    font-weight: 500 !important; /* Fredoka Medium */
+  }
+
+  .text-subtext { /* For captions, metadata */
+    @apply text-xs; /* Font size from design system for subtext */
+    font-weight: 300 !important; /* Fredoka Light */
+  }
+
+  .footer-text {
+    font-weight: 300 !important; /* Fredoka Light */
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: hsl(var(--muted-foreground));
+    font-weight: 500 !important;
+  }
+
+  .dark .auth-layout .bg-card {
+    background-color: hsl(var(--card));
+  }
+
+  /* Ensure stroke-based icons (global or specific) */
+  svg {
+    stroke-width: 2px; /* Default stroke width for icons */
+  }
+}
