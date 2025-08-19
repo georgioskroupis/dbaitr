@@ -31,9 +31,9 @@ export async function ocrMRZ(canvas: HTMLCanvasElement): Promise<{ ok: boolean; 
     const { data } = await worker.recognize(canvas);
     const text = (data?.text || '').trim();
     await worker.terminate();
-    const rawLines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const rawLines = text.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
     // Heuristic: MRZ lines often contain many '<' and uppercase alphanumerics
-    const mrzLines = rawLines.filter(l => l.replace(/[A-Z0-9<]/g, '').length < Math.max(2, Math.floor(l.length * 0.1)));
+    const mrzLines = rawLines.filter((l: string) => l.replace(/[A-Z0-9<]/g, '').length < Math.max(2, Math.floor(l.length * 0.1)));
     if (mrzLines.length >= 2) return { ok: true, lines: mrzLines.slice(0, 3) };
     return { ok: false };
   } catch {

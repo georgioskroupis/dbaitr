@@ -11,6 +11,9 @@ export interface UserProfile {
   updatedAt?: string; // Changed from Timestamp
   provider?: 'password' | 'google' | 'apple' | 'unknown'; // Added provider
   registeredAt: string; // ISOString timestamp, added for KYC grace period
+  // Optional role flags used in admin UI and rules
+  isAdmin?: boolean;
+  isModerator?: boolean;
 }
 
 export interface Topic {
@@ -58,5 +61,4 @@ export interface ThreadNode {
   createdAt: string; // ISOString timestamp
   type: 'question' | 'response';
 }
-
 

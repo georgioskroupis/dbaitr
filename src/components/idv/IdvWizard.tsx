@@ -32,26 +32,31 @@ export function IdvWizard() {
 
   const decide = async () => {
     if (!frontBlob || !backBlob || !selfieBlob) return;
+    const toFinal = (r: { approved: boolean; reason?: string | null } | null | undefined) => ({
+      approved: !!r?.approved,
+      reason: r?.reason ?? null,
+    });
     let onDevice = { approved: false as boolean, reason: null as string | null };
     let finalRes = { approved: false as boolean, reason: null as string | null };
     try {
       if (IDV_FLAGS.ON_DEVICE) {
-        onDevice = await tryOnDeviceVerify(frontBlob, backBlob, selfieBlob);
+        const od = await tryOnDeviceVerify(frontBlob, backBlob, selfieBlob);
+        onDevice = toFinal(od);
       }
       // If server approval is required, always defer to server
       if (IDV_FLAGS.IDV_AI_APPROVAL) {
         const srv = await serverFallbackVerify(frontBlob, backBlob, selfieBlob);
-        finalRes = srv;
+        finalRes = toFinal(srv);
       } else {
         if (onDevice.approved) {
           finalRes = onDevice;
         } else {
           // Try server fallback for extra coverage; if unavailable, keep on-device reason
           const srv = await serverFallbackVerify(frontBlob, backBlob, selfieBlob);
-          if (srv && srv.reason === 'cloud_unavailable') {
+          if (srv && (srv as any).reason === 'cloud_unavailable') {
             finalRes = onDevice; // preserve granular local reason
           } else {
-            finalRes = srv || onDevice;
+            finalRes = srv ? toFinal(srv) : onDevice;
           }
         }
       }
