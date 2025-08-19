@@ -10,7 +10,7 @@ on:
       region:
         description: GCP region
         required: false
-        default: ${{ secrets.GCP_REGION }}
+        default: us-central1
 
 jobs:
   deploy:
@@ -25,6 +25,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify source path
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          test -d "$GITHUB_WORKSPACE/services/idv" || { echo "Missing services/idv on this ref."; exit 1; }
 
       - id: auth
         name: Authenticate to Google Cloud
