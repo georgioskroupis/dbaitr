@@ -6,7 +6,8 @@ import { ThumbsUp, ThumbsDown, User, Info, MessageSquare, ShieldAlert, ShieldChe
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import * as React from 'react';
-import { getUserProfile, getThreadsForStatement, getUserQuestionCountForStatement } from '@/lib/firestoreActions';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, orderBy, query, where, doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
 import { ThreadList } from './ThreadList';
 import { ThreadPostForm } from './ThreadPostForm';
@@ -43,7 +44,9 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     }
     setIsLoadingThreads(true);
     try {
-      const fetchedThreads = await getThreadsForStatement(statement.topicId, statement.id);
+      const q = query(collection(db, 'topics', statement.topicId, 'statements', statement.id, 'threads'), orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      const fetchedThreads = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as ThreadNode[];
       setThreads(fetchedThreads);
     } catch (error) {
       logger.error("Error fetching threads for statement:", statement.id, error);
@@ -66,10 +69,12 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
   React.useEffect(() => {
     async function fetchAuthor() {
-      if (statement.createdBy) {
-        const profile = await getUserProfile(statement.createdBy);
-        setAuthorProfile(profile);
-      }
+      try {
+        if (statement.createdBy) {
+          const snap = await getDoc(doc(db, 'users', statement.createdBy));
+          if (snap.exists()) setAuthorProfile(snap.data() as any);
+        }
+      } catch {}
     }
     fetchAuthor();
   }, [statement.createdBy]);
@@ -79,8 +84,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         if (user && !authLoading && statement && statement.id && statement.topicId) { 
             setIsLoadingQuestionCount(true);
             try {
-                const count = await getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId);
-                setUserQuestionCountForThisStatement(count);
+                const q = query(
+                  collection(db, 'topics', statement.topicId, 'statements', statement.id, 'threads'),
+                  where('createdBy', '==', user.uid),
+                  where('type', '==', 'question')
+                );
+                const snap = await getDocs(q);
+                setUserQuestionCountForThisStatement(snap.size);
             } catch (error) {
                 logger.error("Error fetching user question count in DebatePostCard:", error);
             } finally {
@@ -132,8 +142,15 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     fetchThreads(); 
     if (user && statement && statement.id && statement.topicId) {
       setIsLoadingQuestionCount(true);
-      getUserQuestionCountForStatement(user.uid, statement.id, statement.topicId)
-        .then(count => setUserQuestionCountForThisStatement(count))
+      (async () => {
+        const q = query(
+          collection(db, 'topics', statement.topicId, 'statements', statement.id, 'threads'),
+          where('createdBy', '==', user.uid),
+          where('type', '==', 'question')
+        );
+        const snap = await getDocs(q);
+        setUserQuestionCountForThisStatement(snap.size);
+      })()
         .finally(() => setIsLoadingQuestionCount(false));
     }
   };

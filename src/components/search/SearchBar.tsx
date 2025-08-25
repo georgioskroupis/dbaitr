@@ -9,7 +9,8 @@ import { highlightSemanticMatches } from '@/lib/react-utils';
 import { useSemanticSuggestions } from '@/hooks/useSemanticSuggestions';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { getTopicByTitle } from '@/lib/firestoreActions';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 
 type Size = 'default' | 'compact';
 
@@ -65,6 +66,13 @@ export function SearchBar({
     setShowSuggestions(false);
     setActiveSuggestionIndex(-1);
     try {
+      async function getTopicByTitle(t: string) {
+        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const d = snap.docs[0];
+        return { id: d.id, ...(d.data() as any) };
+      }
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
         router.push(`/topics/${topic.id}`);
@@ -120,6 +128,13 @@ export function SearchBar({
     }
 
     try {
+      async function getTopicByTitle(t: string) {
+        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const d = snap.docs[0];
+        return { id: d.id, ...(d.data() as any) };
+      }
       const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
         toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });

@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { getTopicByTitle } from '@/lib/firestoreActions';
+// Avoid server action imports in client code
+import { db } from '@/lib/firebase';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { GavelHookIcon as GavelIcon } from '@/components/layout/GavelIcon'; // Corrected import
 import { cn } from '@/lib/utils';
@@ -70,6 +72,13 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     setShowSuggestions(false);
     setActiveSuggestionIndex(-1);
     try {
+      async function getTopicByTitle(t: string) {
+        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const d = snap.docs[0];
+        return { id: d.id, ...(d.data() as any) };
+      }
       const topic = await getTopicByTitle(title);
       if (topic?.id) {
         router.push(`/topics/${topic.id}`);
@@ -105,6 +114,13 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     }
     
     try {
+      async function getTopicByTitle(t: string) {
+        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const d = snap.docs[0];
+        return { id: d.id, ...(d.data() as any) };
+      }
       const existingTopic = await getTopicByTitle(searchQuery.trim());
       if (existingTopic?.id) {
         toast({ title: "Topic Found!", description: `Redirecting to "${existingTopic.title}".` });

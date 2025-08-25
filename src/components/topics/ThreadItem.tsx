@@ -6,7 +6,8 @@ import * as React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { getUserProfile, getUserQuestionCountForStatement } from '@/lib/firestoreActions';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ThreadPostForm } from './ThreadPostForm';
@@ -38,10 +39,12 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
 
   React.useEffect(() => {
     async function fetchAuthor() {
-      if (node.createdBy) {
-        const profile = await getUserProfile(node.createdBy);
-        setAuthorProfile(profile);
-      }
+      try {
+        if (node.createdBy) {
+          const snap = await getDoc(doc(db, 'users', node.createdBy));
+          if (snap.exists()) setAuthorProfile(snap.data() as any);
+        }
+      } catch {}
     }
     fetchAuthor();
   }, [node.createdBy]);
@@ -51,8 +54,13 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
         if (user && !authLoading) { 
             setIsLoadingQuestionCount(true);
             try {
-                const count = await getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId);
-                setUserQuestionCountOnStatement(count);
+                const q = query(
+                  collection(db, 'topics', node.topicId, 'statements', node.statementId, 'threads'),
+                  where('createdBy', '==', user.uid),
+                  where('type', '==', 'question')
+                );
+                const snap = await getDocs(q);
+                setUserQuestionCountOnStatement(snap.size);
             } catch (error) {
                 logger.error("Error fetching user question count in ThreadItem for statement:", node.statementId, error);
             } finally {
@@ -89,8 +97,15 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
     onThreadUpdate(); 
     if (user && (showReplyFormForTypeRef.current === 'question')) { 
         setIsLoadingQuestionCount(true);
-        getUserQuestionCountForStatement(user.uid, node.statementId, node.topicId)
-            .then(count => setUserQuestionCountOnStatement(count))
+        (async () => {
+          const q = query(
+            collection(db, 'topics', node.topicId, 'statements', node.statementId, 'threads'),
+            where('createdBy', '==', user.uid),
+            where('type', '==', 'question')
+          );
+          const snap = await getDocs(q);
+          setUserQuestionCountOnStatement(snap.size);
+        })()
             .finally(() => setIsLoadingQuestionCount(false));
     }
   };

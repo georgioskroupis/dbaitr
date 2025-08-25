@@ -4,12 +4,12 @@
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
 import { SentimentDensity } from '@/components/analytics/SentimentDensity';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
 import { useEffect, useState, useCallback } from 'react';
-import { getStatementsForTopic, getTopicById, updateTopicDescriptionWithAISummary, getUserProfile } from '@/lib/firestoreActions';
+// Avoid importing server actions in a client component
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Loader2 } from "lucide-react";
@@ -59,14 +59,15 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   useEffect(() => {
     async function fetchCreator() {
-      if (topic.createdBy) {
-        const profile = await getUserProfile(topic.createdBy);
-        setCreatorProfile(profile);
-      }
+      try {
+        if (topic.createdBy) {
+          const ref = doc(db, 'users', topic.createdBy);
+          const snap = await getDoc(ref);
+          if (snap.exists()) setCreatorProfile(snap.data() as any);
+        }
+      } catch {}
     }
-    if (topic?.createdBy) { 
-        fetchCreator();
-    }
+    if (topic?.createdBy) fetchCreator();
   }, [topic?.createdBy]);
 
   useEffect(() => {
@@ -76,7 +77,9 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         try {
           const analysisResult = await generateTopicAnalysis({ topic: topic.title });
           if (analysisResult.analysis) {
-            await updateTopicDescriptionWithAISummary(topic.id, analysisResult.analysis);
+            try {
+              await updateDoc(doc(db, 'topics', topic.id), { description: analysisResult.analysis });
+            } catch {}
             setTopic(prev => ({ ...prev, description: analysisResult.analysis }));
           } else {
             logger.warn("AI topic summary result was empty for topic:", topic.title);
@@ -134,16 +137,16 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     setIsLoadingStatements(true);
     setIsLoadingTopicDetails(true); 
     try {
-      const [updatedStatements, updatedTopicResult] = await Promise.all([
-        getStatementsForTopic(topic.id),
-        getTopicById(topic.id)
-      ]);
-      setStatements(updatedStatements);
-      if (updatedTopicResult) {
-        setTopic(prev => ({
-          ...updatedTopicResult,
-          description: updatedTopicResult.description || prev.description 
-        }));
+      // Load statements
+      const q = query(collection(db, 'topics', topic.id, 'statements'), orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      const updatedStatements = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any[];
+      setStatements(updatedStatements as any);
+      // Load topic
+      const tSnap = await getDoc(doc(db, 'topics', topic.id));
+      if (tSnap.exists()) {
+        const updatedTopic = { id: tSnap.id, ...(tSnap.data() as any) } as Topic;
+        setTopic(prev => ({ ...updatedTopic, description: updatedTopic.description || prev.description }));
       }
     } catch (error: any) {
       logger.error(`Detailed error: Failed to refresh data for topic "${topic.title}" (ID: ${topic.id}):`, error);

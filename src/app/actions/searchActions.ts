@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getAllTopicTitles } from '@/lib/firestoreActions';
+import { getDbAdmin } from '@/lib/firebaseAdmin';
 import { findSimilarTopics, type FindSimilarTopicsOutput, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 
@@ -24,7 +24,10 @@ export async function getSemanticTopicSuggestions(
     // In a production app with many topics, this next line is a bottleneck.
     // You'd ideally pre-filter titles based on keywords before sending to the LLM,
     // or use a vector database for true semantic search.
-    const existingTopicTitles = await getAllTopicTitles();
+    const db = getDbAdmin();
+    if (!db) return { suggestions: [] };
+    const snap = await db.collection('topics').orderBy('createdAt', 'desc').limit(500).get();
+    const existingTopicTitles = snap.docs.map((d) => (d.data()?.title || '')).filter(Boolean);
 
     if (existingTopicTitles.length === 0) {
       return { suggestions: [] };
