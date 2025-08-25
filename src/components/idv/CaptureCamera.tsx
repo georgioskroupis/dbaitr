@@ -10,7 +10,7 @@ interface CaptureCameraProps {
 
 export function CaptureCamera({ onCapture, overlay, facingMode = 'environment' }: CaptureCameraProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement>(document.createElement('canvas'));
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
@@ -31,7 +31,7 @@ export function CaptureCamera({ onCapture, overlay, facingMode = 'environment' }
   const handleCapture = async () => {
     const video = videoRef.current;
     if (!video) return;
-    const canvas = canvasRef.current;
+    const canvas = canvasRef.current ?? (canvasRef.current = document.createElement('canvas'));
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
@@ -54,4 +54,3 @@ export function CaptureCamera({ onCapture, overlay, facingMode = 'environment' }
     </div>
   );
 }
-

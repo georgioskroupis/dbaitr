@@ -10,7 +10,8 @@ export async function POST(req: Request) {
 
     // Lazy import stripe to avoid bundling if not used
     const body = await req.text();
-    const stripe = (await import('stripe')).default;
+    const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<any>;
+    const stripe = (await dynImport('stripe')).default;
     const client = new stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-06-20' });
     let event: any;
     try {
@@ -36,4 +37,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
-

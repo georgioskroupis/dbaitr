@@ -37,7 +37,7 @@ export default function IdvDiagnosticsPage() {
 
       // ZXing
       try {
-        const z = await import('@zxing/browser');
+        const z = await (new Function('m', 'return import(m)') as any)('@zxing/browser');
         s.ZXing = z ? 'loaded' : 'failed';
       } catch { s.ZXing = 'failed'; }
 
@@ -50,7 +50,7 @@ export default function IdvDiagnosticsPage() {
 
       // Tesseract (load only, no recognize)
       try {
-        const t: any = await import('tesseract.js');
+        const t: any = await (new Function('m', 'return import(m)') as any)('tesseract.js');
         // Worker paths are configured at runtime; here we just test import
         s.Tesseract = t ? 'loaded' : 'failed';
       } catch { s.Tesseract = 'failed'; }

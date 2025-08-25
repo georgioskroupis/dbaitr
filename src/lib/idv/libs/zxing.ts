@@ -3,8 +3,9 @@ let zxing: any | null = null;
 export async function loadZXing(): Promise<any | null> {
   if (zxing) return zxing;
   try {
-    const lib: any = await import('@zxing/browser');
-    const core: any = await import('@zxing/library');
+    const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<any>;
+    const lib: any = await dynImport('@zxing/browser');
+    const core: any = await dynImport('@zxing/library');
     zxing = { browser: lib, core };
     return zxing;
   } catch {

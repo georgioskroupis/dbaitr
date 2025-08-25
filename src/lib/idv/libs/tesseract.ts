@@ -3,7 +3,8 @@ let tesseract: any | null = null;
 export async function loadTesseract(): Promise<any | null> {
   if (tesseract) return tesseract;
   try {
-    const mod: any = await import('tesseract.js');
+    const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<any>;
+    const mod: any = await dynImport('tesseract.js');
     tesseract = mod;
     return tesseract;
   } catch {
