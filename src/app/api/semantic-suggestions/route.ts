@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTopicTitles } from '@/lib/firestoreActions';
+import { getDbAdmin } from '@/lib/firebaseAdmin';
 import { findSimilarTopics, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 
@@ -14,7 +14,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ suggestions: [] });
     }
 
-    const existingTopicTitles = await getAllTopicTitles();
+    const db = getDbAdmin();
+    if (!db) return NextResponse.json({ suggestions: [] }, { status: 501 });
+    const snap = await db.collection('topics').orderBy('createdAt', 'desc').limit(500).get();
+    const existingTopicTitles = snap.docs.map((d) => (d.data()?.title || '')).filter(Boolean);
     if (!existingTopicTitles?.length) {
       return NextResponse.json({ suggestions: [] });
     }

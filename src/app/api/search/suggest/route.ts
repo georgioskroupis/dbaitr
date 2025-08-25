@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllTopicTitles } from '@/lib/firestoreActions';
+import { getDbAdmin } from '@/lib/firebaseAdmin';
 import { findSimilarTopics, type FindSimilarTopicsInput, type FindSimilarTopicsOutput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
@@ -38,10 +38,13 @@ export async function GET(req: Request) {
     if (titlesCache && now - titlesCache.ts < TITLES_TTL_MS) {
       titles = titlesCache.titles;
     } else {
-      titles = await getAllTopicTitles().catch((e) => {
-        logger.error('[api/search/suggest] getAllTopicTitles failed:', e);
-        throw new Error('Failed to load topic titles from Firestore');
-      });
+      const db = getDbAdmin();
+      if (!db) {
+        logger.error('[api/search/suggest] Admin not configured');
+        throw new Error('Admin not configured');
+      }
+      const snap = await db.collection('topics').orderBy('createdAt', 'desc').limit(500).get();
+      titles = snap.docs.map((d) => (d.data()?.title || '')).filter(Boolean);
       titlesCache = { ts: now, titles };
     }
     if (!titles?.length) return NextResponse.json({ suggestions: [] });
