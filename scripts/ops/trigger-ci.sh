@@ -4,15 +4,17 @@ set -euo pipefail
 # trigger-ci.sh — Commit current changes (or make an empty commit) and push to trigger CI/CD
 #
 # Usage:
-#   bash scripts/ops/trigger-ci.sh [-b branch] [-r remote] [-m message] [--empty] [-f] [-n]
+#   bash scripts/ops/trigger-ci.sh [-b branch] [-r remote] [-m message] [--empty] [-f] [-n] [--pull-rebase] [--force-push]
 #
 # Options:
 #   -b, --branch   Target branch (default: current branch)
 #   -r, --remote   Git remote name (default: origin)
 #   -m, --message  Commit message (default: chore: ci trigger <UTC-ISO>)
-#   --empty        Do not commit changes; create an empty commit instead
-#   -f, --force    When using --empty with local changes, stash temporarily
-#   -n, --no-push  Do not push; create commit locally only
+#   --empty         Do not commit changes; create an empty commit instead
+#   -f, --force     When using --empty with local changes, stash temporarily
+#   -n, --no-push   Do not push; create commit locally only
+#   --pull-rebase   Rebase local branch onto remote before pushing (handles non-fast-forward)
+#   --force-push    Push with --force-with-lease (use with care; check protections)
 #   -h, --help     Show help
 
 remote="origin"
@@ -21,6 +23,8 @@ message=""
 empty=false
 force=false
 no_push=false
+pull_rebase=false
+force_push=false
 
 ts_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 usage() { sed -n '2,20p' "$0"; }
@@ -34,6 +38,8 @@ while [[ $# -gt 0 ]]; do
     --empty) empty=true; shift;;
     -f|--force) force=true; shift;;
     -n|--no-push) no_push=true; shift;;
+    --pull-rebase) pull_rebase=true; shift;;
+    --force-push) force_push=true; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 1;;
   esac
@@ -101,11 +107,29 @@ else
   fi
 fi
 
+# Optional rebase before pushing
+if ! $no_push && $pull_rebase; then
+  echo "Rebasing '$branch' onto '$remote/$branch' before push..."
+  git fetch "$remote" || true
+  # If upstream not set, set it once
+  if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+    git branch --set-upstream-to "$remote/$branch" "$branch" || true
+  fi
+  git pull --rebase "$remote" "$branch" || {
+    echo "Rebase failed. Resolve conflicts and push manually, or rerun with --force-push if appropriate." >&2
+    exit 1
+  }
+fi
+
 if $no_push; then
   echo "--no-push set; skipping push. Commit created locally."
   exit 0
 fi
 
 echo "Pushing to '$remote' '$branch'..."
-git push "$remote" "$branch"
+if $force_push; then
+  git push --force-with-lease "$remote" "$branch"
+else
+  git push "$remote" "$branch"
+fi
 echo "Done. CI/CD should be triggered by the new empty commit."
