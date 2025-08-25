@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { App as AdminApp } from 'firebase-admin/app';
 import { initializeApp, cert, getApp, getApps } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
 
 let adminApp: AdminApp | null = null;
 
@@ -42,3 +43,10 @@ export function getAuthAdmin(): Auth | null {
   const app = getAdminApp();
   return app ? getAuth(app) : null;
 }
+
+export function getDbAdmin(): Firestore | null {
+  const app = getAdminApp();
+  return app ? getFirestore(app) : null;
+}
+
+export { FieldValue };
