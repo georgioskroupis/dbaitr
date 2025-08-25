@@ -1,5 +1,5 @@
 
-import { getTopicById, getStatementsForTopic } from '@/lib/firestoreActions'; 
+import { getTopicByIdServer, getStatementsForTopicServer } from '@/lib/server/topics';
 import { TopicDetailClient } from '@/components/topics/TopicDetailClient';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Frown } from "lucide-react";
@@ -17,7 +17,7 @@ interface TopicPageProps {
 export default async function TopicPage({ params }: TopicPageProps) {
   const { topicId } = await params;
   
-  const topic = await getTopicById(topicId);
+  const topic = await getTopicByIdServer(topicId);
   
   if (!topic) {
     return (
@@ -32,7 +32,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
     );
   }
 
-  const statements = await getStatementsForTopic(topicId); 
+  const statements = await getStatementsForTopicServer(topicId); 
 
   return (
     <div className="container mx-auto py-6">

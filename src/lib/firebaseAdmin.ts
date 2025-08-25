@@ -14,7 +14,7 @@ export function getAdminApp(): AdminApp | null {
     if (getApps().length) return getApp();
     // Resolve credentials from env or fallback file with some tolerance
     let creds: any = null;
-    let raw = process.env.FIREBASE_SERVICE_ACCOUNT || '';
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT || '';
     if (raw) {
       try {
         creds = JSON.parse(raw);
@@ -31,8 +31,12 @@ export function getAdminApp(): AdminApp | null {
         try { creds = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
       }
     }
-    if (!creds || !creds.client_email) return null;
-    adminApp = initializeApp({ credential: cert(creds as any) });
+    if (creds && creds.client_email) {
+      adminApp = initializeApp({ credential: cert(creds as any) });
+      return adminApp;
+    }
+    // Fall back to Application Default Credentials (ADC) if no JSON provided
+    adminApp = initializeApp();
     return adminApp;
   } catch (e) {
     return null;
