@@ -4,6 +4,9 @@ on:
   push:
       branches:
         - main
+      paths:
+        - 'services/idv/**'
+        - '.github/workflows/deploy-cloud-run.yml'
   workflow_dispatch:
     inputs:
       service:
@@ -71,4 +74,3 @@ jobs:
 
       - name: Output URL
         run: echo "Cloud Run URL: ${{ steps.url.outputs.url }}"
-
