@@ -1,4 +1,5 @@
 import type {NextConfig} from 'next';
+import path from 'node:path';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -34,6 +35,15 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       }
     ],
+  },
+  webpack: (config, { isServer }) => {
+    // On the server bundle, alias client Firebase SDK to a stub to avoid SSR init
+    if (isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = config.resolve.alias || {};
+      (config.resolve.alias as any)["@/lib/firebase"] = path.resolve(__dirname, 'src/lib/firebase.server-stub.ts');
+    }
+    return config;
   },
 };
 
