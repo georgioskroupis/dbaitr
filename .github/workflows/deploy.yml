@@ -46,11 +46,10 @@ jobs:
             if [ "${RAW:0:1}" = '"' ] && [ "${RAW: -1}" = '"' ]; then
               RAW="${RAW:1:${#RAW}-2}"
             fi
-            # Write as-is; then sanity-parse via Node to catch newline/escape issues.
             printf '%s' "$RAW" > "$GOOGLE_APPLICATION_CREDENTIALS"
           fi
 
-          # Validate the JSON; if it fails, try to unescape common newline-escape artifacts
+          # Validate JSON; if it fails, try to fix common newline escape artifacts
           if ! node -e "JSON.parse(require('fs').readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8'))"; then
             echo "First JSON parse failed; trying to unescape \\r\\n artifacts..."
             node -e "const fs=require('fs');let t=fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8');t=t.replace(/\\r\\n/g,'\\n').replace(/\\\\n/g,'\n');fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,t,'utf8');JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8'))"
@@ -61,6 +60,7 @@ jobs:
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.GOOGLE_APPLICATION_CREDENTIALS }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           # Forward runtime env to the frameworks builder
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY || '' }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '' }}
@@ -75,6 +75,15 @@ jobs:
           NEXT_PUBLIC_TESSERACT_BASE_URL: ${{ secrets.NEXT_PUBLIC_TESSERACT_BASE_URL || '/vendor/tesseract/' }}
           NEXT_ENABLE_IDV_CSP: ${{ secrets.NEXT_ENABLE_IDV_CSP || 'false' }}
           CLOUD_RUN_IDV_URL: ${{ secrets.CLOUD_RUN_IDV_URL || '' }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
           npx --yes firebase-tools@14.14.0 deploy --only hosting --project "$FIREBASE_PROJECT_ID" --debug
+
+      - name: Dump firebase-debug.log on failure
+        if: failure()
+        run: |
+          echo "==== firebase-debug.log (if present) ===="
+          test -f firebase-debug.log && tail -n +1 -v firebase-debug.log || echo "firebase-debug.log not found"
+          echo "==== tree (top level) ===="
+          ls -la
+          echo "==== package.json framework hint ===="
+          node -e "const p=require('./package.json');console.log(JSON.stringify({name:p.name,next:p.dependencies?.next || p.devDependencies?.next || null},null,2))"
