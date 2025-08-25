@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { seedMultiTopicTestData } from '@/lib/seedDatabase'; // Updated to use the new seed function
+// Seeding disabled in production/CI to avoid server-client boundary issues
 import { initAppCheckIfConfigured } from '@/lib/appCheckClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -33,55 +33,7 @@ export default function AppBootstrapper() {
 
       let isMounted = true;
 
-      async function runSeed() {
-        try {
-          const result = await seedMultiTopicTestData(); 
-          if (isMounted) {
-            logger.debug('🔥 AppBootstrapper: Multi-topic seed function result:', result.message);
-            if (result.success) {
-              // Set localStorage flag if seeding was successful OR if data was confirmed to already exist.
-              // This prevents repeated checks from AppBootstrapper on subsequent visits in the same browser.
-              localStorage.setItem(SEED_FLAG_KEY, 'true');
-              logger.debug('✅ db8 (AppBootstrapper): localStorage flag set. Seeding process marked as complete for this browser session.');
-              
-              // Only toast if new data was actually written by this specific call.
-              if (result.message.includes("successfully written")) { 
-                toast({
-                    title: "Database Seeded with New Topics",
-                    description: "The initial set of multi-topic debate data has been successfully loaded.",
-                    variant: "default",
-                    duration: 7000,
-                });
-              } else if (result.message.includes("already contains")) {
-                logger.debug("✅ db8 (AppBootstrapper): Multi-topic data already present in Firestore, no new data written by this call.");
-              }
-            } else { // Seeding check/write failed
-                toast({
-                    title: "Initial Data Check Failed",
-                    description: `Could not complete the initial multi-topic seed process: ${result.message}. Some features may be limited.`,
-                    variant: "destructive",
-                    duration: 9000,
-                });
-            }
-          }
-        } catch (error) {
-          if (isMounted) {
-            logger.error('🔥 AppBootstrapper: Error calling seedMultiTopicTestData function:', error);
-            let errorMessage = 'An unknown error occurred during the initial multi-topic seeding process.';
-            if (error instanceof Error) {
-              errorMessage = error.message;
-            }
-            toast({
-              title: "Initial Data Setup Failed",
-              description: `Could not automatically set up initial database with new topics: ${errorMessage}. Please try refreshing or contact support.`,
-              variant: "destructive",
-              duration: 9000,
-            });
-          }
-        }
-      }
-
-      runSeed();
+      // Seeding intentionally disabled here to ensure clean SSR/CI builds
 
       return () => {
         isMounted = false;

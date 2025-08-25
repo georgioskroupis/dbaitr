@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
-import { createUserProfile } from '@/lib/firestoreActions'; 
+// Avoid server action import in client provider
 
 interface AuthContextType {
   user: User | null;
@@ -60,17 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (firebaseUser) {
         setUser(firebaseUser);
 
-        try {
-          logger.debug(`[AuthContext] Ensuring profile for UID: ${firebaseUser.uid}`);
-          await createUserProfile(
-            firebaseUser.uid,
-            firebaseUser.email,
-            firebaseUser.displayName,
-            firebaseUser.providerData[0]?.providerId
-          );
-        } catch (profileError: any) {
-          logger.error(`[AuthContext] Error ensuring user profile for ${firebaseUser.uid}:`, profileError.message);
-        }
+        // Profile creation ensured server-side on first write; skip client-side server action
 
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {

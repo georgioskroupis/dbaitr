@@ -16,7 +16,7 @@ import {
 } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"; // Import Firestore functions
 import { auth } from "@/lib/firebase";
-import { createUserProfile } from "@/lib/firestoreActions";
+// Avoid importing server actions into client page
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -177,14 +177,7 @@ export default function UnifiedAuthPage() {
         logger.debug("👤 Firebase currentUser after sign in:", auth.currentUser);
       }
 
-      if (userCredential.user) {
-        await createUserProfile(
-          userCredential.user.uid,
-          userCredential.user.email,
-          userCredential.user.displayName,
-          userCredential.user.providerData[0]?.providerId || 'password'
-        );
-      }
+      // Profile document is created lazily by backend flows; skip here
 
       await new Promise<void>((resolve) => {
         const unsub = onAuthStateChanged(auth, (user) => {
@@ -298,12 +291,6 @@ export default function UnifiedAuthPage() {
 
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: finalValuesForFirebase.fullName });
-        await createUserProfile(
-          userCredential.user.uid,
-          finalValuesForFirebase.email,
-          finalValuesForFirebase.fullName,
-          'password'
-        );
       }
       if (process.env.NODE_ENV !== "production") {
         logger.debug("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { CalendarDays, Users } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import * as React from 'react';
-import { getUserProfile } from '@/lib/firestoreActions';
+// Avoid server action imports in client component; fetch profile directly via client Firestore
 import type { UserProfile } from '@/types';
 import { format } from 'date-fns';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
@@ -24,10 +24,13 @@ export function TopicCard({ topic }: TopicCardProps) {
 
   React.useEffect(() => {
     async function fetchCreator() {
-      if (topic.createdBy) {
-        const profile = await getUserProfile(topic.createdBy);
-        setCreatorProfile(profile);
-      }
+      try {
+        if (topic.createdBy) {
+          const ref = doc(db, 'users', topic.createdBy);
+          const snap = await getDoc(ref);
+          if (snap.exists()) setCreatorProfile(snap.data() as any);
+        }
+      } catch {}
     }
     fetchCreator();
   }, [topic.createdBy]);
