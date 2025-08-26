@@ -2,9 +2,7 @@
 
 import * as React from 'react';
 import { CaptureCamera } from './CaptureCamera';
-import { quickQualityChecks } from '@/lib/idv/quality';
-import { IDV_FLAGS } from '@/lib/idv/config';
-import { tryOnDeviceVerify, serverFallbackVerify } from '@/lib/idv/pipeline';
+import { serverVerify } from '@/lib/idv/pipeline';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
@@ -20,58 +18,48 @@ export function IdvWizard() {
   const { user } = useAuth();
 
   const onCapture = (which: 'front' | 'back' | 'selfie') => async (blob: Blob, canvas: HTMLCanvasElement) => {
-    const qc = quickQualityChecks(canvas);
-    if (!qc.ok) {
-      setReason('quality_insufficient');
-      return;
-    }
+    if (!user) return;
     if (which === 'front') { setFrontBlob(blob); setStep('back'); }
     if (which === 'back') { setBackBlob(blob); setStep('selfie'); }
-    if (which === 'selfie') { setSelfieBlob(blob); await decide(); }
+    if (which === 'selfie') { setSelfieBlob(blob); await decide(blob, user.uid); }
   };
 
-  const decide = async () => {
+  const decide = async (selfieBlob: Blob, uid: string) => {
     if (!frontBlob || !backBlob || !selfieBlob) return;
-    const toFinal = (r: { approved: boolean; reason?: string | null } | null | undefined) => ({
-      approved: !!r?.approved,
-      reason: r?.reason ?? null,
-    });
-    let onDevice = { approved: false as boolean, reason: null as string | null };
-    let finalRes = { approved: false as boolean, reason: null as string | null };
-    try {
-      if (IDV_FLAGS.ON_DEVICE) {
-        const od = await tryOnDeviceVerify(frontBlob, backBlob, selfieBlob);
-        onDevice = toFinal(od);
-      }
-      // If server approval is required, always defer to server
-      if (IDV_FLAGS.IDV_AI_APPROVAL) {
-        const srv = await serverFallbackVerify(frontBlob, backBlob, selfieBlob);
-        finalRes = toFinal(srv);
-      } else {
-        if (onDevice.approved) {
-          finalRes = onDevice;
-        } else {
-          // Try server fallback for extra coverage; if unavailable, keep on-device reason
-          const srv = await serverFallbackVerify(frontBlob, backBlob, selfieBlob);
-          if (srv && (srv as any).reason === 'cloud_unavailable') {
-            finalRes = onDevice; // preserve granular local reason
-          } else {
-            finalRes = srv ? toFinal(srv) : onDevice;
-          }
-        }
-      }
-    } catch (e) {
-      finalRes = { approved: false, reason: 'decision_error' };
-    }
-    setApproved(finalRes.approved);
-    setReason(finalRes.reason || null);
+    const token = await user.getIdToken();
+    const result = await serverVerify(frontBlob, backBlob, selfieBlob, uid, token);
+    setApproved(result.approved);
+    setReason(result.reason || null);
     setStep('result');
+
+    // Call the new result endpoint
+    await fetch('/api/idv/result', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(result),
+    });
   };
 
-  const approveProfile = async () => {
-    if (!user) return;
-    const token = await user.getIdToken(true);
-    await fetch('/api/idv/approve', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const getErrorMessage = (reason: string | null) => {
+    switch (reason) {
+      case 'quality_front':
+        return 'Image of front of ID is not clear enough. Please try again.';
+      case 'quality_back':
+        return 'Image of back of ID is not clear enough. Please try again.';
+      case 'quality_selfie':
+        return 'Selfie is not clear enough. Please try again.';
+      case 'barcode_mrz_not_found':
+        return 'Could not read the barcode or MRZ on the ID. Please try again.';
+      case 'face_mismatch':
+        return 'The face in the selfie does not match the face on the ID.';
+      case 'liveness_check_failed':
+        return 'Liveness check failed. Please make sure you are in a well-lit room and are not wearing any masks or glasses.';
+      default:
+        return 'An unknown error occurred. Please try again.';
+    }
   };
 
   return (
@@ -98,13 +86,10 @@ export function IdvWizard() {
         <div className="text-center">
           <h3 className="text-white text-xl font-semibold mb-2">Verification Result</h3>
           {approved ? (
-            <>
-              <p className="text-green-400">Approved</p>
-              <Button className="mt-3" onClick={approveProfile}>Apply Verification</Button>
-            </>
+            <p className="text-green-400">Approved</p>
           ) : (
             <>
-              <p className="text-rose-400">Not approved{reason ? `: ${reason}` : ''}</p>
+              <p className="text-rose-400">Not approved: {getErrorMessage(reason)}</p>
               <Button className="mt-3" onClick={() => setStep('front')}>Retry</Button>
             </>
           )}

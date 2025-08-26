@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
+import { getAuthAdmin } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 
 // Proxies to Cloud Run if configured; does not persist or log payloads
 export async function POST(req: Request) {
   try {
+    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ success: false, reason: 'unauthorized' }, { status: 401 });
+    }
+
+    const auth = getAuthAdmin();
+    if (!auth) {
+      throw new Error('Auth not initialized');
+    }
+    const decodedToken = await auth.verifyIdToken(token);
+    const uid = decodedToken.uid;
+
     const form = await req.formData();
     const front = form.get('front');
     const back = form.get('back');
@@ -20,6 +33,7 @@ export async function POST(req: Request) {
       fd.append('front', front as Blob, 'front.jpg');
       fd.append('back', back as Blob, 'back.jpg');
       fd.append('selfie', selfie as Blob, 'selfie.jpg');
+      fd.append('uid', uid as string);
       const resp = await fetch(cloudUrl, { method: 'POST', body: fd });
       // Only return approved boolean + reason; never expose payload
       const data = await resp.json().catch(() => ({}));
