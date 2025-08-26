@@ -18,6 +18,15 @@ cd "$ROOT_DIR"
 
 echo "==> dbaitr bootstrap starting"
 
+# Args
+SKIP_INFERENCE=${SKIP_INFERENCE:-0}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-inference) SKIP_INFERENCE=1; shift;;
+    *) echo "Unknown option: $1"; shift;;
+  esac
+done
+
 ensure_env() {
   local key="$1"; local val="$2";
   if [ -f .env.local ]; then
@@ -37,10 +46,10 @@ if [ ! -f .env.local ] && [ -f .env.example ]; then
   cp .env.example .env.local
 fi
 
-# Required app URL for background API calls
+# Required app URL for local app
 ensure_env NEXT_PUBLIC_APP_URL "http://localhost:9002"
 
-# Inference service URL (adjust if you run the service elsewhere)
+# Inference service URL (adjust/override if you run the service elsewhere)
 ensure_env SENTIMENT_INFERENCE_URL "http://localhost:8000/"
 
 # Service account handling: prefer env FIREBASE_SERVICE_ACCOUNT, then FIREBASE_SERVICE_ACCOUNT_FILE, then .secrets/serviceAccount.json
@@ -76,43 +85,62 @@ echo "==> .env.local summary:"
 grep -E '^(NEXT_PUBLIC_APP_URL|SENTIMENT_INFERENCE_URL|NEXT_PUBLIC_FIREBASE_|FIREBASE_SERVICE_ACCOUNT=)' .env.local | sed 's#\(FIREBASE_SERVICE_ACCOUNT=\).*#\1[REDACTED]#'
 
 # Start inference service (Python) using a local venv
-echo "==> Starting inference service (FastAPI + Transformers)"
-if command -v python3 >/dev/null 2>&1; then
-  pushd services/sentiment >/dev/null
-  PYBIN="python3"
-  if [ ! -d .venv ]; then
-    "$PYBIN" -m venv .venv
-  fi
-  . .venv/bin/activate
-  pip install --quiet --upgrade pip >/dev/null
-  pip install --quiet -r requirements.txt || { echo "pip install failed"; exit 1; }
-  # If already running, stop
-  if [ -f /tmp/dbaitr-sentiment.pid ]; then
-    kill "$(cat /tmp/dbaitr-sentiment.pid)" 2>/dev/null || true
-    rm -f /tmp/dbaitr-sentiment.pid
-  fi
-  # Also free up port 8000 if a stray process is using it
-  S8000=$(lsof -ti :8000 || true)
-  if [ -n "$S8000" ]; then kill $S8000 2>/dev/null || true; fi
-  : > /tmp/dbaitr-sentiment.log
-  .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000 >>/tmp/dbaitr-sentiment.log 2>&1 &
-  INF_PID=$!
-  echo $INF_PID > /tmp/dbaitr-sentiment.pid
-  deactivate || true
-  popd >/dev/null
+if [ "$SKIP_INFERENCE" = "1" ]; then
+  echo "==> Skipping local inference service (flag --skip-inference)."
 else
-  echo "!! python3 not found. Skipping inference service. Set SENTIMENT_INFERENCE_URL to a running service."
+  echo "==> Starting inference service (FastAPI + Transformers)"
+  if command -v python3 >/dev/null 2>&1; then
+    pushd services/sentiment >/dev/null
+    PYBIN="python3"
+    if [ ! -d .venv ]; then
+      set +e
+      "$PYBIN" -m venv .venv
+      VENVCODE=$?
+      set -e
+      if [ $VENVCODE -ne 0 ] || [ ! -f .venv/bin/activate ]; then
+        echo "!! Failed to create Python venv (python3 -m venv .venv). Skipping local inference."
+        popd >/dev/null
+        goto_skip_inference=true
+      fi
+    fi
+    if [ "${goto_skip_inference:-false}" = "true" ]; then
+      : # do nothing
+    else
+      if [ ! -f .venv/bin/activate ]; then
+        echo "!! Python venv activate script not found (.venv/bin/activate). Skipping local inference."
+      else
+        . .venv/bin/activate
+        pip install --quiet --upgrade pip >/dev/null
+        pip install --quiet -r requirements.txt || { echo "pip install failed"; exit 1; }
+        # If already running, stop
+        if [ -f /tmp/dbaitr-sentiment.pid ]; then
+          kill "$(cat /tmp/dbaitr-sentiment.pid)" 2>/dev/null || true
+          rm -f /tmp/dbaitr-sentiment.pid
+        fi
+        # Also free up port 8000 if a stray process is using it
+        S8000=$(lsof -ti :8000 || true)
+        if [ -n "$S8000" ]; then kill $S8000 2>/dev/null || true; fi
+        : > /tmp/dbaitr-sentiment.log
+        .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000 >>/tmp/dbaitr-sentiment.log 2>&1 &
+        INF_PID=$!
+        echo $INF_PID > /tmp/dbaitr-sentiment.pid
+        deactivate || true
+        popd >/dev/null
+        echo "==> Waiting for inference service (http://localhost:8000/)"
+        for i in $(seq 1 40); do
+          sleep 0.5
+          if curl -sSf http://localhost:8000/ >/dev/null 2>&1; then echo "   inference is up"; break; fi
+        done || true
+      fi
+    fi
+  else
+    echo "!! python3 not found. Skipping inference service. Set SENTIMENT_INFERENCE_URL to a running service."
+  fi
 fi
-
-echo "==> Waiting for inference service (http://localhost:8000/)"
-for i in $(seq 1 40); do
-  sleep 0.5
-  if curl -sSf http://localhost:8000/ >/dev/null 2>&1; then echo "   inference is up"; break; fi
-done || true
 
 echo "==> Installing Node dependencies (if needed)"
 if [ ! -d node_modules ]; then
-  npm ci --no-audit --no-fund
+  npm install --no-audit --no-fund
 fi
 
 echo "==> Starting Next.js dev server (Turbopack)"
