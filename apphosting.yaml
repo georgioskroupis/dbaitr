@@ -1,0 +1,90 @@
+# Cloud Run settings for Firebase App Hosting backend
+runConfig:
+  minInstances: 0
+  maxInstances: 50
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
+
+# Environment configuration
+# - NEXT_PUBLIC_* values are baked at build and available in the browser
+# - Server-only values should be referenced as secrets in Secret Manager
+env:
+  # Firebase Web SDK config (public)
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyCXfN1ncMTR0ytj8EEA6lB_sFfBkvWYgO0"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "db8app.firebaseapp.com"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "db8app"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "db8app.firebasestorage.app"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "119149680869"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:119149680869:web:27e943e5382f8ebf889c0c"
+    availability: [BUILD, RUNTIME]
+
+  # IDV flags (public)
+  - variable: NEXT_PUBLIC_IDV_ONDEVICE
+    value: "true"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_IDV_AI_APPROVAL
+    value: "true"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_IDV_STRICT_MINIMAL
+    value: "true"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_HUMAN_MODELS_URL
+    value: "/vendor/human/models/"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_TESSERACT_BASE_URL
+    value: "/vendor/tesseract/"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_ENABLE_IDV_CSP
+    value: "false"
+    availability: [BUILD, RUNTIME]
+
+  # Optional canonical URL
+  - variable: NEXT_PUBLIC_APP_URL
+    value: "https://dbaitr.com"
+    availability: [BUILD, RUNTIME]
+
+  # Server-only secrets (configure via Secret Manager)
+  # Create and grant access using:
+  #   firebase apphosting:secrets:set STRIPE_SECRET_KEY --project db8app
+  #   firebase apphosting:secrets:set STRIPE_WEBHOOK_SECRET --project db8app
+  #   firebase apphosting:secrets:set GEMINI_API_KEY --project db8app
+  - variable: STRIPE_SECRET_KEY
+    secret: STRIPE_SECRET_KEY
+    availability: [RUNTIME]
+
+  - variable: STRIPE_WEBHOOK_SECRET
+    secret: STRIPE_WEBHOOK_SECRET
+    availability: [RUNTIME]
+
+  # AI key (the app supports either GOOGLE_API_KEY or GEMINI_API_KEY)
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+    availability: [RUNTIME]
+
+  # Optional: Cloud Run IDV fallback service URL
+  - variable: CLOUD_RUN_IDV_URL
+    value: ""
+    availability: [RUNTIME]
+

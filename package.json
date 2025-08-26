@@ -16,7 +16,8 @@
     "ai:review": "node scripts/ai/codex-run.mjs --session review -p docs/ai/templates/code-review.md",
     "ai:refactor": "node scripts/ai/codex-run.mjs --session refactor -p docs/ai/templates/refactor.md",
     "dev:seed": "node scripts/seed/seed.mjs",
-    "ci:trigger": "bash scripts/ops/trigger-ci.sh"
+    "ci:trigger": "bash scripts/ops/trigger-ci.sh",
+    "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.1.0",
