@@ -137,15 +137,35 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     setIsLoadingStatements(true);
     setIsLoadingTopicDetails(true); 
     try {
+      const toISO = (ts: any) => {
+        try {
+          if (!ts) return undefined;
+          if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+          if (ts.seconds !== undefined && ts.nanoseconds !== undefined) {
+            return new Date(ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1e6)).toISOString();
+          }
+          if (ts instanceof Date) return ts.toISOString();
+        } catch {}
+        return ts;
+      };
       // Load statements
       const q = query(collection(db, 'topics', topic.id, 'statements'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
-      const updatedStatements = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any[];
+      const updatedStatements = snap.docs.map((d) => {
+        const data: any = d.data() || {};
+        if (data.createdAt) data.createdAt = toISO(data.createdAt);
+        if (data.lastEditedAt) data.lastEditedAt = toISO(data.lastEditedAt);
+        if (data.sentiment && data.sentiment.updatedAt) data.sentiment.updatedAt = toISO(data.sentiment.updatedAt);
+        return { id: d.id, ...data };
+      }) as any[];
       setStatements(updatedStatements as any);
       // Load topic
       const tSnap = await getDoc(doc(db, 'topics', topic.id));
       if (tSnap.exists()) {
-        const updatedTopic = { id: tSnap.id, ...(tSnap.data() as any) } as Topic;
+        const tData: any = tSnap.data() || {};
+        if (tData.createdAt) tData.createdAt = toISO(tData.createdAt);
+        if (tData.updatedAt) tData.updatedAt = toISO(tData.updatedAt);
+        const updatedTopic = { id: tSnap.id, ...tData } as Topic;
         setTopic(prev => ({ ...updatedTopic, description: updatedTopic.description || prev.description }));
       }
     } catch (error: any) {

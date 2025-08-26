@@ -44,9 +44,25 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     }
     setIsLoadingThreads(true);
     try {
+      const toISO = (ts: any) => {
+        try {
+          if (!ts) return undefined;
+          if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+          if (ts.seconds !== undefined && ts.nanoseconds !== undefined) {
+            return new Date(ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1e6)).toISOString();
+          }
+          if (ts instanceof Date) return ts.toISOString();
+        } catch {}
+        return ts;
+      };
       const q = query(collection(db, 'topics', statement.topicId, 'statements', statement.id, 'threads'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
-      const fetchedThreads = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as ThreadNode[];
+      const fetchedThreads = snap.docs.map(d => {
+        const data: any = d.data() || {};
+        if (data.createdAt) data.createdAt = toISO(data.createdAt);
+        if (data.updatedAt) data.updatedAt = toISO(data.updatedAt);
+        return { id: d.id, ...data } as ThreadNode;
+      });
       setThreads(fetchedThreads);
     } catch (error) {
       logger.error("Error fetching threads for statement:", statement.id, error);
