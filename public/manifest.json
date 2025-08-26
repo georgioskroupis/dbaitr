@@ -8,14 +8,9 @@
   "theme_color": "#E63946",
   "icons": [
     {
-      "src": "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-favicon.png?alt=media&token=2c530150-2b60-4715-a385-0c9e9443ac0e",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-favicon.png?alt=media&token=2c530150-2b60-4715-a385-0c9e9443ac0e",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
     }
   ]
 }

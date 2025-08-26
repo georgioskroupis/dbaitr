@@ -14,17 +14,14 @@ import AppBootstrapper from '@/components/AppBootstrapper';
 
 // Define CSS variable in globals.css; using @fontsource-loaded family 'Fredoka'
 
-// Updated Asset URLs
-const DBAITR_SVG_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-logo.svg?alt=media&token=4da903b9-22ac-486a-89f3-145bd84bec11";
-const DBAITR_SVG_FAVICON_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-favicon.svg?alt=media&token=0ede04eb-0397-435e-bea6-6d1a9dc705ae";
+// Updated Asset URLs (prefer local assets for icons to avoid remote failures)
+const DBAITR_SVG_LOGO_URL = "/video-poster.svg";
 
 export const metadata: Metadata = {
   title: 'dbaitr - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis on dbaitr.',
   icons: {
-    icon: [
-      { url: DBAITR_SVG_FAVICON_URL, type: 'image/svg+xml' }, // Use SVG favicon
-    ],
+    icon: ['/favicon.ico'],
   },
   openGraph: {
     title: 'dbaitr - AI Powered Debates',
@@ -44,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'dbaitr - AI Powered Debates',
     description: 'Engage in structured debates with AI analysis on dbaitr.',
-    images: [DBAITR_SVG_LOGO_URL], // Use SVG logo for Twitter cards
+    images: [DBAITR_SVG_LOGO_URL],
   },
   manifest: '/manifest.json',
 };

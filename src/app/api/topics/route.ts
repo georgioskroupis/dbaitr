@@ -12,7 +12,23 @@ export async function GET(req: Request) {
     const db = getDbAdmin();
     if (!db) return NextResponse.json({ topics: [] }, { status: 501 });
     const snap = await db.collection('topics').orderBy('createdAt', 'desc').get();
-    const topics = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const topics = snap.docs.map((d) => {
+      const data: any = d.data() || {};
+      const toISO = (ts: any) => {
+        try {
+          if (!ts) return undefined;
+          if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+          if (ts.seconds !== undefined && ts.nanoseconds !== undefined) {
+            return new Date(ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1e6)).toISOString();
+          }
+          if (ts instanceof Date) return ts.toISOString();
+        } catch {}
+        return ts;
+      };
+      if (data.createdAt) data.createdAt = toISO(data.createdAt);
+      if (data.updatedAt) data.updatedAt = toISO(data.updatedAt);
+      return { id: d.id, ...data };
+    });
     return NextResponse.json({ topics });
   } catch (err) {
     logger.error('[api/topics] Failed to fetch topics:', err);
