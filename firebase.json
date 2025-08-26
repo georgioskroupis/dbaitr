@@ -7,7 +7,6 @@
     ],
     "frameworksBackend": {
       "region": "us-central1"
-    },
-    "webFramework": "next_ssr"
+    }
   }
 }
