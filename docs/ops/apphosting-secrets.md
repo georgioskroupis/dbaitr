@@ -12,6 +12,7 @@ Run the helper script to create/update secrets and grant access to App Hosting:
 
 ```
 PROJECT_ID=db8app \
+BACKEND_ID="<your-backend-id>" \
 STRIPE_SECRET_KEY="sk_live_..." \
 STRIPE_WEBHOOK_SECRET="whsec_..." \
 GEMINI_API_KEY="AIza..." \
@@ -22,6 +23,14 @@ bash scripts/ops/apphosting-secrets.sh
 
 ```
 PROJECT_ID=db8app bash scripts/ops/apphosting-secrets.sh
+
+To get your BACKEND_ID:
+
+```
+firebase apphosting:backends:list --project db8app
+```
+
+If you omit BACKEND_ID and only one backend exists, the script will try to auto-detect it.
 ```
 
 ## Manual (CLI) alternative
@@ -77,4 +86,3 @@ Commit and push `apphosting.yaml` changes to the branch with automatic rollouts 
 
 - Firebase Console → App Hosting → Deployments → Logs
 - Cloud Console → Cloud Build and Cloud Run logs
-

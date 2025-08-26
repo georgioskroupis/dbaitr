@@ -19,6 +19,7 @@ set -euo pipefail
 #   --dry-run                 Print actions without applying
 
 project_id="${PROJECT_ID:-}"
+backend_id="${BACKEND_ID:-}"
 dry_run=false
 stripe_key=""
 stripe_webhook=""
@@ -30,6 +31,7 @@ while [[ $# -gt 0 ]]; do
     --stripe-webhook) stripe_webhook=${2:-}; shift 2;;
     --gemini-key) gemini_key=${2:-}; shift 2;;
     --dry-run) dry_run=true; shift;;
+    --backend) backend_id=${2:-}; shift 2;;
     *) echo "Unknown option: $1" >&2; exit 1;;
   esac
 done
@@ -45,6 +47,9 @@ if [[ -z "$project_id" ]]; then
 fi
 
 echo "Project: $project_id"
+if [[ -n "$backend_id" ]]; then
+  echo "Backend: $backend_id"
+fi
 
 prompt_secret() {
   local name="$1"; local varref="$2"; local value="${!varref:-}"
@@ -72,9 +77,19 @@ ensure_secret() {
   fi
   # Grant App Hosting backend access
   if $dry_run; then
-    echo "DRY_RUN: would run 'firebase apphosting:secrets:grantaccess $name --project $project_id'"
+    echo "DRY_RUN: would grant access for backend '$backend_id'"
   else
-    firebase apphosting:secrets:grantaccess "$name" --project "$project_id"
+    if [[ -z "$backend_id" ]]; then
+      echo "Attempting to auto-detect BACKEND_ID (listing App Hosting backends)..."
+      # Try to get the first backend id via JSON
+      backend_id=$(firebase apphosting:backends:list --project "$project_id" --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);const b=(j.backends||[])[0]?.backendId;console.log(b||'')}catch(e){console.log('')}})" || true)
+      if [[ -z "$backend_id" ]]; then
+        echo "Could not auto-detect BACKEND_ID. Please run:\n  firebase apphosting:backends:list --project $project_id\nand rerun this script with --backend <BACKEND_ID> or set BACKEND_ID env var." >&2
+        exit 1
+      fi
+      echo "Detected BACKEND_ID=$backend_id"
+    fi
+    firebase apphosting:secrets:grantaccess "$name" --project "$project_id" --backend "$backend_id"
   fi
 }
 
@@ -83,4 +98,3 @@ ensure_secret STRIPE_WEBHOOK_SECRET "$stripe_webhook"
 ensure_secret GEMINI_API_KEY "$gemini_key"
 
 echo "All secrets configured and access granted."
-
