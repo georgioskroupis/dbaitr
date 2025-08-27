@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const uid = decoded.uid;
 
     const body = await req.json();
-    const { topicId, content, claimType, sourceUrl } = body || {};
+    const { topicId, content, claimType, sourceUrl, aiAssisted } = body || {};
     if (!topicId || !content || !claimType) return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     if (claimType === 'fact' && (!sourceUrl || typeof sourceUrl !== 'string' || sourceUrl.length < 5)) {
       return NextResponse.json({ ok: false, error: 'source_required' }, { status: 400 });
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
       position: 'pending',
       claimType,
+      ...(aiAssisted ? { aiAssisted: true } : {}),
       ...(claimType === 'fact' && sourceUrl ? { sourceUrl } : {}),
     });
     // Classify position server-side for reliability
@@ -82,6 +83,17 @@ export async function POST(req: Request) {
       await ref.set({ position: pos, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
       // Safer: recompute tallies to avoid drift if positions change later
       await recomputeTallies(db, topicId);
+      // Detect AI assistance probability (best-effort)
+      try {
+        const key = process.env.HUGGINGFACE_API_KEY;
+        if (key) {
+          const resp = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/ai/detect-assist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: content }) });
+          const j = await resp.json();
+          if (j?.ok && typeof j?.prob === 'number') {
+            await ref.set({ aiAssistProb: j.prob, ...(j.prob > 0.7 ? { aiAssisted: true } : {}) }, { merge: true });
+          }
+        }
+      } catch {}
     } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {

@@ -20,6 +20,7 @@ export async function createThreadNode(data: {
   content: string;
   createdBy: string;
   type: 'question' | 'response';
+  aiAssisted?: boolean;
 }): Promise<ThreadNode> {
   // Use API route to enforce server-side gates
   const token = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
@@ -33,6 +34,7 @@ export async function createThreadNode(data: {
       parentId: data.parentId,
       content: data.content,
       type: data.type,
+      aiAssisted: !!data.aiAssisted,
     }),
   });
   if (!res.ok) {

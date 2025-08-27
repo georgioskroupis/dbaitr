@@ -44,6 +44,8 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
   const [loading, setLoading] = React.useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = React.useState(true);
   const [hasPostedStatement, setHasPostedStatement] = React.useState(false);
+  const [aiDrafting, setAiDrafting] = React.useState(false);
+  const [composerAiAssisted, setComposerAiAssisted] = React.useState(false);
 
   const form = useForm<StatementFormValues>({
     resolver: zodResolver(formSchema),
@@ -153,7 +155,8 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         user.uid,
         values.content,
         values.claimType,
-        values.sourceUrl || undefined
+        values.sourceUrl || undefined,
+        composerAiAssisted
       );
       // Trigger server-side analysis (best-effort)
       try {
@@ -308,6 +311,36 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
             </FormItem>
           )}
         />
+        {/* Optional AI drafting */}
+        {user && !isSuspended && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-white/60">
+            <button
+              type="button"
+              className="underline hover:text-white"
+              onClick={async () => {
+                try {
+                  setAiDrafting(true);
+                  const token = await user.getIdToken();
+                  const res = await fetch('/api/ai/draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ topic: topic.title, type: 'statement' }),
+                  });
+                  const j = await res.json();
+                  if (j?.ok && j?.text) {
+                    form.setValue('content', j.text, { shouldValidate: true });
+                    setComposerAiAssisted(true);
+                  }
+                } catch {}
+                finally { setAiDrafting(false); }
+              }}
+              disabled={aiDrafting || loading}
+            >
+              {aiDrafting ? 'Drafting…' : 'Draft with AI'}
+            </button>
+            {composerAiAssisted && <span className="text-[10px] text-emerald-300">AI-assisted</span>}
+          </div>
+        )}
         {/* Auto-detected claim type */}
         <div className="mt-3 flex items-center gap-2 text-sm text-white/80">
           <span className="text-white/60">Detected:</span>

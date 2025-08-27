@@ -171,6 +171,9 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       {(statement as any)?.claimType || 'opinion'}
     </Badge>
   );
+  const aiBadge = ((statement as any)?.aiAssisted || ((statement as any)?.aiAssistProb ?? 0) > 0.7) ? (
+    <Badge className="text-[10px] sm:text-xs bg-emerald-700/40 border border-emerald-500/40 text-emerald-200">AI‑assisted</Badge>
+  ) : null;
 
   const canAskRootQuestion =
     user &&
@@ -292,6 +295,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="flex items-center gap-2 mb-1">
           {claimBadge}
+          {aiBadge}
           {(statement as any)?.claimType === 'fact' && (statement as any)?.sourceUrl && (
             <a href={(statement as any).sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs text-rose-300 underline hover:text-white/90">Source</a>
           )}

@@ -29,6 +29,7 @@ export async function createStatement(
   content: string,
   claimType: 'opinion' | 'experience' | 'fact',
   sourceUrl?: string,
+  aiAssisted?: boolean,
   userName?: string,
   userPhotoURL?: string
 ) {
@@ -37,7 +38,7 @@ export async function createStatement(
   const res = await fetch('/api/statements/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ topicId, content, claimType, sourceUrl }),
+    body: JSON.stringify({ topicId, content, claimType, sourceUrl, aiAssisted }),
   });
   if (!res.ok) {
     let code: string | undefined;
@@ -49,5 +50,5 @@ export async function createStatement(
   }
   const json = await res.json();
   logger.info('Statement created:', json.id);
-  return { id: json.id, topicId, content, createdBy: userId, position: 'pending', claimType, ...(sourceUrl ? { sourceUrl } : {}) };
+  return { id: json.id, topicId, content, createdBy: userId, position: 'pending', claimType, ...(sourceUrl ? { sourceUrl } : {}), ...(aiAssisted ? { aiAssisted: true } : {}) };
 }

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const decoded = await auth.verifyIdToken(token);
     const uid = decoded.uid;
 
-    const { topicId, statementId, statementAuthorId, parentId, content, type } = await req.json();
+    const { topicId, statementId, statementAuthorId, parentId, content, type, aiAssisted } = await req.json();
     if (!topicId || !statementId || !content || !type) return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     if (type !== 'question' && type !== 'response') return NextResponse.json({ ok: false, error: 'bad_type' }, { status: 400 });
 
@@ -64,10 +64,21 @@ export async function POST(req: Request) {
         createdBy: uid,
         createdAt: FieldValue.serverTimestamp(),
         type,
+        ...(aiAssisted ? { aiAssisted: true } : {}),
       });
+    // Detect AI assistance probability (best-effort)
+    try {
+      const key = process.env.HUGGINGFACE_API_KEY;
+      if (key) {
+        const resp = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/ai/detect-assist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: content }) });
+        const j = await resp.json();
+        if (j?.ok && typeof j?.prob === 'number') {
+          await ref.set({ aiAssistProb: j.prob, ...(j.prob > 0.7 ? { aiAssisted: true } : {}) }, { merge: true });
+        }
+      }
+    } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
-
