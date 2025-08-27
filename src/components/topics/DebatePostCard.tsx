@@ -311,6 +311,10 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
                 ? 'p-2 min-h-[88px]'
                 : cn('p-1 min-h-[28px] flex', isCollapsing ? 'items-start' : 'items-center')
             )}
+            onTransitionEnd={(e) => {
+              if (e.currentTarget !== e.target) return;
+              if (!composerFocused && !composerText) setIsCollapsing(false);
+            }}
           >
             <textarea
               ref={composerRef}
@@ -325,8 +329,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
                 setComposerFocused(false);
                 if (!composerText) {
                   setIsCollapsing(true);
-                  // after transition ends (~200ms), allow centering
-                  setTimeout(() => setIsCollapsing(false), 220);
                 }
                 // ensure smooth collapse on next frame
                 requestAnimationFrame(() => autoResize());
