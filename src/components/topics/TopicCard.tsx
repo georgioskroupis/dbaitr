@@ -153,7 +153,11 @@ export function TopicCard({ topic }: TopicCardProps) {
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs sm:text-sm text-white">Result</span>
               {typeof sentimentMean === 'number' && (
-                <Badge variant="outline" className="text-[10px] sm:text-xs border-white/20 text-white/80 bg-white/5">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] sm:text-xs border-white/20 text-white/80 bg-white/5"
+                  title={`Mean: ${Math.round(sentimentMean)}%`}
+                >
                   {bucketLabel(Math.round(sentimentMean))}
                 </Badge>
               )}

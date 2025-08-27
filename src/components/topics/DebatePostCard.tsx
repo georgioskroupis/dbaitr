@@ -152,23 +152,14 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
-  // Likert group badge from sentiment score
-  let likertBadge: React.ReactNode = null;
+  // Thermometer label color based on sentiment score
   const sScore = (statement as any)?.sentiment?.score as number | undefined;
-  if (typeof sScore === 'number') {
-    const idx = sScore <= 20 ? 0 : sScore <= 40 ? 1 : sScore <= 60 ? 2 : sScore <= 80 ? 3 : 4;
-    const label = ['Very Negative','Negative','Neutral','Positive','Very Positive'][idx];
-    const color = [
-      'bg-rose-600 text-white',
-      'bg-rose-400 text-white',
-      'bg-slate-500 text-white',
-      'bg-emerald-400 text-white',
-      'bg-emerald-600 text-white'
-    ][idx];
-    likertBadge = (
-      <Badge className={cn('text-[10px] sm:text-xs font-medium py-1 px-2', color)}>{label}</Badge>
-    );
-  }
+  const thermTextClass = (() => {
+    if (typeof sScore !== 'number') return 'text-white/60';
+    if (sScore <= 40) return 'text-rose-300';
+    if (sScore <= 60) return 'text-slate-300';
+    return 'text-emerald-300';
+  })();
 
   const canAskRootQuestion =
     user &&
@@ -233,8 +224,9 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         { (statement as any)?.sentiment?.score !== undefined && (
           <div className="mt-2 flex items-center gap-2">
             <Thermometer score={(statement as any).sentiment.score} />
-            <span className="text-xs sm:text-sm text-white/60">{(statement as any).sentiment.label}</span>
-            {likertBadge}
+            <span className={cn('text-xs sm:text-sm', thermTextClass)} title={`Score: ${(statement as any).sentiment.score}%`}>
+              {(statement as any).sentiment.label}
+            </span>
           </div>
         )}
       </CardContent>

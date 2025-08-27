@@ -395,7 +395,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
               {typeof sentimentMean === 'number' && (
                 <div className="flex items-baseline justify-between mb-2">
                   <p className="text-sm text-white">Result</p>
-                  <p className="text-sm text-white/70">
+                  <p className="text-sm text-white/70" title={`Mean: ${Math.round(sentimentMean)}%`}>
                     {sentimentLabel(sentimentMean)}
                     <span className="text-white/40"> · {Math.round(sentimentMean)}%</span>
                   </p>

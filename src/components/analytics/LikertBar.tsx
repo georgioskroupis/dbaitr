@@ -83,7 +83,12 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
               onMouseMove={onBarMove(idx)}
               onMouseLeave={clearHover}
               onClick={() => onSelect?.(selectedGroup === idx ? null : idx)}
-              style={{ cursor: 'pointer', opacity: isActive ? 1 : 0.35 }}
+              style={{
+                cursor: 'pointer',
+                opacity: isActive ? 1 : 0.35,
+                transition: 'opacity 200ms ease, transform 200ms ease',
+                transform: selectedGroup === idx ? 'translateY(-2px)' : 'none',
+              }}
             >
               <rect x={x + 2} y={y} width={barWidth - 4} height={barH} rx={4} fill={fill} />
               {selectedGroup === idx && (
@@ -93,7 +98,14 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
           );
         })}
         {/* Density overlay */}
-        <polyline fill="none" stroke="#ffffff" opacity="0.7" strokeWidth={1.5} points={points} />
+        <polyline
+          fill="none"
+          stroke="#ffffff"
+          opacity={selectedGroup === null ? 0.7 : 0.4}
+          strokeWidth={1.5}
+          points={points}
+          style={{ transition: 'opacity 200ms ease' }}
+        />
         {/* Mean marker */}
         {typeof mean === 'number' && (
           <line x1={(mean / 100) * width} x2={(mean / 100) * width} y1={0} y2={height} stroke="#e5e7eb" strokeDasharray="4 4" strokeWidth={1} />
