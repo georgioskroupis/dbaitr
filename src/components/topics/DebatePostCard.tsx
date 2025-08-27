@@ -11,7 +11,6 @@ import { collection, getDocs, orderBy, query, where, doc, getDoc } from 'firebas
 import type { UserProfile } from '@/types';
 import { ThreadList } from './ThreadList';
 // Inline question composer replaces the old ThreadPostForm
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -22,7 +21,6 @@ import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
 import { createThreadNode } from '@/lib/client/threads';
-import { CircleHelp } from 'lucide-react';
 
 interface DebateStatementCardProps {
   statement: Statement;
@@ -37,7 +35,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [composerText, setComposerText] = React.useState('');
   const [composerFocused, setComposerFocused] = React.useState(false);
   const [isCollapsing, setIsCollapsing] = React.useState(false);
-  const [isExpanding, setIsExpanding] = React.useState(false);
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
@@ -315,7 +312,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             onTransitionEnd={(e) => {
               if (e.currentTarget !== e.target) return;
               if (!composerFocused && !composerText) setIsCollapsing(false);
-              if (composerFocused || composerText) setIsExpanding(false);
             }}
           >
             <textarea
@@ -325,7 +321,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               onKeyDown={onComposerKeyDown}
               onFocus={() => {
                 setComposerFocused(true);
-                setIsExpanding(true);
                 autoResize();
               }}
               onBlur={() => {
@@ -341,23 +336,14 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               className={cn(
                 'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-200 ease-in-out',
                 composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
-                'pr-10'
+                ''
               )}
             />
-            <Button
-              type="button"
-              size="sm"
-              onClick={submitQuestion}
-              className={cn(
-                'absolute h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-all duration-200 ease-in-out',
-                composerFocused || composerText
-                  ? (isExpanding ? 'right-1 top-1/2 -translate-y-1/2' : 'bottom-1 right-1 translate-y-0')
-                  : (isCollapsing ? 'right-1 top-1' : 'right-1 top-1/2 -translate-y-1/2')
-              )}
-              title="Post question"
-            >
-              <CircleHelp className="h-4 w-4" />
-            </Button>
+            {(composerFocused || composerText) && (
+              <div className="mt-1 text-[10px] text-white/40">
+                Press Enter to send · Shift+Enter for newline
+              </div>
+            )}
           </div>
         )}
 
