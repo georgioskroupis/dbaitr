@@ -10,30 +10,41 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, where, doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
 import { ThreadList } from './ThreadList';
-import { ThreadPostForm } from './ThreadPostForm';
-import { Button } from '@/components/ui/button';
+// Inline question composer replaces the old ThreadPostForm
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { Separator } from '@/components/ui/separator';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
 import { Thermometer } from '@/components/analytics/Thermometer';
+import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
+import { createThreadNode } from '@/lib/client/threads';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToastAction } from '@/components/ui/toast';
+import { useRouter } from 'next/navigation';
 
 interface DebateStatementCardProps {
   statement: Statement;
 }
 
 export function DebatePostCard({ statement }: DebateStatementCardProps) {
+  const router = useRouter();
   const { user, kycVerified, loading: authLoading, isSuspended: currentUserIsSuspended } = useAuth();
   const { toast } = useToast();
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
   const [threads, setThreads] = React.useState<ThreadNode[]>([]);
   const [isLoadingThreads, setIsLoadingThreads] = React.useState(true);
-  const [showRootQuestionForm, setShowRootQuestionForm] = React.useState(false);
+  const [composerText, setComposerText] = React.useState('');
+  const [composerFocused, setComposerFocused] = React.useState(false);
+  const [isCollapsing, setIsCollapsing] = React.useState(false);
+  const [isExpanding, setIsExpanding] = React.useState(false);
+  const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
+  const [aiDrafting, setAiDrafting] = React.useState(false);
+  const [composerAiAssisted, setComposerAiAssisted] = React.useState(false);
 
   const fetchThreads = React.useCallback(async () => {
     if (!statement || !statement.id || !statement.topicId) {
@@ -151,10 +162,34 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
-  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountForThisStatement < 3 && !currentUserIsSuspended;
+  // Thermometer label color based on sentiment score
+  const sScore = (statement as any)?.sentiment?.score as number | undefined;
+  const thermTextClass = (() => {
+    if (typeof sScore !== 'number') return 'text-white/60';
+    if (sScore <= 40) return 'text-rose-300';
+    if (sScore <= 60) return 'text-slate-300';
+    return 'text-emerald-300';
+  })();
+
+  // Claim type badge + source link if fact
+  const claimBadge = (
+    <Badge className="text-[10px] sm:text-xs bg-white/10 border border-white/20 text-white/80 capitalize">
+      {(statement as any)?.claimType || 'opinion'}
+    </Badge>
+  );
+  const aiBadge = ((statement as any)?.aiAssisted || ((statement as any)?.aiAssistProb ?? 0) > 0.7) ? (
+    <Badge className="text-[10px] sm:text-xs bg-emerald-700/40 border border-emerald-500/40 text-emerald-200">AI‑assisted</Badge>
+  ) : null;
+
+  const canAskRootQuestion =
+    user &&
+    kycVerified &&
+    !isLoadingQuestionCount &&
+    userQuestionCountForThisStatement < 3 &&
+    !currentUserIsSuspended &&
+    user.uid !== statement.createdBy; // authors cannot ask questions on their own statements
 
   const handleRootQuestionSuccess = () => {
-    setShowRootQuestionForm(false);
     fetchThreads(); 
     if (user && statement && statement.id && statement.topicId) {
       setIsLoadingQuestionCount(true);
@@ -168,6 +203,83 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         setUserQuestionCountForThisStatement(snap.size);
       })()
         .finally(() => setIsLoadingQuestionCount(false));
+    }
+  };
+
+  // Auto-resize textarea
+  const autoResize = () => {
+    const el = composerRef.current;
+    if (!el) return;
+    // When expanded (focused or has text), grow to content
+    if (composerFocused || composerText) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(180, el.scrollHeight) + 'px';
+    } else {
+      // Collapsed: rely on CSS max-height for smoothness; avoid inline height changes
+      el.style.height = 'auto';
+    }
+  };
+
+  React.useEffect(() => { autoResize(); }, [composerText, composerFocused]);
+
+  const submitQuestion = async () => {
+    if (!user) return;
+    const text = composerText.trim();
+    if (text.length < 5) {
+      toast({ title: 'Question too short', description: 'Please write a bit more (min 5 characters).', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createThreadNode({
+        topicId: statement.topicId,
+        statementId: statement.id,
+        statementAuthorId: statement.createdBy,
+        parentId: null,
+        content: text,
+        createdBy: user.uid,
+        type: 'question',
+        aiAssisted: !!composerAiAssisted,
+      });
+      setComposerText('');
+      setComposerFocused(false);
+      setComposerAiAssisted(false);
+      handleRootQuestionSuccess();
+      toast({ title: 'Question posted' });
+    } catch (e: any) {
+      logger.error('Inline question submit failed:', e);
+      const code = e?.code as string | undefined;
+      const map: Record<string, { title: string; description: string }> = {
+        limit: { title: 'Limit Reached', description: 'You have asked 3 questions for this statement.' },
+        forbidden: { title: 'Not Allowed', description: 'Only the statement author can respond.' },
+        kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
+        appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
+        unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
+        toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },
+      };
+      const m = (code && map[code]) || { title: 'Failed to post question', description: 'Please try again.' };
+      if (code === 'toxicity') {
+        const url = `/appeals?topicId=${encodeURIComponent(statement.topicId)}&statementId=${encodeURIComponent(statement.id)}&reason=${encodeURIComponent('My question was blocked by the civility filter. Please review.')}`;
+        toast({
+          title: m.title,
+          description: m.description,
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Appeal" onClick={() => router.push(url)}>
+              Appeal this decision
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({ title: m.title, description: m.description, variant: 'destructive' });
+      }
+    }
+  };
+
+  const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+      // Allow Ctrl/Cmd+Enter as well
+      e.preventDefault();
+      submitQuestion();
     }
   };
 
@@ -202,13 +314,82 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             {statement.position}
           </Badge>
         )}
-      </CardHeader>
+     </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0">
+        <div className="flex items-center gap-2 mb-1">
+          {claimBadge}
+          {aiBadge ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex">
+                    {aiBadge}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs max-w-xs">
+                  <p>
+                    AI-assisted: The author used AI drafting or our detector marked this content as likely AI-assisted (p ≥ 0.7).
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          {(statement as any)?.claimType === 'fact' && (statement as any)?.sourceUrl && (
+            <a href={(statement as any).sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs text-rose-300 underline hover:text-white/90">Source</a>
+          )}
+        </div>
         <p className="text-sm sm:text-base text-white/80 leading-relaxed whitespace-pre-wrap">{statement.content}</p>
         { (statement as any)?.sentiment?.score !== undefined && (
           <div className="mt-2 flex items-center gap-2">
             <Thermometer score={(statement as any).sentiment.score} />
-            <span className="text-xs sm:text-sm text-white/60">{(statement as any).sentiment.label}</span>
+            <span className={cn('text-xs sm:text-sm', thermTextClass)} title={`Score: ${(statement as any).sentiment.score}%`}>
+              {(statement as any).sentiment.label}
+            </span>
+          </div>
+        )}
+        {(composerFocused || composerText) && canAskRootQuestion && (
+          <div className="-mt-2 mb-2 flex items-center gap-2 text-[11px] text-white/60">
+            <button
+              type="button"
+              className="underline hover:text-white disabled:opacity-60"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  setAiDrafting(true);
+                  const token = await user.getIdToken();
+                  const res = await fetch('/api/ai/draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      type: 'question',
+                      context: `Statement: ${String((statement.content || '')).slice(0, 500)}`,
+                    }),
+                  });
+                  const j = await res.json();
+                  if (j?.ok && j?.text) {
+                    setComposerText(j.text);
+                    setComposerAiAssisted(true);
+                    requestAnimationFrame(() => composerRef.current?.focus());
+                  }
+                } catch {}
+                finally { setAiDrafting(false); }
+              }}
+              disabled={aiDrafting}
+            >
+              {aiDrafting ? 'Drafting…' : 'Draft with AI'}
+            </button>
+            {composerAiAssisted && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-emerald-300 cursor-help">AI-assisted</span>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs max-w-xs">
+                    <p>This draft was generated with AI. Edit before posting.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
       </CardContent>
@@ -231,27 +412,54 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
           </div>
         )}
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRootQuestionForm(!showRootQuestionForm)}
-            className="mb-3 w-full sm:w-auto px-4 sm:px-5 py-2 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white font-semibold shadow-lg shadow-black/20 transition border-rose-500/50 hover:border-rose-400"
-            disabled={isLoadingQuestionCount}
+          <div
+            className={cn(
+              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all duration-200 ease-in-out overflow-hidden',
+              composerFocused || composerText
+                ? 'p-2 min-h-[88px]'
+                : cn('p-1 min-h-[28px] flex', isCollapsing ? 'items-start' : 'items-center')
+            )}
+            onTransitionEnd={(e) => {
+              if (e.currentTarget !== e.target) return;
+              if (!composerFocused && !composerText) setIsCollapsing(false);
+              if (composerFocused || composerText) setIsExpanding(false);
+            }}
           >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {showRootQuestionForm ? 'Cancel Question' : 'Ask a Question on this Statement'}
-          </Button>
-        )}
-        {showRootQuestionForm && user && statement && statement.id && statement.topicId && ( 
-          <div className="w-full mb-2">
-            <ThreadPostForm
-              topicId={statement.topicId}
-              statementId={statement.id}
-              statementAuthorId={statement.createdBy} 
-              parentId={null} 
-              type="question"
-              onSuccess={handleRootQuestionSuccess}
+            <textarea
+              ref={composerRef}
+              value={composerText}
+              onChange={(e) => setComposerText(e.target.value)}
+              onKeyDown={onComposerKeyDown}
+              onFocus={() => {
+                setComposerFocused(true);
+                setIsExpanding(true);
+                autoResize();
+              }}
+              onBlur={() => {
+                setComposerFocused(false);
+                if (!composerText) {
+                  setIsCollapsing(true);
+                }
+                // ensure smooth collapse on next frame
+                requestAnimationFrame(() => autoResize());
+              }}
+              rows={1}
+              placeholder="Ask a question..."
+              className={cn(
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-200 ease-in-out',
+                composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
+                ''
+              )}
             />
+            {(composerFocused || composerText) && (
+              <div className={cn(
+                'pointer-events-none absolute left-2 bottom-1 text-[10px] text-white/40 transition-opacity duration-200',
+                isExpanding ? 'opacity-0' : 'opacity-100'
+              )}
+              >
+                Press Enter to send · Shift+Enter for newline
+              </div>
+            )}
           </div>
         )}
 

@@ -5,6 +5,7 @@ import type { App as AdminApp } from 'firebase-admin/app';
 import { initializeApp, cert, getApp, getApps } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
+import { getAppCheck, type AppCheck } from 'firebase-admin/app-check';
 
 let adminApp: AdminApp | null = null;
 
@@ -54,3 +55,12 @@ export function getDbAdmin(): Firestore | null {
 }
 
 export { FieldValue };
+
+export function getAppCheckAdmin(): AppCheck | null {
+  const app = getAdminApp();
+  try {
+    return app ? getAppCheck(app) : null;
+  } catch {
+    return null;
+  }
+}

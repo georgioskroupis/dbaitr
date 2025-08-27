@@ -18,6 +18,8 @@ import type { ThreadNode } from "@/types";
 import Link from "next/link"; 
 import { logger } from '@/lib/logger';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ToastAction } from "@/components/ui/toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const formSchema = z.object({
   content: z.string().min(5, "Content must be at least 5 characters.").max(1000, "Content must be at most 1000 characters."),
@@ -52,6 +54,8 @@ export function ThreadPostForm({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [currentUserQuestionCount, setCurrentUserQuestionCount] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(type === 'question');
+  const [aiDrafting, setAiDrafting] = React.useState(false);
+  const [composerAiAssisted, setComposerAiAssisted] = React.useState(false);
 
   const form = useForm<ThreadFormValues>({
     resolver: zodResolver(formSchema),
@@ -118,6 +122,11 @@ export function ThreadPostForm({
       toast({ title: "Question Limit Reached", description: "You have already asked 3 questions in this statement's thread.", variant: "destructive" });
       return;
     }
+    // Do not allow authors to ask questions on their own statements
+    if (type === 'question' && user.uid === statementAuthorId) {
+      toast({ title: 'Not Allowed', description: 'Authors cannot ask questions on their own statements.', variant: 'destructive' });
+      return;
+    }
     
     if (type === 'response' && user.uid !== statementAuthorId) {
       toast({ title: "Permission Denied", description: "Only the statement author can reply directly to questions.", variant: "destructive" });
@@ -133,18 +142,43 @@ export function ThreadPostForm({
         parentId,
         content: values.content,
         createdBy: user.uid,
-        type, 
+        type,
+        aiAssisted: !!composerAiAssisted,
       });
       toast({ title: `${type === 'question' ? 'Question' : 'Response'} Submitted!`, description: "Your contribution has been added." });
       form.reset();
+      setComposerAiAssisted(false);
       onSuccess(); 
     } catch (error: any) {
       logger.error(`Error submitting thread node (type: ${type}):`, error);
-      toast({
+      const code = error?.code as string | undefined;
+      const map: Record<string, { title: string; description: string }> = {
+        limit: { title: 'Limit Reached', description: 'You have asked 3 questions for this statement.' },
+        forbidden: { title: 'Not Allowed', description: 'Only the statement author can respond.' },
+        kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
+        appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
+        unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
+        toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },
+      };
+      const m = (code && map[code]) || {
         title: `Failed to Submit ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+        description: 'Please try again.',
+      };
+      if (code === 'toxicity') {
+        const url = `/appeals?topicId=${encodeURIComponent(topicId)}&statementId=${encodeURIComponent(statementId)}&reason=${encodeURIComponent('My post was blocked by the civility filter. Please review.')}`;
+        toast({
+          title: m.title,
+          description: m.description,
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Appeal" onClick={() => router.push(url)}>
+              Appeal this decision
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({ title: m.title, description: m.description, variant: 'destructive' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -209,6 +243,50 @@ export function ThreadPostForm({
             </FormItem>
           )}
         />
+        {user && !isSuspended && (
+          <div className="-mt-1 mb-1 flex items-center gap-2 text-xs text-white/60">
+            <button
+              type="button"
+              className="underline hover:text-white disabled:opacity-60"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  setAiDrafting(true);
+                  const token = await user.getIdToken();
+                  const res = await fetch('/api/ai/draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      type,
+                      context: type === 'response' ? 'Reply concisely and respectfully to a question in this debate thread.' : 'Ask a concise, respectful question that seeks clarification.',
+                    }),
+                  });
+                  const j = await res.json();
+                  if (j?.ok && j?.text) {
+                    form.setValue('content', j.text, { shouldValidate: true });
+                    setComposerAiAssisted(true);
+                  }
+                } catch {}
+                finally { setAiDrafting(false); }
+              }}
+              disabled={aiDrafting || isDisabled}
+            >
+              {aiDrafting ? 'Drafting…' : 'Draft with AI'}
+            </button>
+            {composerAiAssisted && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-emerald-300 cursor-help">AI-assisted</span>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs max-w-xs">
+                    <p>This draft was generated with AI. Edit before posting.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
         <div className="flex justify-end items-center gap-2">
             {type === 'question' && !isLoadingQuestionCount && user && !isSuspended &&(
                  <p className="text-xs text-white/50">

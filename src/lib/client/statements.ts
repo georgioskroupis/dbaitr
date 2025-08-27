@@ -27,20 +27,28 @@ export async function createStatement(
   topicId: string,
   userId: string,
   content: string,
+  claimType: 'opinion' | 'experience' | 'fact',
+  sourceUrl?: string,
+  aiAssisted?: boolean,
   userName?: string,
   userPhotoURL?: string
 ) {
-  const payload: any = {
-    topicId,
-    content,
-    createdBy: userId,
-    createdAt: serverTimestamp(),
-    position: 'pending',
-  };
-  if (userName) payload.userName = userName;
-  if (userPhotoURL) payload.userPhotoURL = userPhotoURL;
-  const ref = await addDoc(collection(db, 'topics', topicId, 'statements'), payload);
-  logger.info('Statement created:', ref.id);
-  return { id: ref.id, ...payload };
+  // Use API route to enforce server-side gates
+  const token = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
+  const res = await fetch('/api/statements/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ topicId, content, claimType, sourceUrl, aiAssisted }),
+  });
+  if (!res.ok) {
+    let code: string | undefined;
+    try { const j = await res.json(); code = j?.error; } catch {}
+    const err: any = new Error('create-statement-failed');
+    err.code = code || `http_${res.status}`;
+    err.status = res.status;
+    throw err;
+  }
+  const json = await res.json();
+  logger.info('Statement created:', json.id);
+  return { id: json.id, topicId, content, createdBy: userId, position: 'pending', claimType, ...(sourceUrl ? { sourceUrl } : {}), ...(aiAssisted ? { aiAssisted: true } : {}) };
 }
-
