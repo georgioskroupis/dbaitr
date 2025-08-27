@@ -21,22 +21,31 @@ export async function createThreadNode(data: {
   createdBy: string;
   type: 'question' | 'response';
 }): Promise<ThreadNode> {
-  const payload: any = {
-    topicId: data.topicId,
-    statementId: data.statementId,
-    statementAuthorId: data.statementAuthorId,
-    parentId: data.parentId || null,
-    content: data.content,
-    createdBy: data.createdBy,
-    createdAt: serverTimestamp(),
-    type: data.type,
-  };
-  const ref = await addDoc(
-    collection(db, 'topics', data.topicId, 'statements', data.statementId, 'threads'),
-    payload
-  );
-  logger.info('Thread node created:', ref.id);
-  return { id: ref.id, ...payload } as ThreadNode;
+  // Use API route to enforce server-side gates
+  const token = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
+  const res = await fetch('/api/threads/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      topicId: data.topicId,
+      statementId: data.statementId,
+      statementAuthorId: data.statementAuthorId,
+      parentId: data.parentId,
+      content: data.content,
+      type: data.type,
+    }),
+  });
+  if (!res.ok) {
+    let code: string | undefined;
+    try { const j = await res.json(); code = j?.error; } catch {}
+    const err: any = new Error('create-thread-failed');
+    err.code = code || `http_${res.status}`;
+    err.status = res.status;
+    throw err;
+  }
+  const json = await res.json();
+  logger.info('Thread node created:', json.id);
+  return { id: json.id, ...data, createdAt: new Date().toISOString() } as any;
 }
 
 export async function getUserQuestionCountForStatement(userId: string, statementId: string, topicId: string): Promise<number> {
@@ -48,4 +57,3 @@ export async function getUserQuestionCountForStatement(userId: string, statement
   const snap = await getDocs(q);
   return snap.size;
 }
-

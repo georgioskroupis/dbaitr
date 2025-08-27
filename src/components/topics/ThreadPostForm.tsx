@@ -145,11 +145,19 @@ export function ThreadPostForm({
       onSuccess(); 
     } catch (error: any) {
       logger.error(`Error submitting thread node (type: ${type}):`, error);
-      toast({
+      const code = error?.code as string | undefined;
+      const map: Record<string, { title: string; description: string }> = {
+        limit: { title: 'Limit Reached', description: 'You have asked 3 questions for this statement.' },
+        forbidden: { title: 'Not Allowed', description: 'Only the statement author can respond.' },
+        kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
+        appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
+        unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
+      };
+      const m = (code && map[code]) || {
         title: `Failed to Submit ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+        description: 'Please try again.',
+      };
+      toast({ title: m.title, description: m.description, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

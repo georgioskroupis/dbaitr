@@ -78,6 +78,33 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     }
   }, [user, topic.id, authLoading, toast]);
 
+  // Auto-classify claim type as user types
+  const classifyDebounceRef = React.useRef<number | undefined>(undefined);
+  const [autoType, setAutoType] = React.useState<{ claimType: 'opinion'|'experience'|'fact'; confidence: number } | null>(null);
+  React.useEffect(() => {
+    if (!user) return;
+    const text = form.watch('content');
+    if (!text || text.trim().length < 10) { setAutoType(null); return; }
+    if (classifyDebounceRef.current) window.clearTimeout(classifyDebounceRef.current);
+    classifyDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/statements/classify-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text, topic: topic.title }),
+        });
+        const json = await res.json();
+        if (json?.ok && json?.claimType) {
+          setAutoType({ claimType: json.claimType, confidence: json.confidence });
+          form.setValue('claimType', json.claimType, { shouldValidate: true });
+        }
+      } catch {}
+    }, 500);
+    return () => { if (classifyDebounceRef.current) window.clearTimeout(classifyDebounceRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.watch('content'), user]);
+
 
   async function onSubmit(values: StatementFormValues) {
     if (authLoading) { 
@@ -153,11 +180,30 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       if (onStatementCreated) onStatementCreated();
     } catch (error: any) {
       logger.error("Detailed error: Failed to create statement. Values:", values, "Topic ID:", topic.id, "Error:", error);
-      toast({ 
-        title: "Failed to Submit Statement",
-        description: `Your statement could not be submitted due to an error. The system reported: ${error.message || "An unspecified issue."} This might involve the AI classification step or saving the statement to the database. Please check your connection and try again. If the problem persists, please contact support.`, 
-        variant: "destructive" 
-      });
+      const code = error?.code as string | undefined;
+      const map: Record<string, { title: string; description: string }> = {
+        kyc_required: {
+          title: 'Verification Required',
+          description: 'Please verify your ID or wait for the grace period to post.',
+        },
+        source_required: {
+          title: 'Source Required',
+          description: 'A source URL is required for factual claims.',
+        },
+        appcheck: {
+          title: 'Security Check Failed',
+          description: 'App integrity verification failed. Refresh and try again.',
+        },
+        unauthorized: {
+          title: 'Authentication Required',
+          description: 'Please sign in again and retry.',
+        },
+      };
+      const m = (code && map[code]) || {
+        title: 'Failed to Submit Statement',
+        description: 'We could not submit your statement. Please try again.',
+      };
+      toast({ title: m.title, description: m.description, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -262,29 +308,17 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
             </FormItem>
           )}
         />
-        {/* Claim type selection */}
-        <div className="mt-3">
-          <FormLabel className="block text-white/80 mb-1">Claim Type</FormLabel>
-          <div className="flex gap-3 text-sm text-white/80">
-            {(['opinion','experience','fact'] as const).map((opt) => (
-              <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value={opt}
-                  checked={form.watch('claimType') === opt}
-                  onChange={() => form.setValue('claimType', opt)}
-                  className="accent-rose-500"
-                  disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
-                />
-                <span className="capitalize">{opt}</span>
-              </label>
-            ))}
-          </div>
-          <FormMessage />
+        {/* Auto-detected claim type */}
+        <div className="mt-3 flex items-center gap-2 text-sm text-white/80">
+          <span className="text-white/60">Detected:</span>
+          <span className="capitalize">{autoType?.claimType || form.watch('claimType')}</span>
+          {autoType && (
+            <span className="text-white/40 text-xs">({Math.round(autoType.confidence * 100)}%)</span>
+          )}
         </div>
 
         {/* Source URL when fact */}
-        {form.watch('claimType') === 'fact' && (
+        {(autoType?.claimType || form.watch('claimType')) === 'fact' && (
           <FormField
             control={form.control}
             name="sourceUrl"
