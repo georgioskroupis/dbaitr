@@ -300,7 +300,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
           <div
             className={cn(
               'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all',
-              composerFocused || composerText ? 'p-2' : 'p-1'
+              composerFocused || composerText ? 'p-2 min-h-[88px]' : 'p-1 min-h-[28px]'
             )}
           >
             <textarea
