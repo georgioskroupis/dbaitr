@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 // Avoid importing server actions in a client component
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -30,6 +31,7 @@ interface TopicDetailClientProps {
 }
 
 export function TopicDetailClient({ initialTopic, initialStatements }: TopicDetailClientProps) {
+  const searchParams = useSearchParams();
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const [statements, setStatements] = useState<StatementType[]>(initialStatements);
   const [isLoadingTopicDetails, setIsLoadingTopicDetails] = useState<boolean>(!initialTopic.description);
@@ -38,6 +40,18 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   const [sentimentBins, setSentimentBins] = useState<number[] | null>(null);
   const [sentimentMean, setSentimentMean] = useState<number | undefined>(undefined);
   const [selectedLikert, setSelectedLikert] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Initialize selectedLikert from query param once
+    try {
+      const v = searchParams.get('likert');
+      if (v !== null) {
+        const gi = parseInt(v, 10);
+        if (!Number.isNaN(gi) && gi >= 0 && gi <= 4) setSelectedLikert(gi);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { toast } = useToast();
   const { user } = useAuth();
   

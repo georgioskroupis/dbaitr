@@ -18,6 +18,7 @@ import { logger } from '@/lib/logger';
 import { Separator } from '@/components/ui/separator';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
 import { Thermometer } from '@/components/analytics/Thermometer';
+import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
 
@@ -151,6 +152,24 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
+  // Likert group badge from sentiment score
+  let likertBadge: React.ReactNode = null;
+  const sScore = (statement as any)?.sentiment?.score as number | undefined;
+  if (typeof sScore === 'number') {
+    const idx = sScore <= 20 ? 0 : sScore <= 40 ? 1 : sScore <= 60 ? 2 : sScore <= 80 ? 3 : 4;
+    const label = ['Very Negative','Negative','Neutral','Positive','Very Positive'][idx];
+    const color = [
+      'bg-rose-600 text-white',
+      'bg-rose-400 text-white',
+      'bg-slate-500 text-white',
+      'bg-emerald-400 text-white',
+      'bg-emerald-600 text-white'
+    ][idx];
+    likertBadge = (
+      <Badge className={cn('text-[10px] sm:text-xs font-medium py-1 px-2', color)}>{label}</Badge>
+    );
+  }
+
   const canAskRootQuestion =
     user &&
     kycVerified &&
@@ -208,13 +227,14 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             {statement.position}
           </Badge>
         )}
-      </CardHeader>
-      <CardContent className="p-3 sm:p-4 pt-0">
+     </CardHeader>
+     <CardContent className="p-3 sm:p-4 pt-0">
         <p className="text-sm sm:text-base text-white/80 leading-relaxed whitespace-pre-wrap">{statement.content}</p>
         { (statement as any)?.sentiment?.score !== undefined && (
           <div className="mt-2 flex items-center gap-2">
             <Thermometer score={(statement as any).sentiment.score} />
             <span className="text-xs sm:text-sm text-white/60">{(statement as any).sentiment.label}</span>
+            {likertBadge}
           </div>
         )}
       </CardContent>

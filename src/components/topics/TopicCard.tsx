@@ -3,6 +3,7 @@ import type { Topic } from '@/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CalendarDays, Users, CheckCircle, HelpCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import * as React from 'react';
@@ -21,6 +22,7 @@ interface TopicCardProps {
 }
 
 export function TopicCard({ topic }: TopicCardProps) {
+  const router = useRouter();
   const [creatorProfile, setCreatorProfile] = React.useState<UserProfile | null>(null);
   const [userStats, setUserStats] = React.useState<{ hasStatement: boolean; userQ: number; distinctStatements: number } | null>(null);
   const { user } = useAuth();
@@ -156,7 +158,14 @@ export function TopicCard({ topic }: TopicCardProps) {
                 </Badge>
               )}
             </div>
-            <LikertBar bins={sentimentBins} mean={sentimentMean} height={48} />
+            <LikertBar
+              bins={sentimentBins}
+              mean={sentimentMean}
+              height={48}
+              onSelect={(idx) => {
+                if (typeof idx === 'number') router.push(`/topics/${topic.id}?likert=${idx}`);
+              }}
+            />
           </div>
         )}
         <Button asChild className="w-full mt-2 px-4 sm:px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" size="sm">
