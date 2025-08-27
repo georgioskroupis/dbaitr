@@ -8,6 +8,7 @@ import { Badge } from '../ui/badge';
 import * as React from 'react';
 // Avoid server action imports in client component; fetch profile directly via client Firestore
 import type { UserProfile } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
 import { db } from '@/lib/firebase';
@@ -22,7 +23,6 @@ interface TopicCardProps {
 export function TopicCard({ topic }: TopicCardProps) {
   const [creatorProfile, setCreatorProfile] = React.useState<UserProfile | null>(null);
   const [userStats, setUserStats] = React.useState<{ hasStatement: boolean; userQ: number; distinctStatements: number } | null>(null);
-  const { useAuth } = require('@/context/AuthContext');
   const { user } = useAuth();
 
   React.useEffect(() => {
