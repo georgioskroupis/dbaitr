@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbAdmin, getAuthAdmin, getAppCheckAdmin, FieldValue } from '@/lib/firebaseAdmin';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
+import { analyzeToxicity } from '@/lib/perspective';
 
 export const runtime = 'nodejs';
 
@@ -63,6 +64,28 @@ export async function POST(req: Request) {
     const ok = !!u.kycVerified || withinGrace(u.registeredAt);
     if (!ok) return NextResponse.json({ ok: false, error: 'kyc_required' }, { status: 403 });
 
+    // Load dynamic moderation thresholds (fallback to defaults)
+    let blockThreshold = 0.90;
+    let flagThreshold = 0.75;
+    try {
+      const settingsDoc = await db.collection('settings').doc('moderation').get();
+      const cfg = settingsDoc.exists ? (settingsDoc.data() as any) : null;
+      if (cfg?.blockThreshold && typeof cfg.blockThreshold === 'number') blockThreshold = cfg.blockThreshold;
+      if (cfg?.flagThreshold && typeof cfg.flagThreshold === 'number') flagThreshold = cfg.flagThreshold;
+    } catch {}
+
+    // Toxicity filter via Perspective API
+    try {
+      const tox = await analyzeToxicity(String(content || ''));
+      if (tox.ok) {
+        const max = tox.maxScore || 0;
+        const label = tox.maxLabel || 'TOXICITY';
+        if (max >= blockThreshold) {
+          return NextResponse.json({ ok: false, error: 'toxicity', label, score: max }, { status: 422 });
+        }
+      }
+    } catch {}
+
     const topicRef = db.collection('topics').doc(topicId);
     const ref = await topicRef.collection('statements').add({
       topicId,
@@ -74,6 +97,13 @@ export async function POST(req: Request) {
       ...(aiAssisted ? { aiAssisted: true } : {}),
       ...(claimType === 'fact' && sourceUrl ? { sourceUrl } : {}),
     });
+    // Store moderation flags if needed (non-blocking)
+    try {
+      const tox = await analyzeToxicity(String(content || ''));
+      if (tox.ok && (tox.maxScore || 0) >= flagThreshold) {
+        await ref.set({ moderation: { flagged: true, reason: 'toxicity', maxLabel: tox.maxLabel, maxScore: tox.maxScore, scores: tox.scores } }, { merge: true });
+      }
+    } catch {}
     // Classify position server-side for reliability
     try {
       const topicSnap = await topicRef.get();

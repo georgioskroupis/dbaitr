@@ -103,6 +103,12 @@ export function UserNav() {
               <span>Manifesto</span>
             </DropdownMenuItem>
           </Link>
+          <Link href="/transparency" passHref>
+            <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+              <Award className="mr-2 h-4 w-4 text-primary" />
+              <span>Transparency</span>
+            </DropdownMenuItem>
+          </Link>
           <DropdownMenuSeparator className="bg-border" />
           <Link href="/verify-identity" passHref>
             <DropdownMenuItem disabled={kycVerified} className="focus:bg-accent focus:text-accent-foreground"> {/* Theme colors */}

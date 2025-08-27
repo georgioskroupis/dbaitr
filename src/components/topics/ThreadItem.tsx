@@ -14,6 +14,7 @@ import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getAuthorStatusBadge } from '@/lib/react-utils';
 import { logger } from '@/lib/logger';
 
@@ -149,7 +150,20 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
                   {node.type === 'question' ? 'Question' : 'Response'}
                 </p>
                 {((node as any)?.aiAssisted || ((node as any)?.aiAssistProb ?? 0) > 0.7) && (
-                  <Badge className="text-[9px] bg-emerald-700/40 border border-emerald-500/40 text-emerald-200">AI‑assisted</Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="inline-flex">
+                          <Badge className="text-[9px] bg-emerald-700/40 border border-emerald-500/40 text-emerald-200">AI‑assisted</Badge>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-xs max-w-xs">
+                        <p>
+                          AI-assisted: The author used AI drafting or our detector marked this as likely AI-assisted (p ≥ 0.7).
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
              </div>
           </div>

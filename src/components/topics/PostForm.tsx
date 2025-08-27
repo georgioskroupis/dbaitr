@@ -19,6 +19,7 @@ import type { Topic } from "@/types";
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { logger } from '@/lib/logger';
+import { ToastAction } from "@/components/ui/toast";
 
 
 const formSchema = z.object({
@@ -201,12 +202,29 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           title: 'Authentication Required',
           description: 'Please sign in again and retry.',
         },
+        toxicity: {
+          title: 'Content Blocked for Civility',
+          description: 'Please revise to keep it respectful and constructive.',
+        },
       };
       const m = (code && map[code]) || {
         title: 'Failed to Submit Statement',
         description: 'We could not submit your statement. Please try again.',
       };
-      toast({ title: m.title, description: m.description, variant: 'destructive' });
+      const base = { title: m.title, description: m.description, variant: 'destructive' as const };
+      if (code === 'toxicity') {
+        const url = `/appeals?topicId=${encodeURIComponent(topic.id)}&reason=${encodeURIComponent('My statement was blocked by the civility filter. Please review.')}`;
+        toast({
+          ...base,
+          action: (
+            <ToastAction altText="Appeal" onClick={() => router.push(url)}>
+              Appeal this decision
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast(base);
+      }
     } finally {
       setLoading(false);
     }

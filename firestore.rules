@@ -34,6 +34,55 @@ service cloud.firestore {
       allow delete: if false; // Or specific admin role
     }
 
+    // Reports collection (readable by moderators/admins; written by server API)
+    match /reports/{reportId} {
+      allow read, list: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+      // Client-side creates are disallowed; use server API route
+      allow create, update, delete: if false;
+    }
+
+    // Moderation actions (server writes only)
+    match /moderation_actions/{actionId} {
+      allow read, list: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+      allow create, update, delete: if false;
+    }
+
+    // Settings (allow reads; writes via server/admin only)
+    match /settings/{docId} {
+      allow read, list: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+    }
+
+    // Appeals collection
+    match /appeals/{appealId} {
+      // Users can read their own appeals; moderators/admins can read all
+      allow read, list: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+      // Users can create their own appeals (server API preferred but allow fallback)
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid &&
+        (request.resource.data.statementId is string || request.resource.data.threadId is string || request.resource.data.topicId is string) &&
+        request.resource.data.reason is string && request.resource.data.reason.size() >= 10;
+      // Only moderators/admins can update appeals (resolution)
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
+      );
+      // Deletion disabled
+      allow delete: if false;
+    }
+
     // Topics Collection
     match /topics/{topicId} {
       allow read: if true; // Topics are public
@@ -84,10 +133,10 @@ service cloud.firestore {
       // Position and aiConfidence should ideally be updated by a trusted backend process after AI re-classification.
       allow update: if request.auth != null && resource.data.createdBy == request.auth.uid &&
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'lastEditedAt']) ||
-                     // Allow backend to update position and aiConfidence
+                     // Allow backend/moderators to update classification and moderation fields
                      ((get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt', 'claimType', 'sourceUrl']));
+                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt', 'claimType', 'sourceUrl', 'moderation']));
 
       // Allow deletion by author or moderators/admins
       allow delete: if request.auth != null && (
@@ -125,7 +174,7 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['content','moderation'])
       );
 
       // Allow deletion by author of the node, or moderators/admins

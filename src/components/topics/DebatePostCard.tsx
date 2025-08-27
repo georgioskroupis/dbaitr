@@ -21,12 +21,16 @@ import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
 import { createThreadNode } from '@/lib/client/threads';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToastAction } from '@/components/ui/toast';
+import { useRouter } from 'next/navigation';
 
 interface DebateStatementCardProps {
   statement: Statement;
 }
 
 export function DebatePostCard({ statement }: DebateStatementCardProps) {
+  const router = useRouter();
   const { user, kycVerified, loading: authLoading, isSuspended: currentUserIsSuspended } = useAuth();
   const { toast } = useToast();
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
@@ -39,6 +43,8 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
+  const [aiDrafting, setAiDrafting] = React.useState(false);
+  const [composerAiAssisted, setComposerAiAssisted] = React.useState(false);
 
   const fetchThreads = React.useCallback(async () => {
     if (!statement || !statement.id || !statement.topicId) {
@@ -232,9 +238,11 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         content: text,
         createdBy: user.uid,
         type: 'question',
+        aiAssisted: !!composerAiAssisted,
       });
       setComposerText('');
       setComposerFocused(false);
+      setComposerAiAssisted(false);
       handleRootQuestionSuccess();
       toast({ title: 'Question posted' });
     } catch (e: any) {
@@ -246,9 +254,24 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
         appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
         unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
+        toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },
       };
       const m = (code && map[code]) || { title: 'Failed to post question', description: 'Please try again.' };
-      toast({ title: m.title, description: m.description, variant: 'destructive' });
+      if (code === 'toxicity') {
+        const url = `/appeals?topicId=${encodeURIComponent(statement.topicId)}&statementId=${encodeURIComponent(statement.id)}&reason=${encodeURIComponent('My question was blocked by the civility filter. Please review.')}`;
+        toast({
+          title: m.title,
+          description: m.description,
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Appeal" onClick={() => router.push(url)}>
+              Appeal this decision
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({ title: m.title, description: m.description, variant: 'destructive' });
+      }
     }
   };
 
@@ -295,7 +318,22 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="flex items-center gap-2 mb-1">
           {claimBadge}
-          {aiBadge}
+          {aiBadge ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex">
+                    {aiBadge}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs max-w-xs">
+                  <p>
+                    AI-assisted: The author used AI drafting or our detector marked this content as likely AI-assisted (p ≥ 0.7).
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
           {(statement as any)?.claimType === 'fact' && (statement as any)?.sourceUrl && (
             <a href={(statement as any).sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs text-rose-300 underline hover:text-white/90">Source</a>
           )}
@@ -307,6 +345,51 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             <span className={cn('text-xs sm:text-sm', thermTextClass)} title={`Score: ${(statement as any).sentiment.score}%`}>
               {(statement as any).sentiment.label}
             </span>
+          </div>
+        )}
+        {(composerFocused || composerText) && canAskRootQuestion && (
+          <div className="-mt-2 mb-2 flex items-center gap-2 text-[11px] text-white/60">
+            <button
+              type="button"
+              className="underline hover:text-white disabled:opacity-60"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  setAiDrafting(true);
+                  const token = await user.getIdToken();
+                  const res = await fetch('/api/ai/draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      type: 'question',
+                      context: `Statement: ${String((statement.content || '')).slice(0, 500)}`,
+                    }),
+                  });
+                  const j = await res.json();
+                  if (j?.ok && j?.text) {
+                    setComposerText(j.text);
+                    setComposerAiAssisted(true);
+                    requestAnimationFrame(() => composerRef.current?.focus());
+                  }
+                } catch {}
+                finally { setAiDrafting(false); }
+              }}
+              disabled={aiDrafting}
+            >
+              {aiDrafting ? 'Drafting…' : 'Draft with AI'}
+            </button>
+            {composerAiAssisted && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-emerald-300 cursor-help">AI-assisted</span>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs max-w-xs">
+                    <p>This draft was generated with AI. Edit before posting.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
       </CardContent>
