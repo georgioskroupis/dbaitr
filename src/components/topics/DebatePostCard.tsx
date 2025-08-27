@@ -2,7 +2,7 @@
 import type { Statement, ThreadNode } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThumbsUp, ThumbsDown, User, Info, MessageSquare, ShieldAlert, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, User, Info, MessageSquare, ShieldAlert, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import * as React from 'react';
@@ -214,15 +214,31 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       </CardContent>
       
       <CardFooter className="p-3 sm:p-4 pt-2 flex-col items-start">
+        {!authLoading && user && (
+          <div className="mb-2 w-full flex items-center">
+            {isLoadingQuestionCount ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/60" />
+            ) : (
+              <p className="text-xs text-white/50">
+                Questions asked for this statement: {userQuestionCountForThisStatement}/3
+              </p>
+            )}
+          </div>
+        )}
+        {!authLoading && user && !isLoadingQuestionCount && userQuestionCountForThisStatement >= 3 && (
+          <div className="mb-2 flex items-center text-xs text-white/50">
+            <AlertCircle className="h-4 w-4 mr-1 text-yellow-400" /> You've reached your question limit for this statement.
+          </div>
+        )}
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
-          <Button 
+          <Button
             variant="outline"
-            size="sm" 
+            size="sm"
             onClick={() => setShowRootQuestionForm(!showRootQuestionForm)}
             className="mb-3 w-full sm:w-auto px-4 sm:px-5 py-2 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white font-semibold shadow-lg shadow-black/20 transition border-rose-500/50 hover:border-rose-400"
             disabled={isLoadingQuestionCount}
           >
-            <MessageSquare className="h-4 w-4 mr-2" /> 
+            <MessageSquare className="h-4 w-4 mr-2" />
             {showRootQuestionForm ? 'Cancel Question' : 'Ask a Question on this Statement'}
           </Button>
         )}
