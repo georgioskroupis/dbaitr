@@ -35,6 +35,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [composerText, setComposerText] = React.useState('');
   const [composerFocused, setComposerFocused] = React.useState(false);
   const [isCollapsing, setIsCollapsing] = React.useState(false);
+  const [isExpanding, setIsExpanding] = React.useState(false);
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
@@ -312,6 +313,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             onTransitionEnd={(e) => {
               if (e.currentTarget !== e.target) return;
               if (!composerFocused && !composerText) setIsCollapsing(false);
+              if (composerFocused || composerText) setIsExpanding(false);
             }}
           >
             <textarea
@@ -321,6 +323,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               onKeyDown={onComposerKeyDown}
               onFocus={() => {
                 setComposerFocused(true);
+                setIsExpanding(true);
                 autoResize();
               }}
               onBlur={() => {
@@ -340,7 +343,11 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               )}
             />
             {(composerFocused || composerText) && (
-              <div className="pointer-events-none absolute left-2 bottom-1 text-[10px] text-white/40">
+              <div className={cn(
+                'pointer-events-none absolute left-2 bottom-1 text-[10px] text-white/40 transition-opacity duration-200',
+                isExpanding ? 'opacity-0' : 'opacity-100'
+              )}
+              >
                 Press Enter to send · Shift+Enter for newline
               </div>
             )}
