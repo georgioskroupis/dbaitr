@@ -305,7 +305,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
           <div
             className={cn(
-              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all overflow-hidden',
+              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all duration-700 ease-in-out overflow-hidden',
               composerFocused || composerText
                 ? 'p-2 min-h-[88px]'
                 : 'p-1 min-h-[28px] flex items-center'
@@ -328,7 +328,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden',
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-700 ease-in-out',
                 composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
                 'pr-10'
               )}
