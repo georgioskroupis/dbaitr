@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
 import { createThreadNode } from '@/lib/client/threads';
-import { HelpCircle } from 'lucide-react';
+import { CircleHelp } from 'lucide-react';
 
 interface DebateStatementCardProps {
   statement: Statement;
@@ -297,10 +297,11 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
           </div>
         )}
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
-          <div className={cn(
-            'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all',
-            composerFocused || composerText ? 'p-2 min-h-[88px]' : 'p-1 min-h-[40px]'
-          )}
+          <div
+            className={cn(
+              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all',
+              composerFocused || composerText ? 'p-2' : 'p-1'
+            )}
           >
             <textarea
               ref={composerRef}
@@ -312,21 +313,18 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50',
-                'pr-10', // space for button
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6',
+                'pr-10'
               )}
             />
             <Button
               type="button"
               size="sm"
               onClick={submitQuestion}
-              className={cn('absolute bottom-1.5 right-1.5 h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow',
-                (composerFocused || composerText) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
-                'transition-all duration-200'
-              )}
+              className={cn('absolute bottom-1 right-1 h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-colors')}
               title="Post question"
             >
-              <HelpCircle className="h-4 w-4" />
+              <CircleHelp className="h-4 w-4" />
             </Button>
           </div>
         )}
