@@ -67,7 +67,9 @@ service cloud.firestore {
                        request.resource.data.topicId == topicId &&
                        request.resource.data.content is string && request.resource.data.content.size() > 0 &&
                        request.resource.data.position is string && 
-                       request.resource.data.position in ['for', 'against', 'neutral', 'pending'];
+                       request.resource.data.position in ['for', 'against', 'neutral', 'pending'] &&
+                       request.resource.data.claimType in ['opinion','experience','fact'] &&
+                       (request.resource.data.claimType != 'fact' || (request.resource.data.sourceUrl is string && request.resource.data.sourceUrl.size() > 4));
       
       // Allow statement creator to edit their statement (content, lastEditedAt)
       // Position and aiConfidence should ideally be updated by a trusted backend process after AI re-classification.
@@ -76,7 +78,7 @@ service cloud.firestore {
                      // Allow backend to update position and aiConfidence
                      ((get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt']));
+                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['position', 'aiConfidence', 'lastEditedAt', 'claimType', 'sourceUrl']));
 
       // Allow deletion by author or moderators/admins
       allow delete: if request.auth != null && (

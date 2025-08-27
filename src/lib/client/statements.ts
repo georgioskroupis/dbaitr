@@ -27,6 +27,8 @@ export async function createStatement(
   topicId: string,
   userId: string,
   content: string,
+  claimType: 'opinion' | 'experience' | 'fact',
+  sourceUrl?: string,
   userName?: string,
   userPhotoURL?: string
 ) {
@@ -36,11 +38,12 @@ export async function createStatement(
     createdBy: userId,
     createdAt: serverTimestamp(),
     position: 'pending',
+    claimType,
   };
+  if (claimType === 'fact' && sourceUrl) payload.sourceUrl = sourceUrl;
   if (userName) payload.userName = userName;
   if (userPhotoURL) payload.userPhotoURL = userPhotoURL;
   const ref = await addDoc(collection(db, 'topics', topicId, 'statements'), payload);
   logger.info('Statement created:', ref.id);
   return { id: ref.id, ...payload };
 }
-

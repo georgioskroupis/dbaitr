@@ -10,6 +10,7 @@ import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +23,11 @@ import { logger } from '@/lib/logger';
 
 const formSchema = z.object({
   content: z.string().min(10, "Statement must be at least 10 characters.").max(2000, "Statement must be at most 2000 characters."),
+  claimType: z.enum(['opinion','experience','fact'], { required_error: 'Select a claim type' }),
+  sourceUrl: z.string().url('Enter a valid URL').optional().or(z.literal('')),
+}).refine((data) => data.claimType !== 'fact' || (data.sourceUrl && data.sourceUrl.trim().length > 4), {
+  path: ['sourceUrl'],
+  message: 'Source URL is required for facts',
 });
 
 type StatementFormValues = z.infer<typeof formSchema>;
@@ -41,7 +47,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
 
   const form = useForm<StatementFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { content: "" },
+    defaultValues: { content: "", claimType: 'opinion', sourceUrl: '' },
   });
 
   React.useEffect(() => {
@@ -116,9 +122,11 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     setLoading(true);
     try {
       const st = await createStatement(
-        topic.id, 
-        user.uid, 
-        values.content
+        topic.id,
+        user.uid,
+        values.content,
+        values.claimType,
+        values.sourceUrl || undefined
       );
       // Trigger server-side analysis (best-effort)
       try {
@@ -254,6 +262,48 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
             </FormItem>
           )}
         />
+        {/* Claim type selection */}
+        <div className="mt-3">
+          <FormLabel className="block text-white/80 mb-1">Claim Type</FormLabel>
+          <div className="flex gap-3 text-sm text-white/80">
+            {(['opinion','experience','fact'] as const).map((opt) => (
+              <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value={opt}
+                  checked={form.watch('claimType') === opt}
+                  onChange={() => form.setValue('claimType', opt)}
+                  className="accent-rose-500"
+                  disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
+                />
+                <span className="capitalize">{opt}</span>
+              </label>
+            ))}
+          </div>
+          <FormMessage />
+        </div>
+
+        {/* Source URL when fact */}
+        {form.watch('claimType') === 'fact' && (
+          <FormField
+            control={form.control}
+            name="sourceUrl"
+            render={({ field }) => (
+              <FormItem className="mt-2">
+                <FormLabel className="text-white/80">Source URL</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="https://example.com/source"
+                    {...field}
+                    className="w-full px-3 py-2 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
+                    disabled={loading || !user || hasPostedStatement || authLoading || isCheckingStatus || isSuspended}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <Button 
           type="submit" 
           className="mt-4 w-full sm:w-auto px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" 

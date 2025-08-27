@@ -165,6 +165,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     return 'text-emerald-300';
   })();
 
+  // Claim type badge + source link if fact
+  const claimBadge = (
+    <Badge className="text-[10px] sm:text-xs bg-white/10 border border-white/20 text-white/80 capitalize">
+      {(statement as any)?.claimType || 'opinion'}
+    </Badge>
+  );
+
   const canAskRootQuestion =
     user &&
     kycVerified &&
@@ -273,7 +280,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
           </Badge>
         )}
      </CardHeader>
-     <CardContent className="p-3 sm:p-4 pt-0">
+      <CardContent className="p-3 sm:p-4 pt-0">
+        <div className="flex items-center gap-2 mb-1">
+          {claimBadge}
+          {(statement as any)?.claimType === 'fact' && (statement as any)?.sourceUrl && (
+            <a href={(statement as any).sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs text-rose-300 underline hover:text-white/90">Source</a>
+          )}
+        </div>
         <p className="text-sm sm:text-base text-white/80 leading-relaxed whitespace-pre-wrap">{statement.content}</p>
         { (statement as any)?.sentiment?.score !== undefined && (
           <div className="mt-2 flex items-center gap-2">

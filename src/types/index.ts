@@ -35,6 +35,8 @@ export interface Statement {
   createdBy: string; // User ID (reference to users/{userId})
   createdAt: string; // Changed from Timestamp
   position: 'for' | 'against' | 'neutral' | 'pending';
+  claimType: 'opinion' | 'experience' | 'fact';
+  sourceUrl?: string; // required when claimType is 'fact'
   lastEditedAt?: string; // Changed from Timestamp
   aiConfidence?: number;
 }
@@ -61,4 +63,3 @@ export interface ThreadNode {
   createdAt: string; // ISOString timestamp
   type: 'question' | 'response';
 }
-
