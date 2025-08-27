@@ -13,7 +13,7 @@ import { useSearchParams } from 'next/navigation';
 // Avoid importing server actions in a client component
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Loader2 } from "lucide-react";
+import { Terminal, Loader2, Info } from "lucide-react";
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types';
@@ -21,6 +21,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { logger } from '@/lib/logger';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
 import { collectionGroup } from 'firebase/firestore';
 
@@ -394,7 +395,27 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
             <div className="p-3 rounded-md border border-white/10 bg-black/30">
               {typeof sentimentMean === 'number' && (
                 <div className="flex items-baseline justify-between mb-2">
-                  <p className="text-sm text-white">Result</p>
+                  <div className="flex items-center gap-2 text-sm text-white">
+                    <span>Result</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button aria-label="Likert legend" className="text-white/70 hover:text-white">
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">
+                          <div className="space-y-1">
+                            <p>0–20 · Very Negative</p>
+                            <p>21–40 · Negative</p>
+                            <p>41–60 · Neutral</p>
+                            <p>61–80 · Positive</p>
+                            <p>81–100 · Very Positive</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <p className="text-sm text-white/70" title={`Mean: ${Math.round(sentimentMean)}%`}>
                     {sentimentLabel(sentimentMean)}
                     <span className="text-white/40"> · {Math.round(sentimentMean)}%</span>
