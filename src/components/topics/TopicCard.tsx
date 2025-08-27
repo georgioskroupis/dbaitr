@@ -48,12 +48,32 @@ export function TopicCard({ topic }: TopicCardProps) {
         if (!uid) { setUserStats({ hasStatement: false, userQ: 0, distinctStatements: 0 }); return; }
         const stSnap = await getDocs(query(collection(require('@/lib/firebase').db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
         const hasStatement = !stSnap.empty;
-        const qSnap = await getDocs(query(collectionGroup(require('@/lib/firebase').db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
-        const userQ = qSnap.size;
-        const distinct = new Set<string>();
-        qSnap.docs.forEach(d => { const data: any = d.data() || {}; if (data.statementId) distinct.add(data.statementId); });
-        if (!cancelled) setUserStats({ hasStatement, userQ, distinctStatements: distinct.size });
-      } catch {}
+        try {
+          // Preferred: collection group query (requires composite index)
+          const qSnap = await getDocs(query(collectionGroup(require('@/lib/firebase').db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+          const userQ = qSnap.size;
+          const distinct = new Set<string>();
+          qSnap.docs.forEach(d => { const data: any = d.data() || {}; if (data.statementId) distinct.add(data.statementId); });
+          if (!cancelled) setUserStats({ hasStatement, userQ, distinctStatements: distinct.size });
+        } catch {
+          // Fallback without composite index: iterate statements and count user's questions per statement
+          const { collection, getDocs, query, where } = await import('firebase/firestore');
+          const stList = await getDocs(collection(require('@/lib/firebase').db, 'topics', topic.id, 'statements'));
+          let userQ = 0;
+          const distinct = new Set<string>();
+          for (const s of stList.docs) {
+            const sid = s.id;
+            // Single-field filter by createdBy; filter type in memory to avoid composite index
+            const qs = await getDocs(query(collection(require('@/lib/firebase').db, 'topics', topic.id, 'statements', sid, 'threads'), where('createdBy', '==', uid)));
+            const arr = qs.docs.map(d => d.data() as any).filter(d => d?.type === 'question');
+            if (arr.length > 0) distinct.add(sid);
+            userQ += arr.length;
+          }
+          if (!cancelled) setUserStats({ hasStatement, userQ, distinctStatements: distinct.size });
+        }
+      } catch {
+        if (!cancelled) setUserStats({ hasStatement: false, userQ: 0, distinctStatements: 0 });
+      }
     }
     run();
     return () => { cancelled = true; };

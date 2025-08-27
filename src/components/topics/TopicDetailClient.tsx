@@ -8,7 +8,7 @@ import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, lim
 import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 // Avoid importing server actions in a client component
 import { generateTopicAnalysis } from '@/ai/flows/generate-topic-analysis';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -50,6 +50,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     userHasStatement: boolean;
   }>({ totalStatements: 0, totalQuestions: 0, avgQuestionsPerStatement: 0, percentQuestionsAnswered: 0, userQuestions: 0, userHasStatement: false });
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
+  const classifyRequestedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (initialTopic?.createdAt) {
@@ -263,7 +264,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       return ts;
     };
     const q = query(collection(db, 'topics', topic.id, 'statements'), orderBy('createdAt', 'asc'));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, async (snap) => {
       const list = snap.docs.map((d) => {
         const data: any = d.data() || {};
         if (data.createdAt) data.createdAt = toISO(data.createdAt);
@@ -272,9 +273,26 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         return { id: d.id, ...data };
       }) as any[];
       setStatements(list as any);
+
+      // Opportunistic classification for any of the current user's pending statements
+      try {
+        const uid = user?.uid;
+        if (!uid) return;
+        for (const s of list as any[]) {
+          if (s.createdBy === uid && s.position === 'pending' && !classifyRequestedRef.current.has(s.id)) {
+            classifyRequestedRef.current.add(s.id);
+            const token = await user.getIdToken();
+            fetch('/api/statements/classify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ topicId: topic.id, statementId: s.id, text: s.content || '' }),
+            }).catch(() => {});
+          }
+        }
+      } catch {}
     });
     return () => unsub();
-  }, [topic?.id]);
+  }, [topic?.id, user?.uid]);
 
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
