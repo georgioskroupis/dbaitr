@@ -6,6 +6,8 @@ interface Props {
   bins: number[]; // length 101 (0..100)
   mean?: number;
   height?: number; // total SVG height
+  onSelect?: (group: number | null) => void; // 0..4 or null to clear
+  selectedGroup?: number | null;
 }
 
 const LABELS = [
@@ -29,7 +31,7 @@ function groupCounts(bins: number[]): number[] {
   return g;
 }
 
-export function LikertBar({ bins, mean, height = 80 }: Props) {
+export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = null }: Props) {
   const total = Math.max(1, bins.reduce((a, b) => a + (b || 0), 0));
   const groups = groupCounts(bins);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -70,13 +72,23 @@ export function LikertBar({ bins, mean, height = 80 }: Props) {
           const pct = count / total;
           const barH = Math.max(2, pct * height);
           const y = height - barH;
-          // Color ramp from red->orange->gray->blue->green
-          const colors = ['#ef4444', '#f59e0b', '#9ca3af', '#60a5fa', '#22c55e'];
+          // Colors aligned with design system: negative=rose, neutral=slate, positive=emerald
+          const colors = ['#f43f5e', '#fb7185', '#94a3b8', '#34d399', '#10b981'];
           const base = colors[idx];
-          const fill = hoverIdx === idx ? base : base + 'CC';
+          const isActive = selectedGroup === null || selectedGroup === idx;
+          const fill = (hoverIdx === idx ? base : base + 'CC');
           return (
-            <g key={idx} onMouseMove={onBarMove(idx)} onMouseLeave={clearHover}>
+            <g
+              key={idx}
+              onMouseMove={onBarMove(idx)}
+              onMouseLeave={clearHover}
+              onClick={() => onSelect?.(selectedGroup === idx ? null : idx)}
+              style={{ cursor: 'pointer', opacity: isActive ? 1 : 0.35 }}
+            >
               <rect x={x + 2} y={y} width={barWidth - 4} height={barH} rx={4} fill={fill} />
+              {selectedGroup === idx && (
+                <rect x={x + 1} y={Math.max(0, y - 1)} width={barWidth - 2} height={barH + 2} rx={5} fill="none" stroke="#ffffff" strokeOpacity={0.6} strokeWidth={1} />
+              )}
             </g>
           );
         })}
@@ -105,4 +117,3 @@ export function LikertBar({ bins, mean, height = 80 }: Props) {
     </div>
   );
 }
-

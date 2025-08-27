@@ -37,6 +37,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
   const [sentimentBins, setSentimentBins] = useState<number[] | null>(null);
   const [sentimentMean, setSentimentMean] = useState<number | undefined>(undefined);
+  const [selectedLikert, setSelectedLikert] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -356,7 +357,15 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
                 </Card>
               ))
           ) : statements.length > 0 ? (
-            statements.map(statement => <DebatePostCard key={statement.id} statement={statement} />)
+            (selectedLikert === null
+              ? statements
+              : statements.filter(s => {
+                  const sc = (s as any)?.sentiment?.score;
+                  if (typeof sc !== 'number') return false;
+                  const idx = sc <= 20 ? 0 : sc <= 40 ? 1 : sc <= 60 ? 2 : sc <= 80 ? 3 : 4;
+                  return idx === selectedLikert;
+                })
+            ).map(statement => <DebatePostCard key={statement.id} statement={statement} />)
           ) : (
             <Alert className="border-rose-500/30 bg-rose-500/5">
               <Terminal className="h-4 w-4 text-rose-400" />
@@ -378,7 +387,13 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
                   </p>
                 </div>
               )}
-              <LikertBar bins={sentimentBins} mean={sentimentMean} />
+              <LikertBar bins={sentimentBins} mean={sentimentMean} onSelect={setSelectedLikert} selectedGroup={selectedLikert} />
+              {selectedLikert !== null && (
+                <div className="flex justify-between items-center mt-2 text-[11px] text-white/70">
+                  <span>Filtering by: {['Very Negative','Negative','Neutral','Positive','Very Positive'][selectedLikert]}</span>
+                  <button className="underline hover:text-white" onClick={() => setSelectedLikert(null)}>Clear filter</button>
+                </div>
+              )}
             </div>
           )}
 
