@@ -310,20 +310,18 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               value={composerText}
               onChange={(e) => setComposerText(e.target.value)}
               onKeyDown={onComposerKeyDown}
-              onFocus={() => setComposerFocused(true)}
+              onFocus={() => {
+                setComposerFocused(true);
+                if (composerText) autoResize();
+              }}
               onBlur={() => {
                 setComposerFocused(false);
-                // lock height to a single line for smoother collapse
-                if (!composerText) {
-                  const el = composerRef.current;
-                  if (el) el.style.height = '20px';
-                }
               }}
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50',
-                composerFocused || composerText ? 'leading-6' : 'leading-[20px] h-[20px]',
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6',
+                composerFocused || composerText ? 'h-auto' : 'h-6',
                 'pr-10'
               )}
             />
