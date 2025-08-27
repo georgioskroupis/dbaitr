@@ -172,9 +172,7 @@ export function TopicCard({ topic }: TopicCardProps) {
             />
           </div>
         )}
-        <Button asChild className="w-full mt-2 px-4 sm:px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" size="sm">
-          <Link href={`/topics/${topic.id}`}>View Debate</Link>
-        </Button>
+
       </CardFooter>
     </Card>
   );
