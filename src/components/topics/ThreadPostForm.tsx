@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createThreadNode, getUserQuestionCountForStatement } from "@/lib/firestoreActions";
+import { createThreadNode, getUserQuestionCountForStatement } from "@/lib/client/threads";
 import type { ThreadNode } from "@/types";
 import Link from "next/link"; 
 import { logger } from '@/lib/logger';
