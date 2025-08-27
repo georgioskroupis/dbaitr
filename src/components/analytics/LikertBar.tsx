@@ -70,7 +70,8 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
   const onCurveMove = (e: React.MouseEvent<SVGPolylineElement>) => {
     const rect = containerRef.current?.getBoundingClientRect();
     const x = e.clientX - (rect?.left || 0);
-    const groupWidth = width / 5;
+    const rectW = Math.max(1, rect?.width || width);
+    const groupWidth = rectW / 5;
     let g = Math.floor(x / groupWidth);
     if (g < 0) g = 0; if (g > 4) g = 4;
     setHoverIdx(g);
@@ -136,7 +137,8 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
           onClick={(e) => {
             const rect = containerRef.current?.getBoundingClientRect();
             const x = e.clientX - (rect?.left || 0);
-            const groupWidth = width / 5;
+            const rectW = Math.max(1, rect?.width || width);
+            const groupWidth = rectW / 5;
             let g = Math.floor(x / groupWidth);
             if (g < 0) g = 0; if (g > 4) g = 4;
             onSelect?.(selectedGroup === g ? null : g);
