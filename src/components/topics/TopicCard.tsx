@@ -3,7 +3,7 @@ import type { Topic } from '@/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { CalendarDays, Users } from 'lucide-react';
+import { CalendarDays, Users, CheckCircle, HelpCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import * as React from 'react';
 // Avoid server action imports in client component; fetch profile directly via client Firestore
@@ -21,6 +21,9 @@ interface TopicCardProps {
 
 export function TopicCard({ topic }: TopicCardProps) {
   const [creatorProfile, setCreatorProfile] = React.useState<UserProfile | null>(null);
+  const [userStats, setUserStats] = React.useState<{ hasStatement: boolean; userQ: number; distinctStatements: number } | null>(null);
+  const { useAuth } = require('@/context/AuthContext');
+  const { user } = useAuth();
 
   React.useEffect(() => {
     async function fetchCreator() {
@@ -34,6 +37,29 @@ export function TopicCard({ topic }: TopicCardProps) {
     }
     fetchCreator();
   }, [topic.createdBy]);
+
+  React.useEffect(() => {
+    // User-specific badges for this topic
+    let cancelled = false;
+    async function run() {
+      try {
+        // @ts-ignore avoid circular type import
+        const { collection, getDocs, query, where, collectionGroup, limit } = await import('firebase/firestore');
+        // @ts-ignore access current user via auth
+        const uid = (await import('firebase/auth')).getAuth().currentUser?.uid;
+        if (!uid) { setUserStats({ hasStatement: false, userQ: 0, distinctStatements: 0 }); return; }
+        const stSnap = await getDocs(query(collection(require('@/lib/firebase').db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
+        const hasStatement = !stSnap.empty;
+        const qSnap = await getDocs(query(collectionGroup(require('@/lib/firebase').db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+        const userQ = qSnap.size;
+        const distinct = new Set<string>();
+        qSnap.docs.forEach(d => { const data: any = d.data() || {}; if (data.statementId) distinct.add(data.statementId); });
+        if (!cancelled) setUserStats({ hasStatement, userQ, distinctStatements: distinct.size });
+      } catch {}
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [topic.id]);
 
   const formattedDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
@@ -84,6 +110,16 @@ export function TopicCard({ topic }: TopicCardProps) {
         </CardContent>
       )}
       <CardFooter className="flex flex-col items-start gap-3 p-4 pt-4 border-t border-white/10">
+        {userStats && (
+          <div className="flex items-center gap-2 text-xs sm:text-sm w-full">
+            <Badge variant={userStats.hasStatement ? 'default' : 'secondary'} className={userStats.hasStatement ? 'bg-green-600 text-white' : 'bg-white/10 text-white/70'}>
+              {userStats.hasStatement ? (<><CheckCircle className="h-3.5 w-3.5 mr-1" /> You posted</>) : (<><HelpCircle className="h-3.5 w-3.5 mr-1" /> No statement</>)}
+            </Badge>
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">
+              Q: {userStats.userQ} on {userStats.distinctStatements} stmt
+            </Badge>
+          </div>
+        )}
         <div className="flex justify-between w-full items-center text-xs sm:text-sm text-white/50">
           <div className="flex items-center gap-1">
             <CalendarDays className="h-3.5 w-3.5" />

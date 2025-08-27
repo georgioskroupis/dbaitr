@@ -4,7 +4,7 @@
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
 import { SentimentDensity } from '@/components/analytics/SentimentDensity';
-import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
@@ -19,6 +19,8 @@ import type { UserProfile } from '@/types';
 import { format, isValid, parseISO } from 'date-fns'; 
 import { logger } from '@/lib/logger';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { collectionGroup } from 'firebase/firestore';
 
 
 interface TopicDetailClientProps {
@@ -37,6 +39,15 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   const { toast } = useToast();
   
   const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
+  const [stats, setStats] = useState<{
+    totalStatements: number;
+    totalQuestions: number;
+    avgQuestionsPerStatement: number;
+    percentQuestionsAnswered: number;
+    userQuestions: number;
+    userHasStatement: boolean;
+  }>({ totalStatements: 0, totalQuestions: 0, avgQuestionsPerStatement: 0, percentQuestionsAnswered: 0, userQuestions: 0, userHasStatement: false });
+  const [loadingStats, setLoadingStats] = useState<boolean>(true);
 
   useEffect(() => {
     if (initialTopic?.createdAt) {
@@ -104,6 +115,63 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic?.id, topic?.title, toast]); 
+
+  useEffect(() => {
+    // Compute debate-level stats
+    async function computeStats() {
+      try {
+        if (!topic?.id) return;
+        setLoadingStats(true);
+        // Statements count
+        const stSnap = await getDocs(collection(db, 'topics', topic.id, 'statements'));
+        const totalStatements = stSnap.size;
+
+        // Questions under this topic via collection group
+        const qSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question')));
+        const totalQuestions = qSnap.size;
+        const questionIds = new Set(qSnap.docs.map(d => d.id));
+
+        // Responses by authors to those questions
+        const rSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'response')));
+        const answeredQuestionIds = new Set<string>();
+        rSnap.docs.forEach(d => {
+          const data: any = d.data() || {};
+          const parentId = data.parentId;
+          const byAuthor = data.createdBy && data.statementAuthorId && data.createdBy === data.statementAuthorId;
+          if (parentId && byAuthor && questionIds.has(parentId)) answeredQuestionIds.add(parentId);
+        });
+        const percentQuestionsAnswered = totalQuestions > 0 ? (answeredQuestionIds.size / totalQuestions) * 100 : 0;
+
+        // Current user questions count for this topic
+        let userQuestions = 0;
+        let userHasStatement = false;
+        try {
+          // @ts-ignore - optional user
+          const uid = (await import('firebase/auth')).getAuth().currentUser?.uid;
+          if (uid) {
+            const uqSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+            userQuestions = uqSnap.size;
+            const hasPostedSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
+            userHasStatement = !hasPostedSnap.empty;
+          }
+        } catch {}
+
+        setStats({
+          totalStatements,
+          totalQuestions,
+          avgQuestionsPerStatement: totalStatements > 0 ? totalQuestions / totalStatements : 0,
+          percentQuestionsAnswered,
+          userQuestions,
+          userHasStatement,
+        });
+      } catch (e) {
+        logger.error('Failed to compute stats:', e);
+      } finally {
+        setLoadingStats(false);
+      }
+    }
+    computeStats();
+  }, [topic?.id, statements.length]);
 
   useEffect(() => {
     async function loadSentimentAgg() {
@@ -196,6 +264,23 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+      {/* Debate Stats */}
+      <div className="p-3 sm:p-4 rounded-xl border border-white/10 bg-black/30">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex gap-2 items-center flex-wrap">
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">Statements: {loadingStats ? '—' : stats.totalStatements}</Badge>
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">Questions: {loadingStats ? '—' : stats.totalQuestions}</Badge>
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">Avg Q/Stmt: {loadingStats ? '—' : stats.avgQuestionsPerStatement.toFixed(2)}</Badge>
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">Answered: {loadingStats ? '—' : `${Math.round(stats.percentQuestionsAnswered)}%`}</Badge>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <Badge variant={stats.userHasStatement ? 'default' : 'secondary'} className={stats.userHasStatement ? 'bg-green-600 text-white' : 'bg-white/10 text-white/80'}>
+              {stats.userHasStatement ? 'You posted' : 'No statement yet'}
+            </Badge>
+            <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5">Your questions: {loadingStats ? '—' : stats.userQuestions}</Badge>
+          </div>
+        </div>
+      </div>
       <div>
         <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-white mb-2">{topic.title}</h1>
          {clientTopicCreatedAtDate && (

@@ -151,7 +151,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       positionBadgeColor = 'bg-yellow-500 hover:bg-yellow-600 text-black';
   }
 
-  const canAskRootQuestion = user && kycVerified && !isLoadingQuestionCount && userQuestionCountForThisStatement < 3 && !currentUserIsSuspended;
+  const canAskRootQuestion =
+    user &&
+    kycVerified &&
+    !isLoadingQuestionCount &&
+    userQuestionCountForThisStatement < 3 &&
+    !currentUserIsSuspended &&
+    user.uid !== statement.createdBy; // authors cannot ask questions on their own statements
 
   const handleRootQuestionSuccess = () => {
     setShowRootQuestionForm(false);

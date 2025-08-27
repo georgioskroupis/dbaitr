@@ -118,6 +118,11 @@ export function ThreadPostForm({
       toast({ title: "Question Limit Reached", description: "You have already asked 3 questions in this statement's thread.", variant: "destructive" });
       return;
     }
+    // Do not allow authors to ask questions on their own statements
+    if (type === 'question' && user.uid === statementAuthorId) {
+      toast({ title: 'Not Allowed', description: 'Authors cannot ask questions on their own statements.', variant: 'destructive' });
+      return;
+    }
     
     if (type === 'response' && user.uid !== statementAuthorId) {
       toast({ title: "Permission Denied", description: "Only the statement author can reply directly to questions.", variant: "destructive" });
