@@ -20,6 +20,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { logger } from '@/lib/logger';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/context/AuthContext';
 import { collectionGroup } from 'firebase/firestore';
 
 
@@ -37,6 +38,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   const [sentimentBins, setSentimentBins] = useState<number[] | null>(null);
   const [sentimentMean, setSentimentMean] = useState<number | undefined>(undefined);
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
   const [stats, setStats] = useState<{
@@ -145,16 +147,13 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         // Current user questions count for this topic
         let userQuestions = 0;
         let userHasStatement = false;
-        try {
-          // @ts-ignore - optional user
-          const uid = (await import('firebase/auth')).getAuth().currentUser?.uid;
-          if (uid) {
-            const uqSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
-            userQuestions = uqSnap.size;
-            const hasPostedSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
-            userHasStatement = !hasPostedSnap.empty;
-          }
-        } catch {}
+        const uid = user?.uid;
+        if (uid) {
+          const uqSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+          userQuestions = uqSnap.size;
+          const hasPostedSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
+          userHasStatement = !hasPostedSnap.empty;
+        }
 
         setStats({
           totalStatements,
@@ -171,7 +170,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       }
     }
     computeStats();
-  }, [topic?.id, statements.length]);
+  }, [topic?.id, statements.length, user?.uid]);
 
   useEffect(() => {
     async function loadSentimentAgg() {

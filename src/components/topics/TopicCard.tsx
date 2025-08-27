@@ -43,10 +43,8 @@ export function TopicCard({ topic }: TopicCardProps) {
     let cancelled = false;
     async function run() {
       try {
-        // @ts-ignore avoid circular type import
         const { collection, getDocs, query, where, collectionGroup, limit } = await import('firebase/firestore');
-        // @ts-ignore access current user via auth
-        const uid = (await import('firebase/auth')).getAuth().currentUser?.uid;
+        const uid = user?.uid;
         if (!uid) { setUserStats({ hasStatement: false, userQ: 0, distinctStatements: 0 }); return; }
         const stSnap = await getDocs(query(collection(require('@/lib/firebase').db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
         const hasStatement = !stSnap.empty;
@@ -59,7 +57,7 @@ export function TopicCard({ topic }: TopicCardProps) {
     }
     run();
     return () => { cancelled = true; };
-  }, [topic.id]);
+  }, [topic.id, user?.uid]);
 
   const formattedDate = topic.createdAt ? format(new Date(topic.createdAt), 'MM/dd/yyyy') : 'N/A';
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';

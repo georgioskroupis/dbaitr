@@ -50,3 +50,5 @@ firestore-debug.log
 .venv/
 **/.venv/
 services/**/.venv/
+services/idv/uvicorn.log
+services/idv/uvicorn.pid

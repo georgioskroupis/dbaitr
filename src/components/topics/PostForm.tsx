@@ -115,13 +115,31 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
 
     setLoading(true);
     try {
-      await createStatement(
+      const st = await createStatement(
         topic.id, 
         user.uid, 
         values.content
       );
+      // Trigger server-side analysis (best-effort)
+      try {
+        const token = await user.getIdToken();
+        await fetch('/api/sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ target: 'statement', topicId: topic.id, statementId: st.id, text: values.content }),
+        });
+      } catch {}
       
       toast({ title: "Statement Submitted Successfully!", description: "Your contribution has been added to the debate." });
+      // Fire-and-forget classification
+      try {
+        const token = await user.getIdToken();
+        await fetch('/api/statements/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ topicId: topic.id, statementId: st.id, text: values.content }),
+        });
+      } catch {}
       form.reset(); 
       setHasPostedStatement(true); 
       if (onStatementCreated) onStatementCreated();
