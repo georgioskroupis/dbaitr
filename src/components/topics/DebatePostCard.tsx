@@ -194,11 +194,16 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const autoResize = () => {
     const el = composerRef.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(180, el.scrollHeight) + 'px';
+    if (composerFocused || composerText) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(180, el.scrollHeight) + 'px';
+    } else {
+      // collapsed: snap to single-line height to avoid jump
+      el.style.height = '24px';
+    }
   };
 
-  React.useEffect(() => { autoResize(); }, [composerText]);
+  React.useEffect(() => { autoResize(); }, [composerText, composerFocused]);
 
   const submitQuestion = async () => {
     if (!user) return;
@@ -312,10 +317,12 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               onKeyDown={onComposerKeyDown}
               onFocus={() => {
                 setComposerFocused(true);
-                if (composerText) autoResize();
+                autoResize();
               }}
               onBlur={() => {
                 setComposerFocused(false);
+                // ensure smooth collapse height on next paint
+                requestAnimationFrame(() => autoResize());
               }}
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
