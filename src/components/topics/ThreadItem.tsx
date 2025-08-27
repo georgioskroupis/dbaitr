@@ -9,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
 import { ThreadPostForm } from './ThreadPostForm';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -153,10 +153,17 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
           <p className="text-sm sm:text-base text-white/80 whitespace-pre-wrap">{node.content}</p>
         </CardContent>
         {!authLoading && user && kycVerified && !currentUserIsSuspended && (
-            <CardFooter className="p-2.5 sm:p-3 pt-1 flex justify-end">
+            <CardFooter className="p-2.5 sm:p-3 pt-1 flex items-center justify-end gap-2">
+                {node.type === 'response' && (
+                    isLoadingQuestionCount ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-white/60" />
+                    ) : (
+                        <p className="text-[10px] sm:text-xs text-white/50">Questions asked: {userQuestionCountOnStatement}/3</p>
+                    )
+                )}
                 {node.type === 'question' && canReplyToQuestion && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => toggleReplyForm('response')}
                       className="px-3 sm:px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
                     >
@@ -164,15 +171,15 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
                     </Button>
                 )}
                 {node.type === 'response' && canAskFollowUpQuestion && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => toggleReplyForm('question')}
                       className="px-3 sm:px-4 py-1.5 rounded-md bg-rose-500/70 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-black/10 transition border border-rose-500/40 hover:border-rose-400"
                     >
                         <MessageSquare className="h-3 w-3 mr-1" /> Ask away
                     </Button>
                 )}
-                 {node.type === 'response' && !isLoadingQuestionCount && userQuestionCountOnStatement >= 3 && (
+                {node.type === 'response' && !isLoadingQuestionCount && userQuestionCountOnStatement >= 3 && (
                     <div className="flex items-center text-[10px] sm:text-xs text-white/50">
                         <AlertCircle className="h-3 w-3 mr-1 text-yellow-400" /> You've reached your question limit for this statement.
                     </div>
