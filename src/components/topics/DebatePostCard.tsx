@@ -332,7 +332,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
                 requestAnimationFrame(() => autoResize());
               }}
               rows={1}
-              placeholder="Ask a question… (Shift+Enter for newline)"
+              placeholder="Ask a question..."
               className={cn(
                 'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-200 ease-in-out',
                 composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
