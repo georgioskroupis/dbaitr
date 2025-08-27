@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, where, doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
 import { ThreadList } from './ThreadList';
-import { ThreadPostForm } from './ThreadPostForm';
+// Inline question composer replaces the old ThreadPostForm
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,8 @@ import { Thermometer } from '@/components/analytics/Thermometer';
 import { cn } from '@/lib/utils';
 
 import { ReportButton } from './ReportButton';
+import { createThreadNode } from '@/lib/client/threads';
+import { HelpCircle } from 'lucide-react';
 
 interface DebateStatementCardProps {
   statement: Statement;
@@ -32,7 +34,9 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [authorProfile, setAuthorProfile] = React.useState<UserProfile | null>(null);
   const [threads, setThreads] = React.useState<ThreadNode[]>([]);
   const [isLoadingThreads, setIsLoadingThreads] = React.useState(true);
-  const [showRootQuestionForm, setShowRootQuestionForm] = React.useState(false);
+  const [composerText, setComposerText] = React.useState('');
+  const [composerFocused, setComposerFocused] = React.useState(false);
+  const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
 
@@ -170,7 +174,6 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
     user.uid !== statement.createdBy; // authors cannot ask questions on their own statements
 
   const handleRootQuestionSuccess = () => {
-    setShowRootQuestionForm(false);
     fetchThreads(); 
     if (user && statement && statement.id && statement.topicId) {
       setIsLoadingQuestionCount(true);
@@ -184,6 +187,51 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         setUserQuestionCountForThisStatement(snap.size);
       })()
         .finally(() => setIsLoadingQuestionCount(false));
+    }
+  };
+
+  // Auto-resize textarea
+  const autoResize = () => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(180, el.scrollHeight) + 'px';
+  };
+
+  React.useEffect(() => { autoResize(); }, [composerText]);
+
+  const submitQuestion = async () => {
+    if (!user) return;
+    const text = composerText.trim();
+    if (text.length < 5) {
+      toast({ title: 'Question too short', description: 'Please write a bit more (min 5 characters).', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createThreadNode({
+        topicId: statement.topicId,
+        statementId: statement.id,
+        statementAuthorId: statement.createdBy,
+        parentId: null,
+        content: text,
+        createdBy: user.uid,
+        type: 'question',
+      });
+      setComposerText('');
+      setComposerFocused(false);
+      handleRootQuestionSuccess();
+      toast({ title: 'Question posted' });
+    } catch (e: any) {
+      logger.error('Inline question submit failed:', e);
+      toast({ title: 'Failed to post question', description: e?.message || 'Unknown error', variant: 'destructive' });
+    }
+  };
+
+  const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+      // Allow Ctrl/Cmd+Enter as well
+      e.preventDefault();
+      submitQuestion();
     }
   };
 
@@ -249,27 +297,37 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
           </div>
         )}
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRootQuestionForm(!showRootQuestionForm)}
-            className="mb-3 w-full sm:w-auto px-4 sm:px-5 py-2 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white font-semibold shadow-lg shadow-black/20 transition border-rose-500/50 hover:border-rose-400"
-            disabled={isLoadingQuestionCount}
+          <div className={cn(
+            'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all',
+            composerFocused || composerText ? 'p-2 min-h-[88px]' : 'p-1 min-h-[40px]'
+          )}
           >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {showRootQuestionForm ? 'Cancel Question' : 'Ask a Question on this Statement'}
-          </Button>
-        )}
-        {showRootQuestionForm && user && statement && statement.id && statement.topicId && ( 
-          <div className="w-full mb-2">
-            <ThreadPostForm
-              topicId={statement.topicId}
-              statementId={statement.id}
-              statementAuthorId={statement.createdBy} 
-              parentId={null} 
-              type="question"
-              onSuccess={handleRootQuestionSuccess}
+            <textarea
+              ref={composerRef}
+              value={composerText}
+              onChange={(e) => setComposerText(e.target.value)}
+              onKeyDown={onComposerKeyDown}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              rows={1}
+              placeholder="Ask a question… (Shift+Enter for newline)"
+              className={cn(
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50',
+                'pr-10', // space for button
+              )}
             />
+            <Button
+              type="button"
+              size="sm"
+              onClick={submitQuestion}
+              className={cn('absolute bottom-1.5 right-1.5 h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow',
+                (composerFocused || composerText) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
+                'transition-all duration-200'
+              )}
+              title="Post question"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
           </div>
         )}
 
