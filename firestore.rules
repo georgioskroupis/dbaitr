@@ -69,7 +69,16 @@ service cloud.firestore {
                        request.resource.data.position is string && 
                        request.resource.data.position in ['for', 'against', 'neutral', 'pending'] &&
                        request.resource.data.claimType in ['opinion','experience','fact'] &&
-                       (request.resource.data.claimType != 'fact' || (request.resource.data.sourceUrl is string && request.resource.data.sourceUrl.size() > 4));
+                       (request.resource.data.claimType != 'fact' || (request.resource.data.sourceUrl is string && request.resource.data.sourceUrl.size() > 4)) &&
+                       // After 10 days, require kycVerified == true; otherwise allow within grace window
+                       (
+                         let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+                         (
+                           u.kycVerified == true || (
+                             u.registeredAt is timestamp && request.time < u.registeredAt + duration.value(10, 'd')
+                           )
+                         )
+                       );
       
       // Allow statement creator to edit their statement (content, lastEditedAt)
       // Position and aiConfidence should ideally be updated by a trusted backend process after AI re-classification.
@@ -101,7 +110,15 @@ service cloud.firestore {
                        request.resource.data.statementId == statementId &&
                        request.resource.data.content is string && request.resource.data.content.size() > 0 &&
                        request.resource.data.type is string &&
-                       request.resource.data.type in ['question', 'response'];
+                       request.resource.data.type in ['question', 'response'] &&
+                       (
+                         let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+                         (
+                           u.kycVerified == true || (
+                             u.registeredAt is timestamp && request.time < u.registeredAt + duration.value(10, 'd')
+                           )
+                         )
+                       );
       
       // Edits by authors are not allowed to preserve conversation integrity.
       // Moderators/admins may edit content for policy enforcement.

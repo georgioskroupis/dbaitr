@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbAdmin, getAuthAdmin, getAppCheckAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 
 export const runtime = 'nodejs';
 
@@ -48,7 +49,8 @@ export async function POST(req: Request) {
     const ok = !!u.kycVerified || withinGrace(u.registeredAt);
     if (!ok) return NextResponse.json({ ok: false, error: 'kyc_required' }, { status: 403 });
 
-    const ref = await db.collection('topics').doc(topicId).collection('statements').add({
+    const topicRef = db.collection('topics').doc(topicId);
+    const ref = await topicRef.collection('statements').add({
       topicId,
       content,
       createdBy: uid,
@@ -57,9 +59,23 @@ export async function POST(req: Request) {
       claimType,
       ...(claimType === 'fact' && sourceUrl ? { sourceUrl } : {}),
     });
+    // Classify position server-side for reliability
+    try {
+      const topicSnap = await topicRef.get();
+      const topicTitle = (topicSnap.data() as any)?.title || '';
+      const result = await classifyPostPosition({ topic: topicTitle, post: content });
+      const pos = result.position;
+      await ref.set({ position: pos, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
+      // Update topic tallies
+      const inc = FieldValue.increment(1) as any;
+      const tallyUpdate: any = {};
+      if (pos === 'for') tallyUpdate.scoreFor = inc;
+      else if (pos === 'against') tallyUpdate.scoreAgainst = inc;
+      else if (pos === 'neutral') tallyUpdate.scoreNeutral = inc;
+      if (Object.keys(tallyUpdate).length) await topicRef.set(tallyUpdate, { merge: true });
+    } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
-
