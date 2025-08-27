@@ -39,17 +39,6 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
   const [tooltip, setTooltip] = React.useState<{ x: number; y: number; text: string } | null>(null);
 
   const width = 320;
-  const maxBin = Math.max(1, ...bins);
-  // Make the density curve shorter (e.g., 60% of bar height) so it doesn't spike over bars
-  const overlayScale = 0.6; // 0..1
-  const overlayHeight = height * overlayScale;
-  const points = bins
-    .map((v, i) => {
-      const x = (i / 100) * width;
-      const y = height - (v / maxBin) * overlayHeight;
-      return `${x},${y}`;
-    })
-    .join(' ');
 
   const barWidth = width / 5;
 
@@ -66,19 +55,7 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
     setTooltip(null);
   };
 
-  // Curve interactions should mirror bar behavior (hover shows group tooltip; click filters same group)
-  const onCurveMove = (e: React.MouseEvent<SVGPolylineElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    const x = e.clientX - (rect?.left || 0);
-    const rectW = Math.max(1, rect?.width || width);
-    const groupWidth = rectW / 5;
-    let g = Math.floor(x / groupWidth);
-    if (g < 0) g = 0; if (g > 4) g = 4;
-    setHoverIdx(g);
-    const y = (e.clientY - (rect?.top || 0)) - 8;
-    const pct = Math.round((groups[g] / total) * 100);
-    setTooltip({ x, y, text: `${LABELS[g]} · ${pct}% (${groups[g]})` });
-  };
+  // No curve interactions — we removed the density curve for clarity.
 
   
 
@@ -116,34 +93,7 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
             </g>
           );
         })}
-        {/* Density overlay */}
-        <polyline
-          fill="none"
-          stroke="#ffffff"
-          opacity={selectedGroup === null ? 0.7 : 0.4}
-          strokeWidth={1.5}
-          points={points}
-          style={{ transition: 'opacity 200ms ease' }}
-        />
-        {/* Invisible wide stroke for curve interaction (mirrors bar behavior) */}
-        <polyline
-          fill="none"
-          stroke="transparent"
-          strokeWidth={12}
-          points={points}
-          style={{ pointerEvents: 'stroke' as any }}
-          onMouseMove={onCurveMove}
-          onMouseLeave={clearHover}
-          onClick={(e) => {
-            const rect = containerRef.current?.getBoundingClientRect();
-            const x = e.clientX - (rect?.left || 0);
-            const rectW = Math.max(1, rect?.width || width);
-            const groupWidth = rectW / 5;
-            let g = Math.floor(x / groupWidth);
-            if (g < 0) g = 0; if (g > 4) g = 4;
-            onSelect?.(selectedGroup === g ? null : g);
-          }}
-        />
+        {/* Density curve removed for now */}
         {/* Mean marker */}
         {typeof mean === 'number' && (
           <line x1={(mean / 100) * width} x2={(mean / 100) * width} y1={0} y2={height} stroke="#e5e7eb" strokeDasharray="4 4" strokeWidth={1} />
