@@ -4,7 +4,7 @@
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
 import { SentimentDensity } from '@/components/analytics/SentimentDensity';
-import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
@@ -215,7 +215,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         } catch {}
         return ts;
       };
-      // Load statements
+      // Load statements once (initial refresh)
       const q = query(collection(db, 'topics', topic.id, 'statements'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
       const updatedStatements = snap.docs.map((d) => {
@@ -247,6 +247,34 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       setIsLoadingTopicDetails(false);
     }
   }, [topic?.id, topic?.title, toast]);
+
+  // Realtime updates for statements so position/sentiment changes reflect quickly
+  useEffect(() => {
+    if (!topic?.id) return;
+    const toISO = (ts: any) => {
+      try {
+        if (!ts) return undefined;
+        if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+        if (ts.seconds !== undefined && ts.nanoseconds !== undefined) {
+          return new Date(ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1e6)).toISOString();
+        }
+        if (ts instanceof Date) return ts.toISOString();
+      } catch {}
+      return ts;
+    };
+    const q = query(collection(db, 'topics', topic.id, 'statements'), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => {
+        const data: any = d.data() || {};
+        if (data.createdAt) data.createdAt = toISO(data.createdAt);
+        if (data.lastEditedAt) data.lastEditedAt = toISO(data.lastEditedAt);
+        if (data.sentiment && data.sentiment.updatedAt) data.sentiment.updatedAt = toISO(data.sentiment.updatedAt);
+        return { id: d.id, ...data };
+      }) as any[];
+      setStatements(list as any);
+    });
+    return () => unsub();
+  }, [topic?.id]);
 
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
