@@ -37,6 +37,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [composerText, setComposerText] = React.useState('');
   const [composerFocused, setComposerFocused] = React.useState(false);
   const [isCollapsing, setIsCollapsing] = React.useState(false);
+  const [isExpanding, setIsExpanding] = React.useState(false);
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
@@ -314,6 +315,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
             onTransitionEnd={(e) => {
               if (e.currentTarget !== e.target) return;
               if (!composerFocused && !composerText) setIsCollapsing(false);
+              if (composerFocused || composerText) setIsExpanding(false);
             }}
           >
             <textarea
@@ -323,6 +325,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               onKeyDown={onComposerKeyDown}
               onFocus={() => {
                 setComposerFocused(true);
+                setIsExpanding(true);
                 autoResize();
               }}
               onBlur={() => {
@@ -348,10 +351,8 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               className={cn(
                 'absolute h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-all duration-200 ease-in-out',
                 composerFocused || composerText
-                  ? 'bottom-1 right-1 translate-y-0'
-                  : isCollapsing
-                    ? 'right-1 top-1'
-                    : 'right-1 top-1/2 -translate-y-1/2'
+                  ? (isExpanding ? 'right-1 top-1/2 -translate-y-1/2' : 'bottom-1 right-1 translate-y-0')
+                  : (isCollapsing ? 'right-1 top-1' : 'right-1 top-1/2 -translate-y-1/2')
               )}
               title="Post question"
             >
