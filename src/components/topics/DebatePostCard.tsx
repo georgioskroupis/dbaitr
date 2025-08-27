@@ -194,12 +194,13 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const autoResize = () => {
     const el = composerRef.current;
     if (!el) return;
+    // When expanded (focused or has text), grow to content
     if (composerFocused || composerText) {
       el.style.height = 'auto';
       el.style.height = Math.min(180, el.scrollHeight) + 'px';
     } else {
-      // collapsed: snap to single-line height to avoid jump
-      el.style.height = '24px';
+      // Collapsed: rely on CSS max-height for smoothness; avoid inline height changes
+      el.style.height = 'auto';
     }
   };
 
@@ -327,8 +328,8 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6',
-                composerFocused || composerText ? 'h-auto' : 'h-6',
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden',
+                composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
                 'pr-10'
               )}
             />
