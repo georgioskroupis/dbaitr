@@ -16,16 +16,22 @@ export async function POST(req: Request) {
     if (!topicId || !statementId || !text) return NextResponse.json({ ok: false, error: 'missing_fields' }, { status: 400 });
     // Only allow the author or admins/moderators to trigger classification for now
     const snap = await db.collection('topics').doc(topicId).collection('statements').doc(statementId).get();
+    if (!snap.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const d = snap.data() as any;
     const isOwner = d?.createdBy && d.createdBy === decoded.uid;
     const isPrivileged = !!(decoded as any).isAdmin || !!(decoded as any).isModerator;
     if (!isOwner && !isPrivileged) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
-    const result = await classifyPostPosition({ topic: d?.title || '', post: text });
+    // Fetch topic title for better context
+    let topicTitle = '';
+    try {
+      const t = await db.collection('topics').doc(topicId).get();
+      topicTitle = (t.data() as any)?.title || '';
+    } catch {}
+    const result = await classifyPostPosition({ topic: topicTitle, post: text });
     await db.collection('topics').doc(topicId).collection('statements').doc(statementId).set({ position: result.position, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
     return NextResponse.json({ ok: true, position: result.position, confidence: result.confidence });
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
-
