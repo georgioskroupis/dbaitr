@@ -40,10 +40,13 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
 
   const width = 320;
   const maxBin = Math.max(1, ...bins);
+  // Make the density curve shorter (e.g., 60% of bar height) so it doesn't spike over bars
+  const overlayScale = 0.6; // 0..1
+  const overlayHeight = height * overlayScale;
   const points = bins
     .map((v, i) => {
       const x = (i / 100) * width;
-      const y = height - (v / maxBin) * height;
+      const y = height - (v / maxBin) * overlayHeight;
       return `${x},${y}`;
     })
     .join(' ');
