@@ -299,8 +299,10 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
           <div
             className={cn(
-              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all',
-              composerFocused || composerText ? 'p-2 min-h-[88px]' : 'p-1 min-h-[28px]'
+              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all overflow-hidden',
+              composerFocused || composerText
+                ? 'p-2 min-h-[88px]'
+                : 'p-1 min-h-[28px] flex items-center'
             )}
           >
             <textarea
@@ -309,11 +311,19 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               onChange={(e) => setComposerText(e.target.value)}
               onKeyDown={onComposerKeyDown}
               onFocus={() => setComposerFocused(true)}
-              onBlur={() => setComposerFocused(false)}
+              onBlur={() => {
+                setComposerFocused(false);
+                // lock height to a single line for smoother collapse
+                if (!composerText) {
+                  const el = composerRef.current;
+                  if (el) el.style.height = '20px';
+                }
+              }}
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6',
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50',
+                composerFocused || composerText ? 'leading-6' : 'leading-[20px] h-[20px]',
                 'pr-10'
               )}
             />
@@ -321,7 +331,12 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               type="button"
               size="sm"
               onClick={submitQuestion}
-              className={cn('absolute bottom-1 right-1 h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-colors')}
+              className={cn(
+                'absolute h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-all duration-250 ease-in-out',
+                composerFocused || composerText
+                  ? 'bottom-1 right-1 translate-y-0'
+                  : 'right-1 top-1/2 -translate-y-1/2'
+              )}
               title="Post question"
             >
               <CircleHelp className="h-4 w-4" />
