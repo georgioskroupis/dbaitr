@@ -340,7 +340,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               )}
             />
             {(composerFocused || composerText) && (
-              <div className="mt-1 text-[10px] text-white/40">
+              <div className="pointer-events-none absolute left-2 bottom-1 text-[10px] text-white/40">
                 Press Enter to send · Shift+Enter for newline
               </div>
             )}
