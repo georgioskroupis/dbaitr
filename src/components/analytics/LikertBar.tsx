@@ -66,15 +66,20 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
     setTooltip(null);
   };
 
+  // Curve interactions should mirror bar behavior (hover shows group tooltip; click filters same group)
   const onCurveMove = (e: React.MouseEvent<SVGPolylineElement>) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    const x = (e.clientX - (rect?.left || 0));
-    const idx = Math.max(0, Math.min(100, Math.round((x / width) * 100)));
-    const y = (e.clientY - (rect?.top || 0)) - 10;
-    const count = bins[idx] || 0;
-    const pct = Math.round((count / total) * 100);
-    setTooltip({ x, y, text: `Score ${idx} · ${pct}% (${count})` });
+    const x = e.clientX - (rect?.left || 0);
+    const groupWidth = width / 5;
+    let g = Math.floor(x / groupWidth);
+    if (g < 0) g = 0; if (g > 4) g = 4;
+    setHoverIdx(g);
+    const y = (e.clientY - (rect?.top || 0)) - 8;
+    const pct = Math.round((groups[g] / total) * 100);
+    setTooltip({ x, y, text: `${LABELS[g]} · ${pct}% (${groups[g]})` });
   };
+
+  
 
   return (
     <div ref={containerRef} className="relative w-full select-none">
@@ -119,7 +124,7 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
           points={points}
           style={{ transition: 'opacity 200ms ease' }}
         />
-        {/* Invisible wide stroke for curve interaction */}
+        {/* Invisible wide stroke for curve interaction (mirrors bar behavior) */}
         <polyline
           fill="none"
           stroke="transparent"
@@ -128,6 +133,14 @@ export function LikertBar({ bins, mean, height = 80, onSelect, selectedGroup = n
           style={{ pointerEvents: 'stroke' as any }}
           onMouseMove={onCurveMove}
           onMouseLeave={clearHover}
+          onClick={(e) => {
+            const rect = containerRef.current?.getBoundingClientRect();
+            const x = e.clientX - (rect?.left || 0);
+            const groupWidth = width / 5;
+            let g = Math.floor(x / groupWidth);
+            if (g < 0) g = 0; if (g > 4) g = 4;
+            onSelect?.(selectedGroup === g ? null : g);
+          }}
         />
         {/* Mean marker */}
         {typeof mean === 'number' && (
