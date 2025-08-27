@@ -30,6 +30,18 @@ export async function POST(req: Request) {
     } catch {}
     const result = await classifyPostPosition({ topic: topicTitle, post: text });
     await db.collection('topics').doc(topicId).collection('statements').doc(statementId).set({ position: result.position, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
+    // Safer tallies: recompute counts
+    const base = db.collection('topics').doc(topicId).collection('statements');
+    const [forSnap, againstSnap, neutralSnap] = await Promise.all([
+      base.where('position', '==', 'for').get(),
+      base.where('position', '==', 'against').get(),
+      base.where('position', '==', 'neutral').get(),
+    ]);
+    await db.collection('topics').doc(topicId).set({
+      scoreFor: forSnap.size,
+      scoreAgainst: againstSnap.size,
+      scoreNeutral: neutralSnap.size,
+    }, { merge: true });
     return NextResponse.json({ ok: true, position: result.position, confidence: result.confidence });
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });

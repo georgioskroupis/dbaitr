@@ -25,6 +25,20 @@ async function verifyAppCheck(req: Request) {
   try { await appCheck.verifyToken(hdr); return true; } catch { return false; }
 }
 
+async function recomputeTallies(db: FirebaseFirestore.Firestore, topicId: string) {
+  const base = db.collection('topics').doc(topicId).collection('statements');
+  const [forSnap, againstSnap, neutralSnap] = await Promise.all([
+    base.where('position', '==', 'for').get(),
+    base.where('position', '==', 'against').get(),
+    base.where('position', '==', 'neutral').get(),
+  ]);
+  await db.collection('topics').doc(topicId).set({
+    scoreFor: forSnap.size,
+    scoreAgainst: againstSnap.size,
+    scoreNeutral: neutralSnap.size,
+  }, { merge: true });
+}
+
 export async function POST(req: Request) {
   try {
     if (!(await verifyAppCheck(req))) return NextResponse.json({ ok: false, error: 'appcheck' }, { status: 401 });
@@ -66,13 +80,8 @@ export async function POST(req: Request) {
       const result = await classifyPostPosition({ topic: topicTitle, post: content });
       const pos = result.position;
       await ref.set({ position: pos, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
-      // Update topic tallies
-      const inc = FieldValue.increment(1) as any;
-      const tallyUpdate: any = {};
-      if (pos === 'for') tallyUpdate.scoreFor = inc;
-      else if (pos === 'against') tallyUpdate.scoreAgainst = inc;
-      else if (pos === 'neutral') tallyUpdate.scoreNeutral = inc;
-      if (Object.keys(tallyUpdate).length) await topicRef.set(tallyUpdate, { merge: true });
+      // Safer: recompute tallies to avoid drift if positions change later
+      await recomputeTallies(db, topicId);
     } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {
