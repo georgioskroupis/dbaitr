@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createTopic, updateTopicDescriptionWithAISummary } from "@/lib/firestoreActions"; // Removed getAllTopicTitles
+import { createTopic, updateTopicDescriptionWithAISummary } from "@/lib/client/topics"; // Removed getAllTopicTitles
 // Removed checkTopicSimilarity, type CheckTopicSimilarityOutput from AI flows
 import { generateTopicAnalysis } from "@/ai/flows/generate-topic-analysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { createStatement, checkIfUserHasPostedStatement } from "@/lib/firestoreActions";
+import { createStatement, checkIfUserHasPostedStatement } from "@/lib/client/statements";
 import type { Topic } from "@/types";
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
