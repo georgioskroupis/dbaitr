@@ -372,15 +372,17 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
                 </Card>
               ))
           ) : statements.length > 0 ? (
-            (selectedLikert === null
-              ? statements
-              : statements.filter(s => {
-                  const sc = (s as any)?.sentiment?.score;
-                  if (typeof sc !== 'number') return false;
-                  const idx = sc <= 20 ? 0 : sc <= 40 ? 1 : sc <= 60 ? 2 : sc <= 80 ? 3 : 4;
-                  return idx === selectedLikert;
-                })
-            ).map(statement => <DebatePostCard key={statement.id} statement={statement} />)
+            <div key={`likert-${selectedLikert ?? 'all'}`} className="animate-in fade-in-0 slide-in-from-top-2 duration-300 ease-out">
+              {(selectedLikert === null
+                ? statements
+                : statements.filter(s => {
+                    const sc = (s as any)?.sentiment?.score;
+                    if (typeof sc !== 'number') return false;
+                    const idx = sc <= 20 ? 0 : sc <= 40 ? 1 : sc <= 60 ? 2 : sc <= 80 ? 3 : 4;
+                    return idx === selectedLikert;
+                  })
+              ).map(statement => <DebatePostCard key={statement.id} statement={statement} />)}
+            </div>
           ) : (
             <Alert className="border-rose-500/30 bg-rose-500/5">
               <Terminal className="h-4 w-4 text-rose-400" />
