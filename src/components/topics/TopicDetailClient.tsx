@@ -3,7 +3,7 @@
 
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
-import { SentimentDensity } from '@/components/analytics/SentimentDensity';
+import { LikertBar } from '@/components/analytics/LikertBar';
 import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PostForm } from './PostForm';
@@ -378,7 +378,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
                   </p>
                 </div>
               )}
-              <SentimentDensity bins={sentimentBins} mean={sentimentMean} />
+              <LikertBar bins={sentimentBins} mean={sentimentMean} />
             </div>
           )}
 

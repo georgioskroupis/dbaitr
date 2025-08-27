@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { SentimentDensity } from '@/components/analytics/SentimentDensity';
+import { LikertBar } from '@/components/analytics/LikertBar';
 import { bucketLabel } from '@/lib/sentiment';
 
 interface TopicCardProps {
@@ -158,7 +158,7 @@ export function TopicCard({ topic }: TopicCardProps) {
                 </Badge>
               )}
             </div>
-            <SentimentDensity bins={sentimentBins} mean={sentimentMean} height={48} />
+            <LikertBar bins={sentimentBins} mean={sentimentMean} height={48} />
           </div>
         )}
         <Button asChild className="w-full mt-2 px-4 sm:px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition" size="sm">
