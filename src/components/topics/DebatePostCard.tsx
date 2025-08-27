@@ -36,6 +36,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
   const [isLoadingThreads, setIsLoadingThreads] = React.useState(true);
   const [composerText, setComposerText] = React.useState('');
   const [composerFocused, setComposerFocused] = React.useState(false);
+  const [isCollapsing, setIsCollapsing] = React.useState(false);
   const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [userQuestionCountForThisStatement, setUserQuestionCountForThisStatement] = React.useState(0);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = React.useState(false);
@@ -305,10 +306,10 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         {!authLoading && user && kycVerified && !currentUserIsSuspended && canAskRootQuestion && (
           <div
             className={cn(
-              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all duration-700 ease-in-out overflow-hidden',
+              'w-full mb-3 relative border border-white/10 rounded-lg bg-white/5 transition-all duration-200 ease-in-out overflow-hidden',
               composerFocused || composerText
                 ? 'p-2 min-h-[88px]'
-                : 'p-1 min-h-[28px] flex items-center'
+                : cn('p-1 min-h-[28px] flex', isCollapsing ? 'items-start' : 'items-center')
             )}
           >
             <textarea
@@ -322,13 +323,18 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               }}
               onBlur={() => {
                 setComposerFocused(false);
-                // ensure smooth collapse height on next paint
+                if (!composerText) {
+                  setIsCollapsing(true);
+                  // after transition ends (~200ms), allow centering
+                  setTimeout(() => setIsCollapsing(false), 220);
+                }
+                // ensure smooth collapse on next frame
                 requestAnimationFrame(() => autoResize());
               }}
               rows={1}
               placeholder="Ask a question… (Shift+Enter for newline)"
               className={cn(
-                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-700 ease-in-out',
+                'w-full resize-none bg-transparent outline-none text-sm text-white placeholder-white/50 leading-6 h-auto overflow-hidden transition-all duration-200 ease-in-out',
                 composerFocused || composerText ? 'max-h-[180px]' : 'max-h-6',
                 'pr-10'
               )}
@@ -338,10 +344,12 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
               size="sm"
               onClick={submitQuestion}
               className={cn(
-                'absolute h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-all duration-250 ease-in-out',
+                'absolute h-7 px-2 bg-rose-500 hover:bg-rose-400 text-white shadow transition-all duration-200 ease-in-out',
                 composerFocused || composerText
                   ? 'bottom-1 right-1 translate-y-0'
-                  : 'right-1 top-1/2 -translate-y-1/2'
+                  : isCollapsing
+                    ? 'right-1 top-1'
+                    : 'right-1 top-1/2 -translate-y-1/2'
               )}
               title="Post question"
             >
