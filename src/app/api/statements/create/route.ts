@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin, getAuthAdmin, getAppCheckAdmin, FieldValue } from '@/lib/firebaseAdmin';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 import { analyzeToxicity } from '@/lib/perspective';
+import { getClientKey, postIpLimiter, postUserLimiter } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -58,10 +59,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'source_required' }, { status: 400 });
     }
 
-    // Gate: kycVerified or within grace window
+    // Cross-endpoint rate limiting (per IP + per user)
+    const ipKey = `ip:${getClientKey(req)}`;
+    if (!postIpLimiter.check(ipKey)) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+    if (!postUserLimiter.check(`user:${uid}`)) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+
+    // Gate: kycVerified or within grace window (or strict per-topic policy)
     const userDoc = await db.collection('users').doc(uid).get();
     const u = userDoc.data() as any || {};
-    const ok = !!u.kycVerified || withinGrace(u.registeredAt);
+    // Check topic policy for strict verification
+    let requireStrict = false;
+    try {
+      const tSnap = await db.collection('topics').doc(topicId).get();
+      const t = (tSnap.exists ? (tSnap.data() as any) : {}) || {};
+      requireStrict = !!(t?.postingPolicy?.requireVerified || t?.requireVerifiedNow || t?.sensitive);
+    } catch {}
+    const ok = requireStrict ? !!u.kycVerified : (!!u.kycVerified || withinGrace(u.registeredAt));
     if (!ok) return NextResponse.json({ ok: false, error: 'kyc_required' }, { status: 403 });
 
     // Load dynamic moderation thresholds (fallback to defaults)

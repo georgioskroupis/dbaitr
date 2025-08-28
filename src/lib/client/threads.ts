@@ -24,9 +24,20 @@ export async function createThreadNode(data: {
 }): Promise<ThreadNode> {
   // Use API route to enforce server-side gates
   const token = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
+  // Optional App Check token if configured
+  let appCheckToken: string | undefined = undefined;
+  try {
+    const { getToken } = await import('firebase/app-check');
+    const r = await getToken(undefined as any, false);
+    appCheckToken = r?.token;
+  } catch {}
   const res = await fetch('/api/threads/create', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+    },
     body: JSON.stringify({
       topicId: data.topicId,
       statementId: data.statementId,
