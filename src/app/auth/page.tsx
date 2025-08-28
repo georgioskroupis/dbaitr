@@ -14,7 +14,7 @@ import {
   type AuthError,
   onAuthStateChanged,
 } from "firebase/auth";
-import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"; // Import Firestore functions
+import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore"; // Import Firestore functions
 import { auth } from "@/lib/firebase";
 // Avoid importing server actions into client page
 import { Button } from "@/components/ui/button";
@@ -291,6 +291,20 @@ export default function UnifiedAuthPage() {
 
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: finalValuesForFirebase.fullName });
+        try {
+          const db = getFirestore();
+          const uref = doc(db, 'users', userCredential.user.uid);
+          await setDoc(uref, {
+            uid: userCredential.user.uid,
+            email: finalValuesForFirebase.email,
+            fullName: (finalValuesForFirebase.fullName || '').trim(),
+            kycVerified: false,
+            registeredAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        } catch (e) {
+          logger.error('Failed to create user profile document at signup:', e);
+        }
       }
       if (process.env.NODE_ENV !== "production") {
         logger.debug("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);
@@ -489,11 +503,12 @@ export default function UnifiedAuthPage() {
               <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60" />
               <Input
                 id="signup-fullName"
-                placeholder="Your Full Name"
+                placeholder="First Last"
                 className="w-full pl-10 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition h-12"
                 {...signupForm.register("fullName", { setValueAs: v => (v ?? '').toString().trim() })}
               />
             </div>
+            <p className="mt-1 text-xs text-white/50">Use your real first and last name.</p>
             {(signupForm.formState.touchedFields.fullName || signupForm.formState.isSubmitted) && signupForm.formState.errors.fullName && (
               <p className="mt-2 text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
             )}
