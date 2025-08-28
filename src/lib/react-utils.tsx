@@ -9,7 +9,11 @@ export function getAuthorStatusBadge(
   if (!profile) return null;
 
   if (profile.kycVerified) {
-    return null;
+    return {
+      label: "Verified",
+      variant: "default",
+      icon: <ShieldCheck className="h-3 w-3 mr-1 text-emerald-400" />,
+    };
   }
 
   if (profile.registeredAt) {

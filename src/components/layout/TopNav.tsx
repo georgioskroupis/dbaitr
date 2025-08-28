@@ -26,6 +26,7 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/manifesto', label: 'Manifesto', icon: Home },
+    { href: '/pricing', label: 'Pricing', icon: Home },
   ];
 
   return (
@@ -87,6 +88,17 @@ export function TopNav({ variant = 'default' }: TopNavProps) {
                 )}
               >
                 Manifesto
+              </Link>
+              <Link
+                href="/pricing"
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  pathname === "/pricing"
+                    ? "bg-primary/20 text-primary"
+                    : "text-foreground/80 hover:bg-accent/10 hover:text-foreground"
+                )}
+              >
+                Pricing
               </Link>
             </div>
 
