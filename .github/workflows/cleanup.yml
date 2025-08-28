@@ -1,0 +1,42 @@
+name: Cleanup Data Retention
+
+on:
+  schedule:
+    - cron: '9 3 * * *' # daily at 03:09 UTC
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Prepare service account (raw JSON)
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "${FIREBASE_SERVICE_ACCOUNT}" ]; then
+            printf "%s" "${FIREBASE_SERVICE_ACCOUNT}" > "$RUNNER_TEMP/sa.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run cleanup
+        env:
+          FIREBASE_SERVICE_ACCOUNT_B64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          IDV_TTL_DAYS: '90'
+          REPORTS_TTL_DAYS: '180'
+        run: node scripts/ops/cleanup.mjs
+
