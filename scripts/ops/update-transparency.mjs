@@ -11,14 +11,21 @@ function initAdmin() {
   const jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT;
   let keyJson;
   if (b64) {
-    try { keyJson = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch (e) {
-      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_B64:', e.message);
-      process.exit(1);
+    try {
+      const decoded = Buffer.from(b64, 'base64').toString('utf8').trim();
+      if (decoded && decoded.startsWith('{')) {
+        keyJson = JSON.parse(decoded);
+      } else {
+        // Fallback: some setups may mistakenly pass raw JSON in the B64 secret
+        keyJson = JSON.parse(b64);
+      }
+    } catch (e) {
+      console.error('FIREBASE_SERVICE_ACCOUNT_B64 provided but failed to decode. Falling back to ADC/JSON env. Reason:', e.message);
     }
-  } else if (jsonStr) {
+  }
+  if (!keyJson && jsonStr) {
     try { keyJson = JSON.parse(jsonStr); } catch (e) {
       console.error('FIREBASE_SERVICE_ACCOUNT is not valid JSON:', e.message);
-      process.exit(1);
     }
   }
   try {

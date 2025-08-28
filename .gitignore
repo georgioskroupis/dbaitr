@@ -52,3 +52,6 @@ firestore-debug.log
 services/**/.venv/
 services/idv/uvicorn.log
 services/idv/uvicorn.pid
+
+# local service account keys (do not commit)
+sa.json
