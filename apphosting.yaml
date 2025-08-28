@@ -35,6 +35,10 @@ env:
     value: "1:119149680869:web:27e943e5382f8ebf889c0c"
     availability: [BUILD, RUNTIME]
 
+  - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    value: "6LcRhbUrAAAAALuuqUtJPFY_Cv48Y_cXHDcGTdZ9"
+    availability: [BUILD, RUNTIME]
+
   # IDV flags (public)
   - variable: NEXT_PUBLIC_IDV_ONDEVICE
     value: "true"
