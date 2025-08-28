@@ -23,6 +23,11 @@ class SimpleRateLimiter {
 
 export const globalRateLimiter = new SimpleRateLimiter({ windowMs: 15_000, max: 30 });
 
+// Cross-endpoint posting limiter (statements + threads)
+// Tuned to be conservative but not block normal usage.
+export const postIpLimiter = new SimpleRateLimiter({ windowMs: 60_000, max: 20 }); // 20 ops/min per IP
+export const postUserLimiter = new SimpleRateLimiter({ windowMs: 60_000, max: 8 }); // 8 ops/min per user
+
 export function getClientKey(req: Request): string {
   try {
     // Use IP if available; fallback to user agent
@@ -33,4 +38,3 @@ export function getClientKey(req: Request): string {
     return 'unknown';
   }
 }
-

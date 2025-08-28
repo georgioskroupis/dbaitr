@@ -255,6 +255,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
         appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
         unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
         toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },
+        rate_limited: { title: 'Too Many Requests', description: 'You are posting too quickly. Please wait and try again.' },
       };
       const m = (code && map[code]) || { title: 'Failed to post question', description: 'Please try again.' };
       if (code === 'toxicity') {

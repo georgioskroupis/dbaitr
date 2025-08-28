@@ -206,6 +206,10 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
           title: 'Content Blocked for Civility',
           description: 'Please revise to keep it respectful and constructive.',
         },
+        rate_limited: {
+          title: 'Too Many Requests',
+          description: 'You are posting too quickly. Please slow down and try again shortly.',
+        },
       };
       const m = (code && map[code]) || {
         title: 'Failed to Submit Statement',
