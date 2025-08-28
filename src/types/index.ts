@@ -35,8 +35,12 @@ export interface Statement {
   createdBy: string; // User ID (reference to users/{userId})
   createdAt: string; // Changed from Timestamp
   position: 'for' | 'against' | 'neutral' | 'pending';
+  claimType: 'opinion' | 'experience' | 'fact';
+  sourceUrl?: string; // required when claimType is 'fact'
   lastEditedAt?: string; // Changed from Timestamp
   aiConfidence?: number;
+  aiAssisted?: boolean;
+  aiAssistProb?: number; // 0..1 detection probability
 }
 
 export interface Question {
@@ -60,5 +64,6 @@ export interface ThreadNode {
   createdBy: string; // User ID of the author of this node
   createdAt: string; // ISOString timestamp
   type: 'question' | 'response';
+  aiAssisted?: boolean;
+  aiAssistProb?: number;
 }
-
