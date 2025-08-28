@@ -80,7 +80,10 @@ export default function PricingPage() {
       </div>
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 max-w-7xl mx-auto">
         {plans.map((p) => (
-          <Card key={p.name} className={`border ${p.featured ? 'bg-gradient-to-br from-rose-500/10 to-fuchsia-500/10 border-rose-500/30' : 'bg-black/40 border-white/10'}`}>
+          <Card
+            key={p.name}
+            className={`border ${p.featured ? 'bg-gradient-to-br from-rose-500/10 to-fuchsia-500/10 border-rose-500/30' : 'bg-black/40 border-white/10'}`}
+          >
             <CardHeader>
               <CardTitle className="text-white flex items-baseline justify-between">
                 <span className="tracking-tight">{p.name}</span>
