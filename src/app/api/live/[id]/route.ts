@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: any) {
+  const { params } = context as { params: { id: string } };
   try {
     const auth = getAuthAdmin();
     const db = getDbAdmin();
@@ -20,4 +21,3 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
 }
-

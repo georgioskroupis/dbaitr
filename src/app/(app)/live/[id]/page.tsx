@@ -18,7 +18,8 @@ function Player({ videoId, live }: { videoId: string; live: boolean }) {
   );
 }
 
-export default function LiveDetailPage({ params }: { params: { id: string } }) {
+export default function LiveDetailPage(props: any) {
+  const params = (props as any)?.params as { id: string };
   const { user } = useAuth();
   const [data, setData] = React.useState<any>(null);
   const [ingest, setIngest] = React.useState<{ ingestAddress: string; streamName: string } | null>(null);
@@ -78,7 +79,7 @@ export default function LiveDetailPage({ params }: { params: { id: string } }) {
             </div>
           </CardContent>
         </Card>
-      )
+      )}
 
       <LiveChat roomId={params.id} />
     </div>
