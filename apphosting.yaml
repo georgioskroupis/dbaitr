@@ -39,6 +39,21 @@ env:
     value: "6LcRhbUrAAAAALuuqUtJPFY_Cv48Y_cXHDcGTdZ9"
     availability: [BUILD, RUNTIME]
 
+  - variable: YOUTUBE_CLIENT_ID
+    value: "119149680869-158rh01dhojp90va2gji7qdkehitcqks.apps.googleusercontent.com"
+    availability:
+      - RUNTIME
+      
+  - variable: YOUTUBE_REDIRECT_URI
+    value: "https://your-domain.com/api/integrations/youtube/oauth/callback"
+    availability:
+      - RUNTIME
+      
+  - variable: YOUTUBE_CLIENT_SECRET
+    secret: YOUTUBE_CLIENT_SECRET
+    availability:
+      - RUNTIME
+
   # IDV flags (public)
   - variable: NEXT_PUBLIC_IDV_ONDEVICE
     value: "true"
