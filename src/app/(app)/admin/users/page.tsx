@@ -34,10 +34,10 @@ export default function AdminUsersPage() {
   const { isAdmin } = useIsAdmin();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [q, setQ] = useState('');
-  const [role, setRole] = useState('');
-  const [status, setStatus] = useState('');
-  const [kyc, setKyc] = useState('');
-  const [provider, setProvider] = useState('');
+  const [role, setRole] = useState('any');
+  const [status, setStatus] = useState('any');
+  const [kyc, setKyc] = useState('any');
+  const [provider, setProvider] = useState('any');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
   const [pageSize, setPageSize] = useState<number>(20);
@@ -53,7 +53,13 @@ export default function AdminUsersPage() {
     setLoading(true);
     try {
       const t = await user.getIdToken();
-      const res = await fetch('/api/admin/users/list', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ q, filters: { role, status, kyc, provider }, sortBy, sortDir, page, pageSize }) });
+      const filters = {
+        role: role === 'any' ? undefined : role,
+        status: status === 'any' ? undefined : status,
+        kyc: kyc === 'any' ? undefined : kyc,
+        provider: provider === 'any' ? undefined : provider,
+      } as any;
+      const res = await fetch('/api/admin/users/list', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ q, filters, sortBy, sortDir, page, pageSize }) });
       if (!res.ok) throw new Error('Failed');
       const j = await res.json();
       setRows(j.items || []);
@@ -93,7 +99,7 @@ export default function AdminUsersPage() {
             <Select value={role} onValueChange={v => { setPage(1); setRole(v); }}>
               <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
               <SelectContent className="bg-black/90 border-white/10 text-white">
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
                 <SelectItem value="super-admin">super-admin</SelectItem>
                 <SelectItem value="admin">admin</SelectItem>
                 <SelectItem value="moderator">moderator</SelectItem>
@@ -108,7 +114,7 @@ export default function AdminUsersPage() {
             <Select value={status} onValueChange={v => { setPage(1); setStatus(v); }}>
               <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
               <SelectContent className="bg-black/90 border-white/10 text-white">
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
                 <SelectItem value="verified">Verified</SelectItem>
                 <SelectItem value="grace">Grace Period</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
@@ -122,7 +128,7 @@ export default function AdminUsersPage() {
             <Select value={kyc} onValueChange={v => { setPage(1); setKyc(v); }}>
               <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
               <SelectContent className="bg-black/90 border-white/10 text-white">
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
                 <SelectItem value="true">Verified</SelectItem>
                 <SelectItem value="false">Unverified</SelectItem>
               </SelectContent>
@@ -133,7 +139,7 @@ export default function AdminUsersPage() {
             <Select value={provider} onValueChange={v => { setPage(1); setProvider(v); }}>
               <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
               <SelectContent className="bg-black/90 border-white/10 text-white">
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
                 <SelectItem value="password">password</SelectItem>
                 <SelectItem value="google">google</SelectItem>
                 <SelectItem value="apple">apple</SelectItem>
@@ -167,7 +173,7 @@ export default function AdminUsersPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={() => { setQ(''); setRole(''); setStatus(''); setKyc(''); setProvider(''); }} className="bg-white/5 border-white/20 text-white">Reset</Button>
+          <Button variant="outline" onClick={() => { setQ(''); setRole('any'); setStatus('any'); setKyc('any'); setProvider('any'); setPage(1); }} className="bg-white/5 border-white/20 text-white">Reset</Button>
         </CardContent>
       </Card>
 

@@ -32,9 +32,9 @@ export default function AdminAnalysisPage() {
   const { toast } = useToast();
   const canModerate = !!isAdmin; // claim-based to avoid client Firestore read dependency
   const [primaryCat, setPrimaryCat] = useState<Cat>('tone');
-  const [primaryVal, setPrimaryVal] = useState<string>('');
-  const [secondaryCat, setSecondaryCat] = useState<Cat | ''>('');
-  const [secondaryVal, setSecondaryVal] = useState<string>('');
+  const [primaryVal, setPrimaryVal] = useState<string>('any');
+  const [secondaryCat, setSecondaryCat] = useState<Cat | 'none'>('none');
+  const [secondaryVal, setSecondaryVal] = useState<string>('any');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [nextCursor, setNextCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -43,16 +43,16 @@ export default function AdminAnalysisPage() {
   const [bulkVal, setBulkVal] = useState<string>('heated');
   const [bulkNote, setBulkNote] = useState<string>('');
 
-  const hasTwoFilters = !!(secondaryCat && secondaryVal);
-  const twoFilterWarning = useMemo(() => !hasTwoFilters && secondaryCat && !secondaryVal, [hasTwoFilters, secondaryCat, secondaryVal]);
+  const hasTwoFilters = !!(secondaryCat && secondaryCat !== 'none' && secondaryVal && secondaryVal !== 'any');
+  const twoFilterWarning = useMemo(() => secondaryCat !== 'none' && secondaryVal === 'any', [secondaryCat, secondaryVal]);
 
   async function loadPage(reset = true) {
     setLoading(true);
     try {
       const col = collection(db, 'topics');
       const clauses: any[] = [];
-      if (primaryVal) clauses.push(where(`analysis_flat.${primaryCat}`, '==', primaryVal));
-      if (secondaryCat && secondaryVal) clauses.push(where(`analysis_flat.${secondaryCat}`, '==', secondaryVal));
+      if (primaryVal !== 'any') clauses.push(where(`analysis_flat.${primaryCat}`, '==', primaryVal));
+      if (secondaryCat !== 'none' && secondaryVal !== 'any') clauses.push(where(`analysis_flat.${secondaryCat}`, '==', secondaryVal));
       let q = query(col, ...clauses, orderBy('analysis_flat.updatedAt', 'desc'), limit(20));
       if (!reset && nextCursor) q = query(col, ...clauses, orderBy('analysis_flat.updatedAt', 'desc'), startAfter(nextCursor), limit(20));
       const snap = await getDocs(q);
@@ -116,7 +116,7 @@ export default function AdminAnalysisPage() {
               <Select value={primaryVal} onValueChange={setPrimaryVal}>
                 <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
                 <SelectContent className="bg-black/90 border-white/10 text-white">
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="any">Any</SelectItem>
                   {CAT_VALUES[primaryCat].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -126,18 +126,18 @@ export default function AdminAnalysisPage() {
           <div>
             <div className="text-xs text-white/60 mb-1">Secondary</div>
             <div className="flex gap-2">
-              <Select value={secondaryCat || ''} onValueChange={v => setSecondaryCat(v as Cat)}>
+              <Select value={secondaryCat} onValueChange={v => setSecondaryCat(v as any)}>
                 <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="(none)" /></SelectTrigger>
                 <SelectContent className="bg-black/90 border-white/10 text-white">
-                  <SelectItem value="">(none)</SelectItem>
+                  <SelectItem value="none">(none)</SelectItem>
                   {Object.keys(CAT_VALUES).filter(c => c !== primaryCat).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={secondaryVal} onValueChange={setSecondaryVal} disabled={!secondaryCat}>
+              <Select value={secondaryVal} onValueChange={setSecondaryVal} disabled={secondaryCat==='none'}>
                 <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
                 <SelectContent className="bg-black/90 border-white/10 text-white">
-                  <SelectItem value="">Any</SelectItem>
-                  {secondaryCat && CAT_VALUES[secondaryCat as Cat].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  <SelectItem value="any">Any</SelectItem>
+                  {secondaryCat !== 'none' && CAT_VALUES[secondaryCat as Cat].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
