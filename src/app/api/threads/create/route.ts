@@ -120,6 +120,11 @@ export async function POST(req: Request) {
         }
       }
     } catch {}
+    // Trigger topic analysis (debounced)
+    try {
+      const { markAnalysisRequested } = await import('@/lib/server/analysis');
+      await markAnalysisRequested(topicId);
+    } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });

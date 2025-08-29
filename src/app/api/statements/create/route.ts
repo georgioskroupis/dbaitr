@@ -126,6 +126,11 @@ export async function POST(req: Request) {
       await ref.set({ position: pos, aiConfidence: result.confidence, lastEditedAt: new Date() }, { merge: true });
       // Safer: recompute tallies to avoid drift if positions change later
       await recomputeTallies(db, topicId);
+      // Trigger topic analysis (debounced via _jobs)
+      try {
+        const { markAnalysisRequested } = await import('@/lib/server/analysis');
+        await markAnalysisRequested(topicId);
+      } catch {}
       // Detect AI assistance probability (best-effort)
       try {
         const key = process.env.HUGGINGFACE_API_KEY;
