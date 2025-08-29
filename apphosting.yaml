@@ -84,6 +84,14 @@ env:
     value: "https://dbaitr.com"
     availability: [ BUILD, RUNTIME ]
 
+  # Scheduler OIDC verification (optional; enables auth on /api/analysis/scheduled)
+  - variable: SCHEDULER_SERVICE_ACCOUNT_EMAIL
+    value: "db8app@appspot.gserviceaccount.com"
+    availability: [ RUNTIME ]
+  - variable: SCHEDULER_OIDC_AUDIENCE
+    value: "https://dbaitr.com/api/analysis/scheduled"
+    availability: [ RUNTIME ]
+
   # Server-only secrets (configure via Secret Manager)
   # Create and grant access using:
   #   firebase apphosting:secrets:set STRIPE_SECRET_KEY --project db8app

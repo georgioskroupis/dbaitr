@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { useAuth } from '@/context/AuthContext';
 import { collectionGroup } from 'firebase/firestore';
 import { TopicPills } from './TopicPills';
+import { TopicPillsAdminPanel } from './TopicPillsAdminPanel';
 
 
 interface TopicDetailClientProps {
@@ -351,6 +352,8 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       {/* Topic Pills */}
       <TopicPills analysis={topic?.analysis} />
+      {/* Moderator controls */}
+      <TopicPillsAdminPanel topicId={topic.id} categories={topic?.analysis?.categories} />
       {/* Debate Stats */}
       <div className="p-3 sm:p-4 rounded-xl border border-white/10 bg-black/30">
         <div className="flex flex-wrap gap-3 items-center justify-between">

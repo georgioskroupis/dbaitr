@@ -5,8 +5,27 @@ import { evaluateTopicPills } from '@/lib/server/analysis';
 export const runtime = 'nodejs';
 
 // Scheduled invocations: scans for recent jobs and evaluates with debounce controls.
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    // Optional OIDC auth: require a valid Google ID token from Cloud Scheduler
+    const requiredSa = process.env.SCHEDULER_SERVICE_ACCOUNT_EMAIL || '';
+    const requiredAud = process.env.SCHEDULER_OIDC_AUDIENCE || '';
+    if (requiredSa || requiredAud) {
+      const authz = req.headers.get('authorization') || '';
+      const token = authz.startsWith('Bearer ') ? authz.slice(7) : '';
+      if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+      try {
+        const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+        if (!resp.ok) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+        const info = await resp.json();
+        const emailOk = requiredSa ? String(info.email || '').toLowerCase() === requiredSa.toLowerCase() : true;
+        const audOk = requiredAud ? String(info.aud || '') === requiredAud : true;
+        const issOk = String(info.iss || '').includes('https://accounts.google.com');
+        if (!emailOk || !audOk || !issOk) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+      } catch {
+        return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+      }
+    }
     const db = getDbAdmin();
     if (!db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
     const now = Date.now();
