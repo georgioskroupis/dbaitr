@@ -56,5 +56,9 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [{
+    "collectionGroup": "threads",
+    "fieldPath": "moderation.flagged",
+    "indexes": [{ "order": "ASCENDING" }]
+}]
 }
