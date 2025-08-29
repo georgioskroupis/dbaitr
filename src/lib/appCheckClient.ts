@@ -2,21 +2,22 @@
 
 // Optional App Check initialization for client
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import type { AppCheck } from 'firebase/app-check';
 import { app } from '@/lib/firebase';
 
 const DEBUG_TOKEN_STORAGE_KEY = 'DB8_APPCHECK_DEBUG_TOKEN';
 const V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+let appCheckInstance: AppCheck | null = null;
+
+export function getAppCheckInstance(): AppCheck | null {
+  return appCheckInstance;
+}
+
 export function initAppCheckIfConfigured() {
   try {
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
     if (!siteKey) return;
-<<<<<<< HEAD
-    // In development, enable App Check debug token to avoid reCAPTCHA errors locally
-    if (process.env.NODE_ENV !== 'production') {
-      (globalThis as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-    }
-=======
 
     // In development, enable App Check debug token and persist it for reuse.
     if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
@@ -44,11 +45,12 @@ export function initAppCheckIfConfigured() {
       }
     }
 
->>>>>>> origin/release/production-merge
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(siteKey),
-      isTokenAutoRefreshEnabled: true,
-    });
+    if (!appCheckInstance) {
+      appCheckInstance = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[AppCheck] init skipped or failed:', (e as any)?.message || e);

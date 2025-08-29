@@ -145,8 +145,10 @@ export default function UnifiedAuthPage() {
       // Ask server (Admin SDK) whether the email exists; if it fails, fall back to client Auth methods
       let serverExists: boolean | null = null;
       try {
-        const { getToken, getAppCheck } = await import('firebase/app-check');
-        const tokenResult = await getToken(getAppCheck(), /* forceRefresh */ true).catch(() => null);
+        const { getToken } = await import('firebase/app-check');
+        const { getAppCheckInstance } = await import('@/lib/appCheckClient');
+        const appCheckInstance = getAppCheckInstance();
+        const tokenResult = appCheckInstance ? await getToken(appCheckInstance, /* forceRefresh */ true).catch(() => null) : null;
         const appCheckToken = tokenResult?.token;
         const res = await fetch('/api/auth/check-email', {
           method: 'POST',

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
 import youtubeProvider from '@/providers/video/youtube';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, context: any) {
+  const { params } = context as { params: { id: string } };
   try {
     const auth = getAuthAdmin();
     const db = getDbAdmin();
@@ -25,4 +26,3 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
 }
-
