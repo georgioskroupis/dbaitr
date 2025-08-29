@@ -45,6 +45,15 @@ export default function AdminHomePage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-black/40 backdrop-blur-md border border-white/10">
           <CardHeader>
+            <CardTitle className="text-white">Users</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-white/70 text-sm mb-3">Search, review, and act on users.</p>
+            <Link href="/admin/users" className="underline text-rose-300">Open Users</Link>
+          </CardContent>
+        </Card>
+        <Card className="bg-black/40 backdrop-blur-md border border-white/10">
+          <CardHeader>
             <CardTitle className="text-white">Moderation</CardTitle>
           </CardHeader>
           <CardContent>
