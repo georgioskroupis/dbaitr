@@ -40,6 +40,51 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionId": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "analysis_flat.tone", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.engagement", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "analysis_flat.tone", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.outcome", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "analysis_flat.style", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.engagement", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "analysis_flat.substance", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.argumentation", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "analysis_flat.outcome", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.argumentation", "order": "ASCENDING" },
+        { "fieldPath": "analysis_flat.updatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

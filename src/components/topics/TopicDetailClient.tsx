@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
 import { collectionGroup } from 'firebase/firestore';
+import { TopicPills } from './TopicPills';
 
 
 interface TopicDetailClientProps {
@@ -86,6 +87,29 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     }
   }, [initialTopic?.createdAt]);
 
+
+  useEffect(() => {
+    // Realtime topic doc listener for analysis pills and metadata
+    if (!initialTopic?.id) return;
+    const unsub = onSnapshot(doc(db, 'topics', initialTopic.id), snap => {
+      if (!snap.exists()) return;
+      const d: any = snap.data() || {};
+      const toISO = (ts: any) => {
+        try { if (!ts) return undefined; if (typeof ts.toDate === 'function') return ts.toDate().toISOString(); if (ts.seconds !== undefined) return new Date(ts.seconds * 1000).toISOString(); if (ts instanceof Date) return ts.toISOString(); } catch {}
+        return ts;
+      };
+      if (d.createdAt) d.createdAt = toISO(d.createdAt);
+      if (d.updatedAt) d.updatedAt = toISO(d.updatedAt);
+      if (d?.analysis?.version?.updatedAt) d.analysis.version.updatedAt = toISO(d.analysis.version.updatedAt);
+      for (const k of ['tone','style','outcome','substance','engagement','argumentation']) {
+        const c = d?.analysis?.categories?.[k];
+        if (c?.updatedAt) c.updatedAt = toISO(c.updatedAt);
+      }
+      setTopic(prev => ({ ...(prev || {}), ...d } as any));
+    });
+    return () => unsub();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTopic?.id]);
 
   useEffect(() => {
     async function fetchCreator() {
@@ -325,6 +349,8 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+      {/* Topic Pills */}
+      <TopicPills analysis={topic?.analysis} />
       {/* Debate Stats */}
       <div className="p-3 sm:p-4 rounded-xl border border-white/10 bg-black/30">
         <div className="flex flex-wrap gap-3 items-center justify-between">

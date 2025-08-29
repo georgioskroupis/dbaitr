@@ -26,6 +26,40 @@ export interface Topic {
   scoreAgainst: number;
   scoreNeutral: number;
   slug?: string;
+  analysis?: {
+    version?: {
+      model?: string;
+      prompt?: string;
+      updatedAt?: string;
+    };
+    categories?: {
+      tone?: AnalysisCategory;
+      style?: AnalysisCategory;
+      outcome?: AnalysisCategory;
+      substance?: AnalysisCategory;
+      engagement?: AnalysisCategory;
+      argumentation?: AnalysisCategory;
+    };
+  };
+  analysis_flat?: {
+    tone?: 'heated' | 'calm';
+    style?: 'structured' | 'informal';
+    outcome?: 'controversial' | 'consensus';
+    substance?: 'evidence' | 'opinion';
+    engagement?: 'active' | 'dormant';
+    argumentation?: 'solid' | 'weak';
+    updatedAt?: string;
+  };
+}
+
+export interface AnalysisCategory {
+  value?: string; // enum per-category (lowercase)
+  confidence?: number; // 0..1
+  trend24h?: number; // delta toward current label
+  updatedAt?: string; // ISO
+  rationaleShort?: string; // moderator-only
+  override?: boolean; // if set, frozen by moderator
+  note?: string; // optional override reason
 }
 
 export interface Statement {

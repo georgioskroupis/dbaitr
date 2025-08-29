@@ -77,10 +77,17 @@ service cloud.firestore {
       allow read, list: if true;
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
       allow update: if request.auth != null && (
-        resource.data.createdBy == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','updatedAt']) ||
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true)
+        // Owners can edit limited fields only (never analysis fields)
+        (
+          resource.data.createdBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','updatedAt'])
+        ) ||
+        // Admin/Moderators may edit topic, but never analysis fields from client
+        (
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['analysis','analysis_flat'])
+        )
       );
       allow delete: if request.auth != null && (
         resource.data.createdBy == request.auth.uid ||
