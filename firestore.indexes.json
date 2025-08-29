@@ -46,12 +46,16 @@
     {
       "collectionGroup": "threads",
       "fieldPath": "moderation.flagged",
-      "indexes": [{ "order": "ASCENDING" }]
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
     },
     {
       "collectionGroup": "statements",
       "fieldPath": "moderation.flagged",
-      "indexes": [{ "order": "ASCENDING" }]
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
     }
   ]
 }
