@@ -41,7 +41,7 @@
         { "fieldPath": "provider", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
-    }
+    },
     {
       "collectionGroup": "threads",
       "queryScope": "COLLECTION_GROUP",
