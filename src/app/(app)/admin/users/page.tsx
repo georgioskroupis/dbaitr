@@ -8,6 +8,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type UserRow = {
   uid: string;
@@ -229,6 +231,11 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
   const { toast } = useToast();
   const [data, setData] = useState<any | null>(null);
   const [tab, setTab] = useState<'overview'|'activity'|'security'|'flags'|'notes'>('overview');
+  const [noteText, setNoteText] = useState('');
+  const [reason, setReason] = useState('');
+  const [roleSel, setRoleSel] = useState('viewer');
+  const [kycVal, setKycVal] = useState<'true'|'false'>('true');
+  const [confirmOpen, setConfirmOpen] = useState<null|{action:string; label:string}>(null);
 
   useEffect(() => {
     (async () => {
@@ -276,6 +283,41 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                   <div>Last active: {data.lastActiveAt ? new Date(data.lastActiveAt).toLocaleString() : '—'}</div>
                   <div>KYC Verified: {String(!!data.kycVerified)}</div>
                   <div>Flags: {data.flagsCount ?? 0}</div>
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="text-white mb-2 font-medium">Actions</div>
+                    <div className="flex flex-wrap gap-2">
+                      <ActionButton label="Suspend" onClick={() => setConfirmOpen({ action: 'suspend', label: 'SUSPEND' })} />
+                      <ActionButton label="Ban" onClick={() => setConfirmOpen({ action: 'ban', label: 'BAN' })} />
+                      <ActionButton label="Reinstate" onClick={() => setConfirmOpen({ action: 'reinstate', label: 'REINSTATE' })} />
+                      <ActionButton label="Force sign-out" onClick={() => setConfirmOpen({ action: 'forceSignOut', label: 'SIGNOUT' })} />
+                      <ActionButton label="Invalidate sessions" onClick={() => setConfirmOpen({ action: 'invalidateSessions', label: 'INVALIDATE' })} />
+                      <ActionButton label="Reset password" onClick={() => setConfirmOpen({ action: 'forcePasswordReset', label: 'RESET' })} />
+                      <ActionButton label="KYC override" onClick={() => setConfirmOpen({ action: 'kycOverride', label: 'KYC' })} />
+                      <ActionButton label="Change role" onClick={() => setConfirmOpen({ action: 'changeRole', label: 'ROLE' })} />
+                      <ActionButton variant="destructive" label="Hard delete" onClick={() => setConfirmOpen({ action: 'hardDelete', label: 'DELETE' })} />
+                    </div>
+                    <div className="text-xs text-white/60 mt-2">A reason is required for sensitive actions.</div>
+                    <div className="mt-2 flex flex-wrap gap-2 items-center">
+                      <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason (required)" className="h-8 w-80 bg-white/5 border-white/20 text-white" />
+                      {confirmOpen?.action === 'changeRole' && (
+                        <Select value={roleSel} onValueChange={setRoleSel}>
+                          <SelectTrigger className="h-8 w-40 bg-white/5 border-white/20 text-white"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-black/90 border-white/10 text-white">
+                            {['viewer','restricted','supporter','moderator','admin','super-admin'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {confirmOpen?.action === 'kycOverride' && (
+                        <Select value={kycVal} onValueChange={v => setKycVal(v as any)}>
+                          <SelectTrigger className="h-8 w-32 bg-white/5 border-white/20 text-white"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-black/90 border-white/10 text-white">
+                            <SelectItem value="true">Verify</SelectItem>
+                            <SelectItem value="false">Unverify</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               {tab==='activity' && (
@@ -309,7 +351,22 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                 </div>
               )}
               {tab==='notes' && (
-                <div className="space-y-2 text-sm text-white/80">
+                <div className="space-y-3 text-sm text-white/80">
+                  <div className="flex gap-2 items-center">
+                    <Input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add internal note (visible to moderators only)" className="h-9 bg-white/5 border-white/20 text-white" />
+                    <Button size="sm" onClick={async () => {
+                      if (!user) return;
+                      try {
+                        const t = await user.getIdToken();
+                        const res = await fetch(`/api/admin/users/notes/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ text: noteText }) });
+                        if (!res.ok) throw new Error();
+                        setNoteText('');
+                        // refresh notes
+                        const r2 = await fetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
+                        if (r2.ok) setData(await r2.json());
+                      } catch { /* ignore */ }
+                    }}>Add</Button>
+                  </div>
                   {(data.notes || []).map((n: any, i: number) => (
                     <div key={i} className="border border-white/10 rounded p-2">
                       <div className="text-white/90">{n.text}</div>
@@ -320,6 +377,26 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                 </div>
               )}
             </div>
+            <ConfirmModal open={!!confirmOpen} onOpenChange={v => !v && setConfirmOpen(null)} label={confirmOpen?.label || ''} onConfirm={async () => {
+              if (!user || !confirmOpen) return;
+              try {
+                const t = await user.getIdToken();
+                const payload: any = { action: confirmOpen.action, reason };
+                if (confirmOpen.action === 'changeRole') payload.role = roleSel;
+                if (confirmOpen.action === 'kycOverride') payload.kyc = kycVal === 'true';
+                const res = await fetch(`/api/admin/users/action/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify(payload) });
+                if (!res.ok) throw new Error();
+                if (confirmOpen.action === 'forcePasswordReset') {
+                  const j = await res.json();
+                  navigator.clipboard?.writeText(j?.link || '').catch(() => {});
+                }
+                setReason('');
+                setConfirmOpen(null);
+                // Refresh drawer data
+                const r2 = await fetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
+                if (r2.ok) setData(await r2.json());
+              } catch { /* ignore */ }
+            }} />
           </div>
         )}
       </SheetContent>
@@ -327,3 +404,25 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
   );
 }
 
+function ActionButton({ label, onClick, variant = 'default' }: { label: string; onClick: () => void; variant?: 'default'|'destructive' }) {
+  return <Button size="sm" variant={variant === 'destructive' ? 'destructive' : 'secondary'} onClick={onClick}>{label}</Button>;
+}
+
+function ConfirmModal({ open, onOpenChange, label, onConfirm }: { open: boolean; onOpenChange: (v:boolean)=>void; label: string; onConfirm: () => void }) {
+  const [typed, setTyped] = useState('');
+  const ok = typed.trim().toUpperCase() === (label || '').toUpperCase();
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="bg-black text-white border border-white/10">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-white">Type {label} to confirm</AlertDialogTitle>
+        </AlertDialogHeader>
+        <Input autoFocus className="bg-white/5 border-white/20 text-white" value={typed} onChange={e => setTyped(e.target.value)} placeholder={label} />
+        <AlertDialogFooter>
+          <AlertDialogCancel className="bg-white/10 border-white/20 text-white">Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={!ok} className="bg-rose-600 hover:bg-rose-500" onClick={onConfirm}>Confirm</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

@@ -3,7 +3,7 @@ import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 
-type Action = 'suspend'|'ban'|'reinstate'|'changeRole'|'forceSignOut'|'forcePasswordReset'|'invalidateSessions'|'kycOverride';
+type Action = 'suspend'|'ban'|'reinstate'|'changeRole'|'forceSignOut'|'forcePasswordReset'|'invalidateSessions'|'kycOverride'|'hardDelete';
 
 export async function POST(req: Request, { params }: { params: { uid: string } }) {
   try {
@@ -65,6 +65,17 @@ export async function POST(req: Request, { params }: { params: { uid: string } }
       // Generate link; returning is acceptable as sending email server-side is out-of-scope for provider change.
       const link = await auth.generatePasswordResetLink(cur.email || '');
       return NextResponse.json({ ok: true, link });
+    } else if (action === 'hardDelete') {
+      if (!isSuper) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+      try { await auth.deleteUser(uid); } catch {}
+      updates.status = 'deleted';
+      updates.deletedAt = FieldValue.serverTimestamp();
+      updates.tombstoned = true;
+      updates.fullName = 'Deleted User';
+      updates.photoURL = null;
+      updates.email = null;
+      // revoke any lingering sessions
+      try { await auth.revokeRefreshTokens(uid); } catch {}
     }
 
     // Compute before/after for audit
@@ -88,4 +99,3 @@ export async function POST(req: Request, { params }: { params: { uid: string } }
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
 }
-
