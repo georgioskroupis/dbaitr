@@ -9,7 +9,10 @@ service cloud.firestore {
 
     // Users
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+      );
       allow create: if request.auth != null && request.auth.uid == userId &&
         request.resource.data.uid == userId &&
         request.resource.data.email == request.auth.token.email &&
