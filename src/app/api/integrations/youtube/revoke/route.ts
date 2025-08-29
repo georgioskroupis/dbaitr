@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getAuthAdmin } from '@/lib/firebaseAdmin';
 import youtubeProvider from '@/providers/video/youtube';

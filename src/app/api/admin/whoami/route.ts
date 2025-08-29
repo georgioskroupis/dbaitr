@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getAuthAdmin } from '@/lib/firebaseAdmin';
 
@@ -16,4 +17,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
 }
-

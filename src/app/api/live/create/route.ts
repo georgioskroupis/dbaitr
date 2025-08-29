@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';

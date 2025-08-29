@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
 import { google } from 'googleapis';
