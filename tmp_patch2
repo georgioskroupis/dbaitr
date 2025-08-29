@@ -1,0 +1,56 @@
+*** Begin Patch
+*** Add File: src/app/(app)/settings/integrations/youtube/page.tsx
++"use client";
++
++import * as React from 'react';
++import { Button } from '@/components/ui/button';
++import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
++import { useAuth } from '@/context/AuthContext';
++
++export default function YoutubeIntegrationPage() {
++  const { user } = useAuth();
++  const [authUrl, setAuthUrl] = React.useState<string | null>(null);
++  const [message, setMessage] = React.useState<string | null>(null);
++
++  React.useEffect(() => {
++    setMessage(new URLSearchParams(location.search).get('connected') ? 'Connected successfully.' : null);
++  }, []);
++
++  const getAuthUrl = async () => {
++    if (!user) return;
++    const token = await user.getIdToken();
++    const res = await fetch('/api/integrations/youtube/oauth/start', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
++    const j = await res.json();
++    if (j?.ok) setAuthUrl(j.authUrl);
++  };
++
++  const revoke = async () => {
++    if (!user) return;
++    const token = await user.getIdToken();
++    await fetch('/api/integrations/youtube/revoke', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
++    setMessage('Disconnected.');
++  };
++
++  return (
++    <div className="container mx-auto px-4 py-8">
++      <Card className="bg-black/40 border border-white/10 max-w-2xl">
++        <CardHeader>
++          <CardTitle className="text-white">YouTube Integration</CardTitle>
++        </CardHeader>
++        <CardContent className="text-white/80 space-y-3">
++          <p>Connect your YouTube channel to host live debates via RTMP.</p>
++          {message && <p className="text-emerald-300">{message}</p>}
++          <div className="flex gap-2">
++            <Button onClick={getAuthUrl} className="bg-rose-500 hover:bg-rose-400">Get Connect URL</Button>
++            <Button onClick={revoke} variant="outline">Disconnect</Button>
++          </div>
++          {authUrl && (
++            <p className="mt-2 text-sm break-all"><a href={authUrl} className="underline">Click here to connect your channel</a></p>
++          )}
++        </CardContent>
++      </Card>
++    </div>
++  );
++}
++
+*** End Patch

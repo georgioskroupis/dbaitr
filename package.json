@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 9002",
+    "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -17,7 +17,8 @@
     "ai:refactor": "node scripts/ai/codex-run.mjs --session refactor -p docs/ai/templates/refactor.md",
     "dev:seed": "node scripts/seed/seed.mjs",
     "ci:trigger": "bash scripts/ops/trigger-ci.sh",
-    "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh"
+    "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
+    "admin:set-role": "node scripts/admin/set-role.mjs"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.1.0",
@@ -67,7 +68,8 @@
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.2",
     "tesseract.js": "^5.1.0",
-    "stripe": "^15.12.0"
+    "stripe": "^15.12.0",
+    "googleapis": "^131.0.0"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "^5.66.0",

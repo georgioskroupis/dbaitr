@@ -63,20 +63,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Profile creation ensured server-side on first write; skip client-side server action
 
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+        const unsubscribeProfile = onSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const rawProfileData = docSnap.data();
             const processedProfileData = convertProfileTimestamps(rawProfileData);
             setUserProfile(processedProfileData);
+            setLoading(false);
           } else {
-            setUserProfile(null); 
+            setUserProfile(null);
+            setLoading(false);
             logger.warn(`[AuthContext] User profile document not found for UID: ${firebaseUser.uid} after creation attempt.`);
           }
-          setLoading(false); 
-        }, (error) => {
+        }, async (error) => {
           logger.error("[AuthContext] Error listening to user profile:", error);
-          setUserProfile(null);
-          setLoading(false); 
+          // Fallback: fetch via admin API in case rules block client read
+          try {
+            const t = await firebaseUser.getIdToken();
+            const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
+            if (res.ok) {
+              const j = await res.json();
+              if (j?.ok) setUserProfile(j.profile || null);
+            }
+          } catch {}
+          setLoading(false);
         });
         return () => unsubscribeProfile(); 
       } else {

@@ -2,7 +2,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader } from "lucide-react";
+import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader, Shield } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -21,10 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { logger } from '@/lib/logger';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { BrandTooltip } from '@/components/branding/BrandTooltip';
 
 export function UserNav() {
   const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -109,6 +111,14 @@ export function UserNav() {
               <span>Transparency</span>
             </DropdownMenuItem>
           </Link>
+          {isAdmin && (
+            <Link href="/admin" passHref>
+              <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+                <Shield className="mr-2 h-4 w-4 text-primary" />
+                <span>Admin Panel</span>
+              </DropdownMenuItem>
+            </Link>
+          )}
           <DropdownMenuSeparator className="bg-border" />
           <Link href="/verify-identity" passHref>
             <DropdownMenuItem disabled={kycVerified} className="focus:bg-accent focus:text-accent-foreground"> {/* Theme colors */}
