@@ -101,8 +101,6 @@ env:
   - variable: GEMINI_API_KEY
     secret: GEMINI_API_KEY
     availability: [ RUNTIME ]
-  - variable: YOUTUBE_CLIENT_SECRET
-    secret: YOUTUBE_CLIENT_SECRET
   # Optional: Cloud Run IDV fallback service URL (add later if you deploy it)
   # - variable: CLOUD_RUN_IDV_URL
   #   value: "https://idv-xxxxx-uc.a.run.app"
