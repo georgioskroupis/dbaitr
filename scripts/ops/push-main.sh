@@ -119,6 +119,44 @@ verify_apphosting_backend() {
   fi
 }
 
+verify_apphosting_backend_studio() {
+  # Verify a Firebase App Hosting backend with backendId exactly "studio"
+  local project_id="${PROJECT_ID:-$project_id_default}"
+  if ! command -v firebase >/dev/null 2>&1; then
+    echo "Firebase CLI not found; skipping App Hosting backend verification."; return 0
+  fi
+  echo "Verifying App Hosting backend 'studio' in project '$project_id'..."
+  if backends_json=$(firebase apphosting:backends:list --project "$project_id" --json 2>/dev/null); then
+    local result
+    result=$(echo "$backends_json" | node -e '
+let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
+  try{
+    const j=JSON.parse(d);
+    const b=(j.backends||[]).find(x=>String(x.backendId||"").toLowerCase()==="studio");
+    if(b){
+      const name=b.displayName||b.backendId||"studio";
+      const id=b.backendId||"studio";
+      console.log("FOUND:"+name+":"+id);
+    } else {
+      console.log("NOT_FOUND");
+    }
+  }catch(e){console.log("PARSE_ERROR")}
+})'
+    )
+    if [[ "$result" == FOUND:* ]]; then
+      local details=${result#FOUND:}
+      echo "Studio backend detected: ${details%%:*} (id=${details##*:})"
+      return 0
+    else
+      echo "WARNING: App Hosting backend with id 'studio' not found. Ensure production uses the 'studio' backend." >&2
+      return 1
+    fi
+  else
+    echo "Could not query App Hosting backends (not logged in or insufficient permissions). Skipping check." >&2
+    return 0
+  fi
+}
+
 main() {
   ensure_git_ready
 
@@ -152,11 +190,10 @@ main() {
 
   if confirm "Push to '$remote/$main_branch' now? [y/N] "; then
     maybe_push_main
-    verify_apphosting_backend || true
+    verify_apphosting_backend_studio || true
   else
     echo "Skipped push to remote. Local '$main_branch' updated."
   fi
 }
 
 main "$@"
-
