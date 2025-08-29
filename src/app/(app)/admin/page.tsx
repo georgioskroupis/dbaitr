@@ -55,6 +55,16 @@ export default function AdminHomePage() {
 
         <Card className="bg-black/40 backdrop-blur-md border border-white/10">
           <CardHeader>
+            <CardTitle className="text-white">Analysis Pills</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-white/70 text-sm mb-3">Filter topics and apply pill overrides in bulk.</p>
+            <Link href="/admin/analysis" className="underline text-rose-300">Open Analysis</Link>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-black/40 backdrop-blur-md border border-white/10">
+          <CardHeader>
             <CardTitle className="text-white">Appeals</CardTitle>
           </CardHeader>
           <CardContent>
