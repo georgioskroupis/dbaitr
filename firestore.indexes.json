@@ -1,6 +1,20 @@
 {
   "indexes": [
     {
+      "collectionGroup": "statements",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "moderation.flagged", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "threads",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "moderation.flagged", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "threads",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
