@@ -14,12 +14,17 @@ function getEnv(name: string): string {
   return v;
 }
 
-const CLIENT_ID = getEnv('YOUTUBE_CLIENT_ID');
-const CLIENT_SECRET = getEnv('YOUTUBE_CLIENT_SECRET');
-const REDIRECT_URI = getEnv('YOUTUBE_REDIRECT_URI');
-const TARGET_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || '';
+function getConfig() {
+  // Read lazily at runtime to avoid requiring envs at build/analyze time.
+  const CLIENT_ID = getEnv('YOUTUBE_CLIENT_ID');
+  const CLIENT_SECRET = getEnv('YOUTUBE_CLIENT_SECRET');
+  const REDIRECT_URI = getEnv('YOUTUBE_REDIRECT_URI');
+  const TARGET_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || '';
+  return { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TARGET_CHANNEL_ID };
+}
 
 function oauthClient(): OAuth2Client {
+  const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } = getConfig();
   const o = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
   return o;
 }
@@ -39,6 +44,7 @@ async function getGlobalTokenDoc() {
 }
 
 async function getOAuthClientFor(uid: string): Promise<OAuth2Client> {
+  const { TARGET_CHANNEL_ID } = getConfig();
   // Prefer global channel credentials when configured
   if (TARGET_CHANNEL_ID) {
     const { data } = await getGlobalTokenDoc();

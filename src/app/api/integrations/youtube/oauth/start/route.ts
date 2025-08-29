@@ -24,7 +24,12 @@ export async function POST(req: Request) {
       ? role === 'admin'
       : (process.env.NODE_ENV !== 'production' || role === 'admin' || role === 'supporter' || subscription === 'plus' || subscription === 'supporter' || subscription === 'core');
     if (!eligible) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
-    const o = new google.auth.OAuth2(getEnv('YOUTUBE_CLIENT_ID'), getEnv('YOUTUBE_CLIENT_SECRET'), getEnv('YOUTUBE_REDIRECT_URI'));
+    // Lazy env access at handler runtime only (not module import time)
+    const o = new google.auth.OAuth2(
+      getEnv('YOUTUBE_CLIENT_ID'),
+      getEnv('YOUTUBE_CLIENT_SECRET'),
+      getEnv('YOUTUBE_REDIRECT_URI')
+    );
     // Create a short-lived state record to correlate callback → uid without relying on headers
     const db = getDbAdmin();
     const sid = (randomUUID ? randomUUID() : Math.random().toString(36).slice(2)) + '-' + Date.now().toString(36);
