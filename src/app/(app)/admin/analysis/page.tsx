@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query, startAfter, where, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,9 +27,10 @@ const CAT_VALUES: Record<Cat, string[]> = {
 type Row = { id: string; title: string; analysis?: any; analysis_flat?: any };
 
 export default function AdminAnalysisPage() {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
-  const canModerate = !!(userProfile?.isAdmin || userProfile?.isModerator);
+  const canModerate = !!isAdmin; // claim-based to avoid client Firestore read dependency
   const [primaryCat, setPrimaryCat] = useState<Cat>('tone');
   const [primaryVal, setPrimaryVal] = useState<string>('');
   const [secondaryCat, setSecondaryCat] = useState<Cat | ''>('');
@@ -216,4 +218,3 @@ export default function AdminAnalysisPage() {
     </div>
   );
 }
-

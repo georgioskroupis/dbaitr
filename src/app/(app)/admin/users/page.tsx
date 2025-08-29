@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -28,9 +29,9 @@ const PAGE_SIZES = [10, 20, 50, 100];
 const SORTABLE = ['fullName','email','uid','role','status','kycVerified','createdAt','provider','lastActiveAt','flagsCount'] as const;
 
 export default function AdminUsersPage() {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const isAdmin = !!(userProfile?.isAdmin);
+  const { isAdmin } = useIsAdmin();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
@@ -45,7 +46,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [openUid, setOpenUid] = useState<string | null>(null);
 
-  const canView = isAdmin; // admins only per brief
+  const canView = isAdmin; // admins only per brief (claims-based)
 
   async function load() {
     if (!user || !canView) return;
