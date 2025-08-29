@@ -52,11 +52,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuspended, setIsSuspended] = useState(false);
+  // Track the Firestore user profile listener so we can reliably unsubscribe on sign-out
+  const profileUnsubRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       logger.debug("📡 [AuthContext] onAuthStateChanged triggered:", firebaseUser);
       setLoading(true); 
+      // Always tear down any previous profile listener before switching user state
+      try { if (profileUnsubRef.current) { profileUnsubRef.current(); profileUnsubRef.current = null; } } catch {}
       if (firebaseUser) {
         setUser(firebaseUser);
 
@@ -74,20 +78,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             logger.warn(`[AuthContext] User profile document not found for UID: ${firebaseUser.uid} after creation attempt.`);
           }
-        }, async (error) => {
-          logger.error("[AuthContext] Error listening to user profile:", error);
+        }, async (error: any) => {
+          // During sign-out or App Check hiccups, a permission error can surface here. Avoid noisy logs.
+          const code = error?.code || '';
+          if (code !== 'permission-denied') {
+            logger.error("[AuthContext] Error listening to user profile:", error);
+          } else {
+            logger.debug("[AuthContext] Profile listener permission-denied (likely sign-out or App Check)");
+          }
           // Fallback: fetch via admin API in case rules block client read
           try {
-            const t = await firebaseUser.getIdToken();
-            const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
-            if (res.ok) {
-              const j = await res.json();
-              if (j?.ok) setUserProfile(j.profile || null);
+            // Only try fallback if still authenticated
+            const current = auth.currentUser;
+            if (current) {
+              const t = await current.getIdToken();
+              const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
+              if (res.ok) {
+                const j = await res.json();
+                if (j?.ok) setUserProfile(j.profile || null);
+              }
             }
           } catch {}
           setLoading(false);
         });
-        return () => unsubscribeProfile(); 
+        // remember unsub so we can tear it down cleanly on auth changes
+        profileUnsubRef.current = unsubscribeProfile;
+        return; 
       } else {
         setUser(null);
         setUserProfile(null);
