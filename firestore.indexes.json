@@ -1,20 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "statements",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "moderation.flagged", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "threads",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "moderation.flagged", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "threads",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -56,9 +42,16 @@
       ]
     }
   ],
-  "fieldOverrides": [{
-    "collectionGroup": "threads",
-    "fieldPath": "moderation.flagged",
-    "indexes": [{ "order": "ASCENDING" }]
-}]
+  "fieldOverrides": [
+    {
+      "collectionGroup": "threads",
+      "fieldPath": "moderation.flagged",
+      "indexes": [{ "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "statements",
+      "fieldPath": "moderation.flagged",
+      "indexes": [{ "order": "ASCENDING" }]
+    }
+  ]
 }
