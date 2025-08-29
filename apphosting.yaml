@@ -45,7 +45,7 @@ env:
       - RUNTIME
       
   - variable: YOUTUBE_REDIRECT_URI
-    value: "https://your-domain.com/api/integrations/youtube/oauth/callback"
+    value: "https://dbaitr.com/api/integrations/youtube/oauth/callback"
     availability:
       - RUNTIME
       
