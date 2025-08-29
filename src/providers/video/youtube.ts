@@ -90,6 +90,7 @@ async function exchangeCodeForTokens(code: string, uid: string) {
   const channelId = channel.id!;
   const channelTitle = channel.snippet?.title || 'Your Channel';
   const db = getDbAdmin();
+  const { TARGET_CHANNEL_ID } = getConfig();
   if (TARGET_CHANNEL_ID) {
     if (channelId !== TARGET_CHANNEL_ID) {
       throw new Error('channel_mismatch');
@@ -131,6 +132,7 @@ export const youtubeProvider: VideoProvider = {
     return exchangeCodeForTokens(code, uid);
   },
   async revoke(uid) {
+    const { TARGET_CHANNEL_ID } = getConfig();
     if (TARGET_CHANNEL_ID) {
       const { data, ref } = await getGlobalTokenDoc();
       if (data?.refreshToken) {
