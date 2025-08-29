@@ -18,6 +18,14 @@
       ]
     },
     {
+      "collectionId": "liveDebates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionId": "reports",
       "queryScope": "COLLECTION",
       "fields": [

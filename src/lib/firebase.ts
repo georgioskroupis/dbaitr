@@ -1,20 +1,24 @@
+"use client";
 // Unified Firebase client initialization with server guard
 import { logger } from '@/lib/logger';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import type { FirebaseStorage } from 'firebase/storage';
+import type { Database } from 'firebase/database';
 
 let app: FirebaseApp | any;
 let auth: Auth | any;
 let db: Firestore | any;
 let storage: FirebaseStorage | any;
+let rtdb: Database | any;
 
 if (typeof window !== 'undefined') {
   const { initializeApp, getApps, getApp } = await import('firebase/app');
   const { getAuth, setPersistence, browserLocalPersistence } = await import('firebase/auth');
   const { getFirestore } = await import('firebase/firestore');
   const { getStorage } = await import('firebase/storage');
+  const { getDatabase } = await import('firebase/database');
 
   const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -29,6 +33,7 @@ if (typeof window !== 'undefined') {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  try { rtdb = getDatabase(app); } catch { rtdb = undefined; }
 
   setPersistence(auth, browserLocalPersistence).catch((error: any) => {
     logger.error('Firebase Auth persistence error:', error?.code, error?.message);
@@ -42,6 +47,7 @@ if (typeof window !== 'undefined') {
   auth = new Proxy({}, { get: fail('auth') });
   db = new Proxy({}, { get: fail('firestore') });
   storage = new Proxy({}, { get: fail('storage') });
+  rtdb = new Proxy({}, { get: fail('database') });
 }
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, rtdb };

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, doc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,19 +24,54 @@ interface AppealItem {
 
 export default function AppealsAdminPage() {
   const { userProfile, user } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { toast } = useToast();
+  const router = useRouter();
   const [appeals, setAppeals] = useState<AppealItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [rationale, setRationale] = useState<Record<string, string>>({});
 
-  const canModerate = !!userProfile?.isAdmin || !!(userProfile as any)?.isModerator;
+  const canModerate = isAdmin || !!(userProfile as any)?.isModerator;
+  const [allow, setAllow] = useState(false);
+
+  useEffect(() => {
+    if (adminLoading) return;
+    if (canModerate) { setAllow(true); return; }
+    (async () => {
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const u = getAuth().currentUser;
+        if (u) {
+          const t = await u.getIdToken();
+          const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+          const j = await res.json();
+          if (j?.ok && j.role === 'admin') { setAllow(true); return; }
+        }
+      } catch {}
+      router.replace('/dashboard');
+    })();
+  }, [adminLoading, canModerate, router]);
 
   useEffect(() => {
     async function loadAppeals() {
-      if (!canModerate) return;
+      if (!canModerate && !allow) return;
       setLoading(true);
       try {
+        if (user) {
+          const token = await user.getIdToken();
+          const res = await fetch('/api/admin/appeals', { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const j = await res.json();
+            if (j?.ok) { 
+              setAppeals(j.appeals || []);
+              if (Array.isArray(j.errors) && j.errors.length) {
+                toast({ title: 'Some data could not be loaded', description: j.errors.join('; ') });
+              }
+              return; 
+            }
+          }
+        }
         const q = query(collection(db, 'appeals'), orderBy('createdAt', 'desc'), limit(100));
         const snap = await getDocs(q);
         setAppeals(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
@@ -43,7 +80,7 @@ export default function AppealsAdminPage() {
       } finally { setLoading(false); }
     }
     loadAppeals();
-  }, [canModerate, toast]);
+  }, [canModerate, allow, toast, user]);
 
   const resolve = async (appealId: string, decision: 'approved'|'denied') => {
     if (!user) return;
@@ -66,7 +103,7 @@ export default function AppealsAdminPage() {
     } finally { setResolvingId(null); }
   };
 
-  if (!canModerate) {
+  if (!canModerate && !allow) {
     return (
       <div className="container mx-auto py-10">
         <Card className="bg-black/40 backdrop-blur-md border border-white/10">
@@ -132,4 +169,3 @@ export default function AppealsAdminPage() {
     </div>
   );
 }
-

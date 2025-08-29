@@ -11,6 +11,8 @@ import { logger } from '@/lib/logger';
 import type { Topic } from '@/types';
 import { useAuth } from '@/context/AuthContext'; 
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LiveIndex } from '@/components/live/LiveIndex';
 // import { seedMultiTopicTestData } from '@/lib/seedDatabase';
 
 
@@ -64,28 +66,40 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-3 sm:gap-4">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white">Debate Topics</h1>
-        {/* "Create New Topic" button removed as per request */}
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white">Dashboard</h1>
       </div>
 
-      {topics.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 sm:py-12 border-2 border-dashed border-white/10 rounded-xl bg-black/20 text-center backdrop-blur-sm">
-          <img src="https://placehold.co/300x200.png" alt="Empty state" data-ai-hint="empty state no topics" className="mb-6 rounded-md opacity-70 w-full max-w-[320px] h-auto" />
-          <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">No debates yet. Be the first de-baiter to speak.</h2>
-          <p className="text-white/60 mb-6 max-w-prose px-4">Silence isn’t truth. Add your voice.</p>
-          <Button asChild size="lg" className="px-4 sm:px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">
-            <Link href="/topics/new">
-              <PlusCircle className="mr-2 h-5 w-5" /> Post your truth
-            </Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {topics.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
-          ))}
-        </div>
-      )}
+      <Tabs defaultValue="dbaits">
+        <TabsList className="bg-white/5">
+          <TabsTrigger value="dbaits">Dbaits</TabsTrigger>
+          <TabsTrigger value="live-dbaits">Live Dbaits</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dbaits" className="mt-6">
+          {topics.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 sm:py-12 border-2 border-dashed border-white/10 rounded-xl bg-black/20 text-center backdrop-blur-sm">
+              <img src="https://placehold.co/300x200.png" alt="Empty state" data-ai-hint="empty state no topics" className="mb-6 rounded-md opacity-70 w-full max-w-[320px] h-auto" />
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">No debates yet. Be the first de-baiter to speak.</h2>
+              <p className="text-white/60 mb-6 max-w-prose px-4">Silence isn’t truth. Add your voice.</p>
+              <Button asChild size="lg" className="px-4 sm:px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">
+                <Link href="/topics/new">
+                  <PlusCircle className="mr-2 h-5 w-5" /> Post your truth
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {topics.map((topic) => (
+                <TopicCard key={topic.id} topic={topic} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="live-dbaits" className="mt-6">
+          <LiveIndex embedded />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

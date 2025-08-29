@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, getDocs, orderBy, limit, query, deleteDoc, doc, collectionGroup, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,26 +23,63 @@ interface ReportItem {
 
 export default function ModerationPage() {
   const { userProfile, user } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { toast } = useToast();
+  const router = useRouter();
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [flaggedStatements, setFlaggedStatements] = useState<any[]>([]);
   const [flaggedThreads, setFlaggedThreads] = useState<any[]>([]);
 
-  const canModerate = !!userProfile?.isAdmin || !!(userProfile as any)?.isModerator;
+  const canModerate = isAdmin || !!(userProfile as any)?.isModerator;
+  const [allow, setAllow] = useState(false);
+
+  useEffect(() => {
+    if (adminLoading) return;
+    if (canModerate) { setAllow(true); return; }
+    (async () => {
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const u = getAuth().currentUser;
+        if (u) {
+          const t = await u.getIdToken();
+          const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+          const j = await res.json();
+          if (j?.ok && j.role === 'admin') { setAllow(true); return; }
+        }
+      } catch {}
+      router.replace('/dashboard');
+    })();
+  }, [adminLoading, canModerate, router]);
 
   useEffect(() => {
     async function loadReports() {
-      if (!canModerate) return;
+      if (!canModerate && !allow) return;
       setLoading(true);
       try {
+        // Use admin API to avoid client rules/App Check issues
+        if (user) {
+          const token = await user.getIdToken();
+          const res = await fetch('/api/admin/reports', { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const j = await res.json();
+            if (j?.ok) {
+              setReports(j.reports || []);
+              setFlaggedStatements(j.flaggedStatements || []);
+              setFlaggedThreads(j.flaggedThreads || []);
+              if (Array.isArray(j.errors) && j.errors.length) {
+                toast({ title: 'Some data could not be loaded', description: j.errors.join('; ') });
+              }
+              return;
+            }
+          }
+        }
+        // As a last resort, try client reads
         const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'), limit(50));
         const snap = await getDocs(q);
         setReports(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
-        // Load flagged statements
         const fs = await getDocs(query(collectionGroup(db, 'statements'), where('moderation.flagged', '==', true), limit(50)) as any);
         setFlaggedStatements(fs.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
-        // Load flagged threads
         const ft = await getDocs(query(collectionGroup(db, 'threads'), where('moderation.flagged', '==', true), limit(50)) as any);
         setFlaggedThreads(ft.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
       } catch (err) {
@@ -51,7 +90,7 @@ export default function ModerationPage() {
       }
     }
     loadReports();
-  }, [canModerate, toast]);
+  }, [canModerate, allow, toast]);
 
   const handleDeleteStatement = async (topicId: string, statementId: string) => {
     try {
@@ -135,7 +174,7 @@ export default function ModerationPage() {
     }
   };
 
-  if (!canModerate) {
+  if (!canModerate && !allow) {
     return (
       <div className="container mx-auto py-10">
         <Card className="bg-black/40 backdrop-blur-md border border-white/10">
@@ -206,17 +245,7 @@ export default function ModerationPage() {
                     )}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => clearStatementFlag(s.topicId, s.id, { maxLabel: s.moderation?.maxLabel, maxScore: s.moderation?.maxScore, scores: s.moderation?.scores })} className="bg-emerald-600 hover:bg-emerald-500">Clear Flag</Button>
-                      <Button size="sm" variant="destructive" onClick={async () => {
-                        if (user) {
-                          const token = await user.getIdToken();
-                          await fetch('/api/moderation/action', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ action: 'delete', target: 'statement', topicId: s.topicId, statementId: s.id, maxLabel: s.moderation?.maxLabel, maxScore: s.moderation?.maxScore, scores: s.moderation?.scores }),
-                          });
-                        }
-                        await handleDeleteStatement(s.topicId, s.id);
-                      }}>Delete</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteStatement(s.topicId, s.id)}>Delete</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -233,17 +262,7 @@ export default function ModerationPage() {
                     )}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => clearThreadFlag(t.topicId, t.statementId, t.id, { maxLabel: t.moderation?.maxLabel, maxScore: t.moderation?.maxScore, scores: t.moderation?.scores })} className="bg-emerald-600 hover:bg-emerald-500">Clear Flag</Button>
-                      <Button size="sm" variant="destructive" onClick={async () => {
-                        if (user) {
-                          const token = await user.getIdToken();
-                          await fetch('/api/moderation/action', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ action: 'delete', target: 'thread', topicId: t.topicId, statementId: t.statementId, threadId: t.id, maxLabel: t.moderation?.maxLabel, maxScore: t.moderation?.maxScore, scores: t.moderation?.scores }),
-                          });
-                        }
-                        await handleDeleteThread(t.topicId, t.statementId, t.id);
-                      }}>Delete</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteThread(t.topicId, t.statementId, t.id)}>Delete</Button>
                     </div>
                   </CardContent>
                 </Card>

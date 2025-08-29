@@ -112,43 +112,81 @@ export default function UnifiedAuthPage() {
 
     setIsLoading(true);
     try {
-      const db = getFirestore();
-      const usersCollection = collection(db, "users");
-      const userQuery = query(usersCollection, where("email", "==", sanitizedEmail));
-
       logger.debug("🔥 Auth instance project:", auth.app.options.projectId);
       logger.debug("📬 Email submitted:", sanitizedEmail);
 
-      // Check sign-in methods early to provide guidance if not password-based
-      try {
-        const methods = await fetchSignInMethodsForEmail(auth, sanitizedEmail);
-        setSignInHints(methods);
-        if (methods.length && !methods.includes('password')) {
-          const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
-          toast({
-            title: 'Use your original sign-in method',
-            description: `This email is registered with ${provider}. Please sign in with ${provider} or reset your password if you added one.`,
-            variant: 'destructive',
+      // Dev-only: rely solely on server endpoint; skip client fetchSignInMethodsForEmail
+      if (process.env.NODE_ENV !== 'production') {
+        let serverExistsDev: boolean | null = null;
+        try {
+          const res = await fetch('/api/auth/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: sanitizedEmail })
           });
+          if (res.ok) {
+            const j = await res.json();
+            serverExistsDev = !!(j?.ok && j.exists);
+            console.debug('[auth][dev-only] check-email', j);
+          } else {
+            console.debug('[auth][dev-only] check-email status', res.status);
+          }
+        } catch (e) {
+          console.debug('[auth][dev-only] check-email failed', e);
+        }
+        setEmail(sanitizedEmail);
+        const existsDev = !!serverExistsDev;
+        console.debug('[auth][dev-only] decision', { serverExists: existsDev });
+        toast({ title: 'Auth Debug (dev-only)', description: `serverExists=${existsDev}` });
+        setPhase(existsDev ? 'login' : 'signup');
+        return;
+      }
+
+      // Ask server (Admin SDK) whether the email exists; if it fails, fall back to client Auth methods
+      let serverExists: boolean | null = null;
+      try {
+        const { getToken, getAppCheck } = await import('firebase/app-check');
+        const tokenResult = await getToken(getAppCheck(), /* forceRefresh */ true).catch(() => null);
+        const appCheckToken = tokenResult?.token;
+        const res = await fetch('/api/auth/check-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}) },
+          body: JSON.stringify({ email: sanitizedEmail })
+        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[auth] check-email status', res.status);
+        }
+        if (res.ok) {
+          const j = await res.json();
+          serverExists = !!(j?.ok && j.exists);
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[auth] check-email payload', j);
+          }
         }
       } catch {}
 
-      const querySnapshot = await getDocs(userQuery);
-      logger.debug("🧾 Firestore user query result (docs found):", querySnapshot.docs.length);
-
-      setEmail(sanitizedEmail); // Use the sanitized email
-
-      if (!querySnapshot.empty) {
-        if (process.env.NODE_ENV !== "production") {
-          logger.debug("🔑 Found user with this email in Firestore. Proceeding to login.");
+      // Production: Fetch sign-in methods for hints and as a fallback signal
+      let methods: string[] = [];
+      try {
+        methods = await fetchSignInMethodsForEmail(auth, sanitizedEmail);
+        setSignInHints(methods);
+        if ((serverExists ?? (methods.length > 0)) && methods.length && !methods.includes('password')) {
+          const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
+          toast({ title: 'Use your original sign-in method', description: `This email is registered with ${provider}. Use ${provider} to continue.` });
         }
-        setPhase("login");
-      } else {
-        if (process.env.NODE_ENV !== "production") {
-          logger.debug("🆕 No user found with this email in Firestore. Proceeding to signup.");
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[auth] fetchSignInMethodsForEmail failed', e);
         }
-        setPhase("signup");
       }
+
+      setEmail(sanitizedEmail);
+      const exists = (serverExists !== null) ? serverExists : (methods.length > 0);
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[auth] decision', { serverExists, methods, exists });
+        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} exists=${exists}` });
+      }
+      setPhase(exists ? 'login' : 'signup');
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
         logger.error("🔥 Full Auth Error (Email Check):", error);
