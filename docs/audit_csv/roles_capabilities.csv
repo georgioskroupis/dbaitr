@@ -1,0 +1,10 @@
+capability,super-admin,admin,moderator,supporter,viewer,restricted,enforcement,source_of_truth
+access_admin_pages,yes,yes,no,no,no,no,UI+API,role claim
+manage_users,yes,yes,no,no,no,no,API,role claim
+moderate_content,yes,yes,yes,no,no,no,API+Rules,mixed (role claim + users.isModerator)
+create_live_debates,yes,yes,no,yes,no,no,API+Rules,role claim (supporter) + rules helper
+create_topics,yes,yes,yes,yes,yes,no,UI+API,auth status
+post_statements_questions,yes,yes,yes,yes,yes,no (status-gated),API+Rules,kycVerified/grace
+recompute_analysis,yes,yes,maybe,no,no,no,API,role claim
+override_analysis_pills,yes,yes,maybe,no,no,no,API,role claim
+suspend_or_ban,yes,yes,no,no,no,n/a,API,role claim

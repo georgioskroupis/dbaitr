@@ -1,0 +1,7 @@
+claim_name,type,who_sets_it,when_set,where_read,how_enforced,propagation_strategy,mirrored_in_firestore,risks
+role,string (enum),scripts/admin/set-role.mjs,manual role change,use-is-admin hook; many APIs; Firestore Rules,UI gating + API checks + Rules,inconsistent getIdToken(true); add forced refresh after change,partially (users.role not canonical),stale token; drift from Firestore
+isAdmin,boolean,(legacy/manual),manual,selected APIs,API allow/deny,none,yes (users.isAdmin),divergence with role claim
+isModerator,boolean,(legacy/manual),manual,selected APIs,API allow/deny,none,yes (users.isModerator),divergence
+isSuperAdmin,boolean,(legacy/manual),manual,rare APIs,API allow,none,no,overbroad if mis-set
+admin,boolean,(legacy alias),manual,rare APIs,API allow,none,no,ambiguous aliasing
+kycVerified,boolean,IDV flow/server,on verification,client via AuthContext; APIs via Firestore; Rules via Firestore,posting/thread creation gating,n/a (it is Firestore field),N/A,not a claim; ensure Rules not bypassed

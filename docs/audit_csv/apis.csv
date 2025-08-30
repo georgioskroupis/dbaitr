@@ -1,0 +1,51 @@
+path,purpose,auth_verification,appcheck_verification,role_checks,rate_limits,security_risks
+/api/admin/analysis/override,admin/analysis/override,idtoken,none,admin|moderator|isAdmin|isModerator,,Missing App Check; mixed role sources
+/api/admin/appeals,admin/appeals,idtoken,none,admin,,Missing App Check
+/api/admin/reports,admin/reports,idtoken,none,admin,,Missing App Check
+/api/admin/users/action/[uid],admin/users/action/[uid],idtoken,none,isAdmin|admin,,Missing App Check
+/api/admin/users/get/[uid],admin/users/get/[uid],idtoken,none,admin|super-admin|moderator,,Missing App Check
+/api/admin/users/list,admin/users/list,idtoken,none,admin,,Missing App Check
+/api/admin/users/notes/[uid],admin/users/notes/[uid],idtoken,none,moderator|admin|super-admin,,Missing App Check
+/api/admin/whoami,admin/whoami,idtoken,none,admin,,Missing App Check (low risk; read-only)
+/api/ai/detect-assist,ai/detect-assist,none,none,,,No auth; ensure server-only key checks
+/api/ai/draft,ai/draft,idtoken,none,admin,,Missing App Check
+/api/analysis/overview/recompute,analysis/overview/recompute,idtoken,present,admin|moderator|isAdmin|isModerator|isSuperAdmin,,Dev bypass allowed; align policy
+/api/analysis/recompute,analysis/recompute,idtoken,none,admin|moderator|isAdmin|isModerator,,Missing App Check
+/api/analysis/scheduled,analysis/scheduled,none,none,admin,,Relies on scheduler OIDC; verify
+/api/appeals/create,appeals/create,idtoken,none,admin,,Missing App Check; check intended auth
+/api/appeals/resolve,appeals/resolve,idtoken,none,isAdmin|isModerator|admin,,Missing App Check
+/api/auth/check-email,auth/check-email,none,present,admin,,Dev optional; rate limit advisable
+/api/auth/debug,auth/debug,none,none,admin,,Read-only; ensure no secrets exposed
+/api/idv/approve,idv/approve,idtoken,none,admin,,Missing App Check
+/api/idv/result,idv/result,idtoken,none,,,Missing App Check
+/api/idv/verify,idv/verify,idtoken,none,,,Missing App Check
+/api/integrations/youtube/config,integrations/youtube/config,none,none,,,None
+/api/integrations/youtube/oauth/callback,integrations/youtube/oauth/callback,none,none,admin,,Ensure redirect whitelist
+/api/integrations/youtube/oauth/start,integrations/youtube/oauth/start,idtoken,none,admin|supporter,,Missing App Check
+/api/integrations/youtube/revoke,integrations/youtube/revoke,idtoken,none,admin,,Missing App Check
+/api/integrations/youtube/status,integrations/youtube/status,idtoken,none,admin,,Missing App Check
+/api/live/[id]/cancel,live/[id]/cancel,idtoken,none,admin,,Missing App Check
+/api/live/[id]/ingest,live/[id]/ingest,idtoken,none,admin,,Missing App Check
+/api/live/[id],live/[id],idtoken,none,admin,,Missing App Check
+/api/live/[id]/transition,live/[id]/transition,idtoken,none,admin,,Missing App Check
+/api/live/create,live/create,idtoken,none,admin|supporter,,Missing App Check
+/api/live/poll,live/poll,none,none,admin,,Missing App Check
+/api/livechat/mod/pin,livechat/mod/pin,idtoken,present,,,OK (has App Check)
+/api/livechat/mod/shadow,livechat/mod/shadow,idtoken,present,,,OK (has App Check)
+/api/livechat/mod/slow,livechat/mod/slow,idtoken,present,,,OK (has App Check)
+/api/livechat/post,livechat/post,idtoken,present,,,OK (has App Check)
+/api/moderation/action,moderation/action,idtoken,none,isAdmin|isModerator|admin,,Missing App Check; uses Firestore flags not claims
+/api/moderation/report,moderation/report,none,none,,,Missing App Check + Auth (report spam risk)
+/api/search/suggest,search/suggest,none,none,,,No auth; ensure input sanitization/rate limit
+/api/semantic-suggestions,semantic-suggestions,none,none,,,No auth; ensure rate limit
+/api/sentiment/backfill,sentiment/backfill,none,none,admin,,Missing App Check + Auth (should be admin-only)
+/api/sentiment, sentiment compute,none,none,admin,,Missing App Check + Auth
+/api/statements/backfill,statements/backfill,idtoken,none,isAdmin|admin,,Missing App Check
+/api/statements/classify,statements/classify,idtoken,none,isAdmin|isModerator|admin,,Missing App Check
+/api/statements/classify-claim,statements/classify-claim,idtoken,none,admin,,Missing App Check
+/api/statements/create,statements/create,idtoken,present,admin,ip+user limit,Good: has App Check and rate limit
+/api/stripe/webhook,stripe/webhook,none,none,,,Should verify Stripe signature (present)
+/api/threads/create,threads/create,idtoken,present,admin,ip+user limit,Good: has App Check and rate limit
+/api/topics/[id]/stats,topics/[id]/stats,none,none,admin,,Public stats; ensure no leakage
+/api/topics,topics list,none,none,,,Public; ensure pagination
+/api/users/me,users/me,idtoken,none,admin,,Auth only; read-only

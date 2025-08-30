@@ -1,0 +1,21 @@
+path,component_type,rendering,public_or_protected,required_role,login_state_requirements,kyc_dependency,appcheck_requirement,data_sources,auth_check_location,redirect_behavior,error_handling,known_edge_cases
+/,server+client,SSR/RSC,public,,,none,none,static,n/a,n/a,none
+/dashboard,client,CSR,public,,,none,none,/api/topics,none,n/a,toast,none
+/topics/new,client,CSR,protected,viewer+,Grace|Verified,yes,none,APIs,client guard,/auth?returnTo=...,toast,guard after render
+/topics/[topicId],server+client,force-dynamic public,public,,,none,none,server+client Firestore,n/a,n/a,toast,None
+/live,client,CSR,public,,,none,none,Firestore,n/a,n/a,none,None
+/live/new,client,CSR,protected,supporter|admin,Verified,none,none,API /api/live/create,client guard,deny/CTA,toast,role also enforced server
+/live/[id],server+client,hybrid,protected (actions),host|admin,Verified,none,partial,APIs /api/live/*,API checks,n/a,json,none
+/auth,client,CSR,public,,,none,soft,/api/auth/check-email + Auth,API + client,n/a,toast,none
+/verify-identity,server,RSC,protected utility,viewer+,Grace|Verified,yes,none,IDV APIs,API checks,client redirects,ui,none
+/account-suspended,client,CSR,protected status,n/a,Suspended,yes,none,AuthContext,client guard,/dashboard or /verify-identity,ui,timing re-route
+/admin,client,CSR,protected,admin,Verified,none,none,/api/admin/whoami,client hook + API,/dashboard,spinner msg,first-render flash
+/admin/users,client,CSR,protected,admin,Verified,none,none,/api/admin/users/*,client hook + API,deny msg,toast,token stale
+/admin/moderation,client,CSR,protected,admin|moderator,Verified,none,partial,/api/admin/reports,/api checks + fallback FS,/dashboard,toast,client fallback FS
+/admin/analysis,client,CSR,protected,admin,Verified,none,none,analysis APIs,client hook + API,/dashboard,toast,none
+/admin/appeals,client,CSR,protected,admin,Verified,none,none,/api/admin/appeals,client hook + API,/dashboard,toast,none
+/manifesto,server,SSR,public,,,none,none,static,n/a,n/a,none,none
+/pricing,server+client,SSR,public,,,none,none,static media,n/a,n/a,none,none
+/transparency,server,SSR,public,,,none,none,static,n/a,n/a,none,none
+/profile,client,CSR,public (profile self later),,,none,none,AuthContext/FS,n/a,n/a,none,none
+/idv/diagnostics,server,RSC,public (dev),,,none,none,IDV helpers,n/a,n/a,none,none

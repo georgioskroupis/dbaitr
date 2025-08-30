@@ -1,0 +1,7 @@
+status,allowed_pages,blocked_pages,allowed_actions,blocked_actions,redirects,error_copy,token_session_behavior,app_check_expectation
+Anonymous,public pages (/,/dashboard,/topics/*),admin pages; gated write flows,browse,create topics/posts; admin,redirect to /auth on gated actions,toast auth-required,standard SDK; no sign-out,optional
+Grace Period,most pages,strict topics requiring verified,post threads and sometimes statements,topics with requireVerified,UI may suggest /verify-identity,inline UI messaging,standard; no forced refresh,expected for write APIs
+Verified,all allowed by role,n/a,all within role,n/a,n/a,n/a,standard; may refresh on role change,expected for write APIs
+Suspended,/account-suspended and public,create topics/posts,browse only,posting/creation,/account-suspended → /verify-identity CTA,clear messaging,standard,expected for write APIs
+Banned,public (if signed-out),protected areas,effectively none,most actions,custom TBD,custom TBD,sign-out on change recommended,expected
+Deleted,public (signed-out),all,none,all,sign-out,custom TBD,sign-out immediately,expected
