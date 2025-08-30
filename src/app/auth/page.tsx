@@ -115,34 +115,8 @@ export default function UnifiedAuthPage() {
       logger.debug("🔥 Auth instance project:", auth.app.options.projectId);
       logger.debug("📬 Email submitted:", sanitizedEmail);
 
-      // Dev-only: rely solely on server endpoint; skip client fetchSignInMethodsForEmail
-      if (process.env.NODE_ENV !== 'production') {
-        let serverExistsDev: boolean | null = null;
-        try {
-          const res = await fetch('/api/auth/check-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: sanitizedEmail })
-          });
-          if (res.ok) {
-            const j = await res.json();
-            serverExistsDev = !!(j?.ok && j.exists);
-            console.debug('[auth][dev-only] check-email', j);
-          } else {
-            console.debug('[auth][dev-only] check-email status', res.status);
-          }
-        } catch (e) {
-          console.debug('[auth][dev-only] check-email failed', e);
-        }
-        setEmail(sanitizedEmail);
-        const existsDev = !!serverExistsDev;
-        console.debug('[auth][dev-only] decision', { serverExists: existsDev });
-        toast({ title: 'Auth Debug (dev-only)', description: `serverExists=${existsDev}` });
-        setPhase(existsDev ? 'login' : 'signup');
-        return;
-      }
-
-      // Ask server (Admin SDK) whether the email exists; if it fails, fall back to client Auth methods
+      // Ask server (Admin SDK) whether the email exists; in dev, App Check header is optional per API handler
+      // If it fails, fall back to client Auth methods
       let serverExists: boolean | null = null;
       try {
         const { getToken } = await import('firebase/app-check');
