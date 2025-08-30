@@ -1,0 +1,27 @@
+name: Quality Lab
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write   # needed so the action can comment on PRs
+
+jobs:
+  qualitylab:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Run your published Quality Lab Action
+      - name: Run Quality Lab
+        uses: georgioskroupis/quality-lab@v1   # your action repo + stable tag
+        with:
+          fail-on: high            # fail the job if any finding >= high severity
+          comment-pr: true         # post summary comment on PRs
+          time-budget: 3m          # cap runtime for quick PR scans
+          paths: "apps/**,src/**"  # scope to main dbaitr code
+          lighthouse-url: "https://dbaitr.com" # public/staging URL for Lighthouse
