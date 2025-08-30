@@ -106,3 +106,7 @@ export const appClient = {
   getAppCheckToken,
 };
 
+// Back-compat named exports for ergonomics in client code
+export const getAuth = getAuthClient;
+export const getDb = getDbClient;
+export const getApp = getClientApp;

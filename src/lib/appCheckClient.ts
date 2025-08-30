@@ -3,7 +3,7 @@
 // Optional App Check initialization for client
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import type { AppCheck } from 'firebase/app-check';
-import { app } from '@/lib/firebase';
+import { getClientApp } from '@/lib/firebase/client';
 
 const DEBUG_TOKEN_STORAGE_KEY = 'DB8_APPCHECK_DEBUG_TOKEN';
 const V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,7 +45,8 @@ export function initAppCheckIfConfigured() {
       }
     }
 
-    if (!appCheckInstance) {
+    if (!appCheckInstance && typeof window !== 'undefined') {
+      const app = getClientApp();
       appCheckInstance = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(siteKey),
         isTokenAutoRefreshEnabled: true,
