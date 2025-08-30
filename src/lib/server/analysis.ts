@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { ENGAGEMENT, PILL_FLIP_COOLDOWN_MIN, PILL_INSTANT_JUMP, PILL_MIN_CONFIDENCE, PILL_TIE_BREAK_DELTA, TREND_DOWN, TREND_UP, ANALYSIS_VERSION, getDomainWeight } from '@/lib/analysis-config';
 
 type Trigger = 'event' | 'scheduled';

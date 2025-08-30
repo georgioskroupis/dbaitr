@@ -1,28 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, getAuthAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
+import { setClaims } from '@/lib/authz/claims';
 
 export const runtime = 'nodejs';
 
 // This endpoint is called by the IdvWizard component to store the result of the verification
 // and approve the user if the verification was successful.
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, req) => {
   try {
     // Rate limit result posting per client
     if (!globalRateLimiter.check(getClientKey(req))) {
       return NextResponse.json({ success: false, reason: 'rate_limited' }, { status: 429 });
     }
-    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-    if (!token) {
-      return NextResponse.json({ success: false, reason: 'unauthorized' }, { status: 401 });
-    }
-
-    const auth = getAuthAdmin();
-    if (!auth) {
-      throw new Error('Auth not initialized');
-    }
-    const decodedToken = await auth.verifyIdToken(token);
-    const uid = decodedToken.uid;
+    const uid = ctx?.uid as string;
 
     const { approved, reason } = await req.json();
 
@@ -53,9 +45,8 @@ export async function POST(req: Request) {
         },
         { merge: true }
       );
-      // Set a custom claim to allow server-side gating if needed
-      const auth = getAuthAdmin();
-      try { await auth?.setCustomUserClaims(uid, { idVerified: true }); } catch {}
+      // Claims: Verified
+      await setClaims(uid, { status: 'Verified', kycVerified: true });
     }
 
     return NextResponse.json({ success: true });
@@ -63,4 +54,4 @@ export async function POST(req: Request) {
     console.error('Error handling IDV result:', error);
     return NextResponse.json({ success: false, reason: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

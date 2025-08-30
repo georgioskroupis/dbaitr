@@ -1,23 +1,17 @@
 import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
-import { getAuthAdmin } from '@/lib/firebaseAdmin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
+import { setClaims } from '@/lib/authz/claims';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, _req) => {
   try {
-    const auth = getAuthAdmin();
-    if (!auth) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const hdr = req.headers.get('authorization') || '';
-    const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
-    if (!token) return NextResponse.json({ ok: false, error: 'no_token' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
-
-    try { await auth.setCustomUserClaims(uid, { ...(decoded as any).claims, idVerified: true }); } catch {}
-    const db = getFirestore();
-    await db.collection('users').doc(uid).set({ identity: { verified: true } }, { merge: true });
+    const uid = ctx?.uid as string;
+    const db = getDbAdmin();
+    await setClaims(uid, { status: 'Verified', kycVerified: true });
+    await db.collection('users').doc(uid).set({ identity: { verified: true }, kycVerified: true, updatedAt: new Date() }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

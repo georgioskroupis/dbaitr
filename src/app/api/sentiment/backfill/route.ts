@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getAdminApp } from '@/lib/firebaseAdmin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDbAdmin } from '@/lib/firebase/admin';
 import { logger } from '@/lib/logger';
 import { getClientKey, globalRateLimiter } from '@/lib/rateLimit';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`sentiment-backfill:${key}`)) return NextResponse.json({ ok: false }, { status: 429 });
-    const adminApp = getAdminApp();
-    if (!adminApp) return NextResponse.json({ ok: false, error: 'Admin not configured' }, { status: 501 });
-    const db = getFirestore(adminApp);
+    const db = getDbAdmin();
 
     const { limit = 10 } = await req.json().catch(() => ({}));
     const topicsSnap = await db.collection('topics').limit(20).get();
@@ -33,4 +31,4 @@ export async function POST(req: Request) {
     logger.error('[api/sentiment/backfill] Failed:', err);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

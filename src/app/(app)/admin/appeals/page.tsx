@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, doc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useAdminGate } from '@/hooks/use-admin-gate';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ interface AppealItem {
 
 export default function AppealsAdminPage() {
   const { userProfile, user } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const { allowed: isAdmin, loading: adminLoading } = useAdminGate();
   const { toast } = useToast();
   const router = useRouter();
   const [appeals, setAppeals] = useState<AppealItem[]>([]);

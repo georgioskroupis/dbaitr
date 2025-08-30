@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebaseAdmin';
+import { getAuthAdmin } from '@/lib/firebase/admin';
 
 // Read-only diagnostics to help verify production Firebase configuration alignment.
 // Does not expose secrets; API key is public by nature, and we only return a short prefix.
@@ -23,4 +23,3 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: e?.message || 'debug_failed' }, { status: 500 });
   }
 }
-

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: Request) {
+export const GET = withAuth(async (_ctx, req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`topics:${key}`)) return NextResponse.json({ topics: [] }, { status: 429 });
@@ -34,4 +35,4 @@ export async function GET(req: Request) {
     logger.error('[api/topics] Failed to fetch topics:', err);
     return NextResponse.json({ topics: [] }, { status: 200 });
   }
-}
+}, { public: true });

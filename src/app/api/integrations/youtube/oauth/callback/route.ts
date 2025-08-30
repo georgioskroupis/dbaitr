@@ -1,6 +1,6 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
+import { getAuthAdmin, getDbAdmin } from '@/lib/firebase/admin';
 import youtubeProvider from '@/providers/video/youtube';
 
 export async function GET(req: Request) {

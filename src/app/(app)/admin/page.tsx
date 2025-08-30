@@ -1,35 +1,14 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useAdminGate } from '@/hooks/use-admin-gate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AdminHomePage() {
-  const { isAdmin, loading } = useIsAdmin();
-  const router = useRouter();
+  const { allowed, loading } = useAdminGate();
 
-  React.useEffect(() => {
-    if (!loading && !isAdmin) {
-      // Double-check with server before redirecting, in case token is stale
-      (async () => {
-        try {
-          const { getAuth } = await import('firebase/auth');
-          const u = getAuth().currentUser;
-          if (u) {
-            const t = await u.getIdToken();
-            const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
-            const j = await res.json();
-            if (j?.ok && j.role === 'admin') return; // allow access
-          }
-        } catch {}
-        router.replace('/dashboard');
-      })();
-    }
-  }, [loading, isAdmin, router]);
-
-  if (loading) {
+  if (loading || !allowed) {
     return (
       <div className="container mx-auto py-10">
         <p className="text-white/70">Checking admin access…</p>
@@ -37,7 +16,6 @@ export default function AdminHomePage() {
     );
   }
 
-  if (!isAdmin) return null;
 
   return (
     <div className="container mx-auto py-10">

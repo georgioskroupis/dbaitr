@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, getAuthAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists || !(userDoc.data() as any)?.isAdmin) {
-      return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
-    }
 
     const limit = 25;
     // Scan topics and classify pending statements
@@ -55,4 +46,4 @@ export async function POST(req: Request) {
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

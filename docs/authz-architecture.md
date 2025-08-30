@@ -13,3 +13,8 @@ References
 - src/lib/authz/*
 - src/lib/http/withAuth.ts
 - firestore.rules
+
+Admin Gate Pattern
+- Middleware uses presence cookies for SSR guard only.
+- Admin pages render a minimal skeleton and call /api/admin/whoami on mount (via useAdminGate) before fetching or rendering privileged content.
+- Non-admins are redirected away before any sensitive data is fetched.

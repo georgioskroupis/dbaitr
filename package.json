@@ -8,7 +8,8 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && node scripts/checks/missing-appcheck-header.mjs",
+    "lint:appcheck": "node scripts/checks/missing-appcheck-header.mjs",
     "typecheck": "tsc --noEmit",
     "dev:bootstrap": "bash scripts/dev/bootstrap.sh",
     "check:boundaries": "node scripts/checks/no-server-actions-in-client.mjs",
@@ -18,7 +19,8 @@
     "dev:seed": "node scripts/seed/seed.mjs",
     "ci:trigger": "bash scripts/ops/trigger-ci.sh",
     "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
-    "admin:set-role": "node scripts/admin/set-role.mjs"
+    "admin:set-role": "node scripts/admin/set-role.mjs",
+    "test:rules": "node scripts/tests/rules.test.mjs"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.1.0",
@@ -79,6 +81,7 @@
     "genkit-cli": "^1.8.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@firebase/rules-unit-testing": "^3.0.2"
   }
 }

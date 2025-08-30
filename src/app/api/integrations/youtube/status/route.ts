@@ -1,8 +1,9 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth } from '@/lib/http/withAuth';
 
-export async function GET(req: Request) {
+export const GET = withAuth(async (ctx, req) => {
   try {
     const db = getDbAdmin();
     if (!db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
@@ -17,12 +18,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, global: true, connected, channelId: connected ? data.channelId : envChannel, channelTitle: connected ? data.channelTitle || null : null });
     }
 
-    // Per-user mode: require auth to read caller's connection
-    const auth = getAuthAdmin();
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token || !auth) return NextResponse.json({ ok: true, global: false, connected: false });
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
+    // Per-user mode: use caller context if present
+    const uid = ctx?.uid as string | undefined;
     const ref = db.collection('_private').doc('youtubeTokens').collection('byUser').doc(uid);
     const snap = await ref.get();
     const data = snap.exists ? (snap.data() as any) : null;
@@ -31,4 +28,4 @@ export async function GET(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}
+}, { public: true });

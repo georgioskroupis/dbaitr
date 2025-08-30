@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+export const GET = withAuth(async (_ctx, _req, context: { params: Promise<{ id: string }> }) => {
   const { id } = await context.params;
   const topicId = id;
   if (!topicId) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
@@ -58,4 +59,4 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
-}
+}, { public: true });

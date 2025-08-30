@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
 import { findSimilarTopics, type FindSimilarTopicsOutput, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 

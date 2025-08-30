@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
 import { evaluateTopicPills } from '@/lib/server/analysis';
 
 export const runtime = 'nodejs';

@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import { google } from 'googleapis';
 import { randomUUID } from 'crypto';
 
@@ -10,15 +11,10 @@ function getEnv(name: string): string {
   return v;
 }
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, _req) => {
   try {
-    const auth = getAuthAdmin();
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token || !auth) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const claims = decoded as any;
-    const role = claims?.role || 'viewer';
-    const subscription = claims?.subscription;
+    const role = ctx?.role || 'viewer';
+    const subscription = undefined;
     const globalChannel = !!process.env.YOUTUBE_CHANNEL_ID;
     // If a global channel is configured, only admins may connect it
     const eligible = globalChannel
@@ -35,7 +31,7 @@ export async function POST(req: Request) {
     const db = getDbAdmin();
     const sid = (randomUUID ? randomUUID() : Math.random().toString(36).slice(2)) + '-' + Date.now().toString(36);
     await db!.collection('_private').doc('youtubeOAuthStates').collection('pending').doc(sid).set({
-      uid: decoded.uid,
+      uid: ctx?.uid,
       createdAt: FieldValue.serverTimestamp(),
       mode: globalChannel ? 'global' : 'user',
     });
@@ -49,4 +45,4 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

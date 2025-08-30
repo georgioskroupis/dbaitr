@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import youtubeProvider from '@/providers/video/youtube';
 
 // Best-effort poller to refresh statuses. Can be invoked by client or cron.
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     const db = getDbAdmin();
     if (!db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
@@ -35,5 +36,4 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}
-
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

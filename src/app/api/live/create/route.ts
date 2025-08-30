@@ -1,7 +1,8 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import { youtubeProvider } from '@/providers/video/youtube';
 import type { Visibility } from '@/providers/video';
 
@@ -18,20 +19,10 @@ const Schema = z.object({
   }).optional(),
 });
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, req) => {
   try {
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const claims = decoded as any;
-    const role = claims?.role || 'viewer';
-    const subscription = claims?.subscription;
-    const eligible = process.env.NODE_ENV !== 'production' || role === 'admin' || role === 'supporter' || subscription === 'plus' || subscription === 'supporter' || subscription === 'core';
-    if (!eligible) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
-    const uid = decoded.uid;
+    const uid = ctx?.uid as string;
     const body = await req.json();
     const input = Schema.parse(body);
 
@@ -98,4 +89,4 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ok: false, error: 'server_error', message: msg }, { status: 500 });
   }
-}
+}, { ...requireRole('supporter'), ...requireStatus(['Verified']) });

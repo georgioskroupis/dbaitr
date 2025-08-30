@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { getAdminApp } from '@/lib/firebaseAdmin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import { getClientKey, globalRateLimiter } from '@/lib/rateLimit';
 import { computePolarity, polarityToScore, bucketLabel, maxConfidence, normalizeText, sha256, type RawProbs } from '@/lib/sentiment';
 
@@ -24,7 +24,7 @@ async function inferRawProbs(text: string): Promise<RawProbs> {
   return probs;
 }
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`sentiment:${key}`)) return NextResponse.json({ ok: false }, { status: 429 });
@@ -32,9 +32,7 @@ export async function POST(req: Request) {
     const { target, topicId, statementId, text, lang } = payload || ({} as any);
     if (!target || target !== 'statement' || !topicId || !statementId || !text) return NextResponse.json({ ok: false, error: 'Missing fields' }, { status: 400 });
 
-    const adminApp = getAdminApp();
-    if (!adminApp) return NextResponse.json({ ok: false, error: 'Admin not configured' }, { status: 501 });
-    const adminDb = getFirestore(adminApp);
+    const adminDb = getDbAdmin();
 
     const norm = normalizeText(text);
     const hash = sha256(norm);
@@ -109,4 +107,4 @@ export async function POST(req: Request) {
     logger.error('[api/sentiment] Failed:', err);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

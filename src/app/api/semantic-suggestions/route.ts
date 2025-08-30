@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth } from '@/lib/http/withAuth';
 import { findSimilarTopics, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const query: string = (body?.query ?? '').toString();
@@ -35,6 +36,6 @@ export async function POST(req: Request) {
     logger.error('[api/semantic-suggestions] Error:', err);
     return NextResponse.json({ suggestions: [] }, { status: 200 });
   }
-}
+}, { public: true });
 // Ensure Node runtime for Genkit/GoogleAI
 export const runtime = 'nodejs';

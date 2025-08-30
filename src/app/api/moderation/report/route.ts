@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
-import { getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`report:${key}`)) return NextResponse.json({ ok: false }, { status: 429 });
@@ -27,4 +28,4 @@ export async function POST(req: Request) {
     logger.error('[api/moderation/report] Failed:', err);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

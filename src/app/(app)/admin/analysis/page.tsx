@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query, startAfter, where, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useAdminGate } from '@/hooks/use-admin-gate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +30,7 @@ type Row = { id: string; title: string; analysis?: any; analysis_flat?: any };
 
 export default function AdminAnalysisPage() {
   const { user } = useAuth();
-  const { isAdmin } = useIsAdmin();
+  const { allowed: isAdmin, loading: gateLoading } = useAdminGate();
   const { toast } = useToast();
   const canModerate = !!isAdmin; // claim-based to avoid client Firestore read dependency
   const [primaryCat, setPrimaryCat] = useState<Cat>('tone');

@@ -1,7 +1,7 @@
 "use server";
 
 import type { Topic, Statement } from '@/types';
-import { getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
 
 function toISO(ts: any): string | undefined {
   try {
@@ -55,4 +55,3 @@ export async function getStatementsForTopicServer(topicId: string): Promise<Stat
     return st;
   });
 }
-

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, getDocs, orderBy, limit, query, deleteDoc, doc, collectionGroup, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useAdminGate } from '@/hooks/use-admin-gate';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,7 @@ interface ReportItem {
 
 export default function ModerationPage() {
   const { userProfile, user } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const { allowed: isAdmin, loading: adminLoading } = useAdminGate();
   const { toast } = useToast();
   const router = useRouter();
   const [reports, setReports] = useState<ReportItem[]>([]);

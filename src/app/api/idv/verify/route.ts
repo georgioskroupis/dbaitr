@@ -1,27 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebaseAdmin';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
 // Proxies to Cloud Run if configured; does not persist or log payloads
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
     // Basic rate limit to reduce abuse
     if (!globalRateLimiter.check(getClientKey(req))) {
       return NextResponse.json({ approved: false, reason: 'rate_limited' }, { status: 429 });
     }
-    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-    if (!token) {
-      return NextResponse.json({ success: false, reason: 'unauthorized' }, { status: 401 });
-    }
-
-    const auth = getAuthAdmin();
-    if (!auth) {
-      throw new Error('Auth not initialized');
-    }
-    const decodedToken = await auth.verifyIdToken(token);
-    const uid = decodedToken.uid;
+    const uid = (_ctx?.uid as string);
 
     const form = await req.formData();
     const front = form.get('front');
@@ -64,4 +54,4 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ approved: false, reason: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

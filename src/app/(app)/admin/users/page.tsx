@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useAdminGate } from '@/hooks/use-admin-gate';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -33,7 +33,7 @@ const SORTABLE = ['fullName','email','uid','role','status','kycVerified','create
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isAdmin } = useIsAdmin();
+  const { allowed: isAdmin, loading: gateLoading } = useAdminGate();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [q, setQ] = useState('');
   const [role, setRole] = useState('any');
@@ -73,10 +73,10 @@ export default function AdminUsersPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, role, status, kyc, provider, sortBy, sortDir, page, pageSize, canView]);
 
-  if (!canView) {
+  if (gateLoading || !canView) {
     return (
       <div className="container mx-auto py-10">
-        <p className="text-white/70">Admins only.</p>
+        <p className="text-white/70">Checking admin access…</p>
       </div>
     );
   }

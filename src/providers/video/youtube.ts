@@ -1,6 +1,6 @@
 import { google, youtube_v3 } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
-import { getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import type { VideoProvider, Visibility, Lifecycle } from './index';
 
 // YouTube provider implementation with OAuth2. This code assumes YouTube Data API v3 is enabled.
