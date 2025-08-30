@@ -2,7 +2,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Award, Loader2 as NavLoader, Shield } from "lucide-react";
+import { LogOut, User as UserIcon, ShieldCheck, ShieldAlert, LogIn, UserPlus, Eye, DollarSign, ScrollText, Loader2 as NavLoader, Shield } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -24,7 +24,7 @@ import { logger } from '@/lib/logger';
 import { useIsAdmin } from '@/hooks/use-is-admin';
 import { BrandTooltip } from '@/components/branding/BrandTooltip';
 
-export function UserNav() {
+export function UserNav({ includeMobileExtras = false }: { includeMobileExtras?: boolean } = {}) {
   const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const router = useRouter();
@@ -99,36 +99,68 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border" /> {/* Theme color */}
         <DropdownMenuGroup>
-          <Link href="/manifesto" passHref>
+          {!includeMobileExtras && (
+            <>
+          <Link href="/profile" passHref>
             <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
-              <Award className="mr-2 h-4 w-4 text-primary" />
-              <span>Manifesto</span>
+              <UserIcon className="mr-2 h-4 w-4" />
+              <span>My Profile</span>
             </DropdownMenuItem>
           </Link>
+              <DropdownMenuSeparator className="bg-border" />
+            </>
+          )}
           <Link href="/transparency" passHref>
             <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
-              <Award className="mr-2 h-4 w-4 text-primary" />
+              <Eye className="mr-2 h-4 w-4" />
               <span>Transparency</span>
             </DropdownMenuItem>
           </Link>
           {isAdmin && (
             <Link href="/admin" passHref>
               <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
-                <Shield className="mr-2 h-4 w-4 text-primary" />
+                <Shield className="mr-2 h-4 w-4" />
                 <span>Admin Panel</span>
               </DropdownMenuItem>
             </Link>
           )}
+          {/* Mobile extras: on mobile app pages, include Pricing then Manifesto below Admin */}
+          {includeMobileExtras && (
+            <>
+              <Link href="/pricing" passHref>
+                <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  <span>Pricing</span>
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/manifesto" passHref>
+                <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+                  <ScrollText className="mr-2 h-4 w-4" />
+                  <span>Manifesto</span>
+                </DropdownMenuItem>
+              </Link>
+            </>
+          )}
           <DropdownMenuSeparator className="bg-border" />
-          <Link href="/verify-identity" passHref>
-            <DropdownMenuItem disabled={kycVerified} className="focus:bg-accent focus:text-accent-foreground"> {/* Theme colors */}
-              {kycVerified ? <ShieldCheck className="mr-2 h-4 w-4 text-success" /> : <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />} {/* Using success/destructive for icons */}
-              <span>{kycVerified ? "KYC Verified" : "Verify Identity"}</span>
+          {kycVerified ? (
+            <DropdownMenuItem
+              disabled
+              className="group cursor-default focus:bg-accent focus:text-accent-foreground"
+            >
+              <ShieldCheck className="mr-2 h-4 w-4 text-emerald-500 group-focus:text-accent-foreground" />
+              <span>KYC Verified</span>
             </DropdownMenuItem>
-          </Link>
+          ) : (
+            <Link href="/verify-identity" passHref>
+              <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
+                <ShieldAlert className="mr-2 h-4 w-4" />
+                <span>Verify Identity</span>
+              </DropdownMenuItem>
+            </Link>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator className="bg-border" /> {/* Theme color */}
-        <DropdownMenuItem onClick={handleSignOut} className="text-primary focus:bg-primary/20 focus:text-primary"> {/* Use primary color */}
+        <DropdownMenuItem onClick={handleSignOut} className="focus:bg-accent focus:text-accent-foreground">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

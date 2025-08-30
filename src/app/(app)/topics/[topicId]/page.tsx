@@ -40,3 +40,6 @@ export default async function TopicPage({ params }: TopicPageProps) {
     </div>
   );
 }
+
+// Ensure dev stability: avoid static path generation churn and force dynamic rendering
+export const dynamic = 'force-dynamic';

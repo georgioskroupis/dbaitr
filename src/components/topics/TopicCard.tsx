@@ -106,8 +106,25 @@ export function TopicCard({ topic }: TopicCardProps) {
   }, [topic.id]);
 
 
+  const goToTopic = React.useCallback(() => {
+    router.push(`/topics/${topic.id}`);
+  }, [router, topic.id]);
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      goToTopic();
+    }
+  };
+
   return (
-    <Card className="flex flex-col overflow-hidden transition-all hover:shadow-2xl hover:border-rose-500/50 bg-black/40 backdrop-blur-md rounded-xl shadow-md border border-white/10">
+    <Card
+      onClick={goToTopic}
+      onKeyDown={handleKey}
+      role="button"
+      tabIndex={0}
+      className="flex flex-col overflow-hidden transition-all hover:shadow-2xl hover:border-rose-500/50 cursor-pointer bg-black/40 backdrop-blur-md rounded-xl shadow-md border border-white/10"
+    >
       <CardHeader className="p-4">
         <CardTitle className="text-lg sm:text-xl font-semibold line-clamp-2 text-white hover:text-rose-400 transition-colors">
           <Link href={`/topics/${topic.id}`}>{topic.title}</Link>
@@ -149,7 +166,11 @@ export function TopicCard({ topic }: TopicCardProps) {
           </div>
         </div>
         {sentimentBins && (
-          <div className="w-full mt-1">
+          <div
+            className="w-full mt-1"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs sm:text-sm text-white">Result</span>
               {typeof sentimentMean === 'number' && (

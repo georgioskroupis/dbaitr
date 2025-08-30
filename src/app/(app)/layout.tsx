@@ -43,35 +43,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {!isMobile && <TopNav variant="default" />}
-      {isMobile && (
-        <div className="fixed top-2 right-2 z-50">
-          {user ? (
-            <UserNav />
-          ) : (
-            <Button
-              asChild
-              size="icon"
-              className="rounded-full border border-primary/50 bg-background/50 backdrop-blur-md hover:bg-primary/20 hover:text-primary hover:border-primary transition-colors"
-            >
-              <Link href="/auth" aria-label="Join dbaitr">
-                <UserPlus className="h-5 w-5 text-primary" />
-              </Link>
-            </Button>
-          )}
-        </div>
-      )}
+      <TopNav variant="default" />
       
       <main className={cn(
         "flex-1 w-full mx-auto",
         isMobile ? "pb-16" : "pt-0",
         "p-4 md:p-6 lg:p-8"
       )}>
-        {isMobile && (
-          <div className="px-0 pb-4 md:hidden">
-            <Logo width={90} href="/" />
-          </div>
-        )}
+        {/* Logo now lives in TopNav; no duplicate on mobile */}
         {showSuspensionBanner && (
           <Alert variant="destructive" className="mb-6 relative z-20">
             <AlertTitle className="font-semibold">Account Access Restricted</AlertTitle>

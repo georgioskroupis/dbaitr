@@ -128,8 +128,9 @@ export async function POST(req: Request) {
       await recomputeTallies(db, topicId);
       // Trigger topic analysis (debounced via _jobs)
       try {
-        const { markAnalysisRequested } = await import('@/lib/server/analysis');
+        const { markAnalysisRequested, markDiscussionOverviewRequested } = await import('@/lib/server/analysis');
         await markAnalysisRequested(topicId);
+        await markDiscussionOverviewRequested(topicId);
       } catch {}
       // Detect AI assistance probability (best-effort)
       try {

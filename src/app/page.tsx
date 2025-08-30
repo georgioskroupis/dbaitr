@@ -13,7 +13,7 @@ export default function HomePage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [enableVideoBg, setEnableVideoBg] = useState(false);
  
-  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
+  const videoUrl = "/db8-video-bg.mp4";
   // const actionButtonIconUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-gavel-hook-favicon.png?alt=media"; // Old gavel hook, not the bubble
 
   // Defer background video loading; respect prefers-reduced-motion

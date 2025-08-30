@@ -3,6 +3,7 @@
 
 import type { Topic, Statement as StatementType } from '@/types';
 import { TopicAnalysis } from './TopicAnalysis';
+import { DiscussionOverview } from './DiscussionOverview';
 import { LikertBar } from '@/components/analytics/LikertBar';
 import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -23,9 +24,11 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { collectionGroup } from 'firebase/firestore';
 import { TopicPills } from './TopicPills';
 import { TopicPillsAdminPanel } from './TopicPillsAdminPanel';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 interface TopicDetailClientProps {
@@ -56,7 +59,8 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
+  const { isAdmin } = useIsAdmin();
   
   const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
   const [stats, setStats] = useState<{
@@ -163,50 +167,42 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   useEffect(() => {
     // Compute debate-level stats
     async function computeStats() {
+      if (!topic?.id) return;
+      setLoadingStats(true);
       try {
-        if (!topic?.id) return;
-        setLoadingStats(true);
-        // Statements count
-        const stSnap = await getDocs(collection(db, 'topics', topic.id, 'statements'));
-        const totalStatements = stSnap.size;
-
-        // Questions under this topic via collection group
-        const qSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question')));
-        const totalQuestions = qSnap.size;
-        const questionIds = new Set(qSnap.docs.map(d => d.id));
-
-        // Responses by authors to those questions
-        const rSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'response')));
-        const answeredQuestionIds = new Set<string>();
-        rSnap.docs.forEach(d => {
-          const data: any = d.data() || {};
-          const parentId = data.parentId;
-          const byAuthor = data.createdBy && data.statementAuthorId && data.createdBy === data.statementAuthorId;
-          if (parentId && byAuthor && questionIds.has(parentId)) answeredQuestionIds.add(parentId);
-        });
-        const percentQuestionsAnswered = totalQuestions > 0 ? (answeredQuestionIds.size / totalQuestions) * 100 : 0;
-
-        // Current user questions count for this topic
-        let userQuestions = 0;
-        let userHasStatement = false;
-        const uid = user?.uid;
-        if (uid) {
-          const uqSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
-          userQuestions = uqSnap.size;
-          const hasPostedSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
-          userHasStatement = !hasPostedSnap.empty;
+        const res = await fetch(`/api/topics/${encodeURIComponent(topic.id)}/stats`);
+        if (res.ok) {
+          const j = await res.json();
+          const totalStatements = Number(j.totalStatements || 0);
+          const totalQuestions = Number(j.totalQuestions || 0);
+          const percentQuestionsAnswered = Number(j.percentQuestionsAnswered || 0);
+          // Preserve user-specific fields (may be 0 if not logged in)
+          let userQuestions = 0;
+          let userHasStatement = false;
+          const uid = user?.uid;
+          if (uid) {
+            try {
+              const uqSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+              userQuestions = uqSnap.size;
+            } catch {}
+            try {
+              const hasPostedSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
+              userHasStatement = !hasPostedSnap.empty;
+            } catch {}
+          }
+          setStats({
+            totalStatements,
+            totalQuestions,
+            avgQuestionsPerStatement: totalStatements > 0 ? totalQuestions / totalStatements : 0,
+            percentQuestionsAnswered,
+            userQuestions,
+            userHasStatement,
+          });
+        } else {
+          setStats(s => ({ ...s, totalStatements: 0, totalQuestions: 0, avgQuestionsPerStatement: 0, percentQuestionsAnswered: 0 }));
         }
-
-        setStats({
-          totalStatements,
-          totalQuestions,
-          avgQuestionsPerStatement: totalStatements > 0 ? totalQuestions / totalStatements : 0,
-          percentQuestionsAnswered,
-          userQuestions,
-          userHasStatement,
-        });
-      } catch (e) {
-        logger.error('Failed to compute stats:', e);
+      } catch {
+        setStats(s => ({ ...s, totalStatements: 0, totalQuestions: 0, avgQuestionsPerStatement: 0, percentQuestionsAnswered: 0 }));
       } finally {
         setLoadingStats(false);
       }
@@ -350,10 +346,21 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+      {/* Moderator controls (collapsible, visible only to moderators/admins) */}
+      {(user && (userProfile?.isModerator || userProfile?.isAdmin || isAdmin)) ? (
+        <Accordion type="single" collapsible>
+          <AccordionItem value="mod-controls" className="border-white/10">
+            <AccordionTrigger className="text-sm text-white/80">
+              Moderator Controls
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <TopicPillsAdminPanel topicId={topic.id} categories={topic?.analysis?.categories} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : null}
       {/* Topic Pills */}
       <TopicPills analysis={topic?.analysis} />
-      {/* Moderator controls */}
-      <TopicPillsAdminPanel topicId={topic.id} categories={topic?.analysis?.categories} />
       {/* Debate Stats */}
       <div className="p-3 sm:p-4 rounded-xl border border-white/10 bg-black/30">
         <div className="flex flex-wrap gap-3 items-center justify-between">
@@ -373,12 +380,19 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       </div>
       <div>
         <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-white mb-2">{topic.title}</h1>
-         {clientTopicCreatedAtDate && (
+        {clientTopicCreatedAtDate && (
             <p className="text-xs sm:text-sm text-white/50">
                 Created by {creatorNameDisplay} on {clientTopicCreatedAtDate}
             </p>
         )}
-        <TopicAnalysis analysis={topic.description} isLoading={isLoadingTopicDetails && !topic.description} />
+        <div className="mt-4 sm:mt-6">
+          <TopicAnalysis analysis={topic.description} isLoading={isLoadingTopicDetails && !topic.description} />
+        </div>
+        {topic?.analysis?.discussionOverview ? (
+          <div className="mt-4 sm:mt-6">
+            <DiscussionOverview overview={topic.analysis.discussionOverview as any} />
+          </div>
+        ) : null}
       </div>
 
       <div className="grid md:grid-cols-3 gap-4 sm:gap-6">

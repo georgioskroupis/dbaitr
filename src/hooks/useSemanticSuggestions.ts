@@ -67,9 +67,7 @@ export function useSemanticSuggestions(options: Options = {}) {
       }
       const unique = Array.from(new Map(result.suggestions.map((s) => [s.title, s])).values());
       if (debug) logger.debug(`[SemanticSuggestions-${fetchId}] <- results for "${q}":`, unique.map((s) => s.title));
-      if (unique.length === 0 && debug && q.trim().length >= minChars) {
-        maybeToast('No suggestions returned', 'If this persists, verify AI API key and that topics exist.');
-      }
+      // Avoid noisy toasts for short queries or transient empties; only surface real errors below
       setSuggestions(unique);
     } catch (err) {
       logger.error('[useSemanticSuggestions] Failed to fetch suggestions:', err);
@@ -80,7 +78,18 @@ export function useSemanticSuggestions(options: Options = {}) {
     }
   }, [minChars, disabled, debug]);
 
-  const debouncedFetchSuggestions = useCallback(debounce(fetchSuggestions, debounceMs), [fetchSuggestions, debounceMs]);
+  const debouncedCore = useCallback(debounce(fetchSuggestions, debounceMs), [fetchSuggestions, debounceMs]);
+  // Public trigger: immediately reflect pending state so UIs can show a spinner during debounce
+  const debouncedFetchSuggestions = useCallback((q: string) => {
+    if (disabled) return;
+    setQuery(q);
+    if (q.trim() && q.length >= minChars) {
+      setIsLoading(true); // show loading instantly while debounce timer runs
+    } else {
+      setIsLoading(false);
+    }
+    debouncedCore(q);
+  }, [debouncedCore, disabled, minChars]);
 
   const clear = useCallback(() => {
     lastFetchId.current = null;

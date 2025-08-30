@@ -22,7 +22,10 @@ export const metadata: Metadata = {
   title: 'dbaitr - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis on dbaitr.',
   icons: {
-    icon: ['/favicon.ico'],
+    icon: [
+      { url: '/dbaitr-favicon.svg', type: 'image/svg+xml' },
+      '/favicon.ico',
+    ],
   },
   openGraph: {
     title: 'dbaitr - AI Powered Debates',

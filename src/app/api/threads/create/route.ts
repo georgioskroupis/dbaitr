@@ -122,8 +122,9 @@ export async function POST(req: Request) {
     } catch {}
     // Trigger topic analysis (debounced)
     try {
-      const { markAnalysisRequested } = await import('@/lib/server/analysis');
+      const { markAnalysisRequested, markDiscussionOverviewRequested } = await import('@/lib/server/analysis');
       await markAnalysisRequested(topicId);
+      await markDiscussionOverviewRequested(topicId);
     } catch {}
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {

@@ -286,7 +286,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
 
 
   return (
-    <Card className="mb-4 sm:mb-6 bg-black/40 backdrop-blur-md p-0 rounded-xl shadow-md border border-white/10">
+    <Card id={`msg-${statement.id}`} className="mb-4 sm:mb-6 bg-black/40 backdrop-blur-md p-0 rounded-xl shadow-md border border-white/10">
       <CardHeader className="flex flex-row items-start space-x-3 p-3 sm:p-4">
         <Avatar className="h-10 w-10 border-2 border-rose-500/50">
            <AvatarImage src={photoURL} alt={displayName} data-ai-hint="profile avatar" />

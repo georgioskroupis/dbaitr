@@ -123,7 +123,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
   const borderClass = level > 0 ? 'border-l-2 border-rose-500/30 pl-3' : '';
 
   return (
-    <div className={`py-2 ${borderClass}`} style={{ marginLeft: `${level * 10}px` }}>
+    <div id={`msg-${node.id}`} className={`py-2 ${borderClass}`} style={{ marginLeft: `${level * 10}px` }}>
       <Card className={`shadow-sm ${cardBg} backdrop-blur-sm p-0 rounded-lg border border-white/10`}>
         <CardHeader className="flex flex-row items-start space-x-3 p-2.5 sm:p-3">
           <Avatar className="h-8 w-8 mt-1 border border-rose-500/30">

@@ -31,7 +31,7 @@ const tldrIconMap: Record<string, JSX.Element> = {
 };
 
 export default function ManifestoPage() {
-  const videoUrl = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media";
+  const videoUrl = "/db8-video-bg.mp4";
   return (
     <div className="relative min-h-screen">
       {/* Background video + overlay */}

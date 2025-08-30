@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     if (!db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
     const now = Date.now();
     const since = new Date(now - 2 * 60 * 60 * 1000); // lookback 2h
-    const jobsSnap = await db.collection('_jobs').where('type', '==', 'analysis').where('lastRequestedAt', '>=', since).get();
+    const jobsSnap = await db.collection('_jobs').where('lastRequestedAt', '>=', since).get();
     const out: any[] = [];
     for (const d of jobsSnap.docs) {
       const j = d.data() as any;
@@ -41,8 +41,14 @@ export async function GET(req: Request) {
       const cooldownAt = j?.cooldownAt?.toDate?.()?.getTime?.() || 0;
       if (now < cooldownAt) continue;
       try {
-        const res = await evaluateTopicPills(String(j.topicId || ''), 'scheduled');
-        out.push(res);
+        if (j.type === 'analysis') {
+          const res = await evaluateTopicPills(String(j.topicId || ''), 'scheduled');
+          out.push(res);
+        } else if (j.type === 'discussionOverview') {
+          const { evaluateDiscussionOverview } = await import('@/lib/server/analysis');
+          const res2 = await evaluateDiscussionOverview(String(j.topicId || ''), 'scheduled');
+          out.push(res2);
+        }
         await d.ref.set({ cooldownAt: new Date(now + 30_000) }, { merge: true });
       } catch (e) { /* swallow; next run will retry */ }
     }
@@ -56,7 +62,11 @@ export async function GET(req: Request) {
         topicsRef.where('analysis_flat.engagement', '==', 'dormant').where('analysis_flat.updatedAt', '<=', sixtyMinAgo.toISOString()).limit(10).get(),
       ]);
       for (const d of [...actSnap.docs, ...dormSnap.docs]) {
-        try { out.push(await evaluateTopicPills(d.id, 'scheduled')); } catch {}
+        try {
+          out.push(await evaluateTopicPills(d.id, 'scheduled'));
+          const { evaluateDiscussionOverview } = await import('@/lib/server/analysis');
+          out.push(await evaluateDiscussionOverview(d.id, 'scheduled'));
+        } catch {}
       }
     } catch {}
     return NextResponse.json({ ok: true, count: out.length, results: out });

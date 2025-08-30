@@ -27,9 +27,10 @@ interface GlobalSearchModalProps {
 export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const MIN_CHARS = 3;
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false); 
-  const { suggestions, loading: isSuggestionLoading, debouncedFetchSuggestions, clear } = useSemanticSuggestions({ minChars: 1, debounceMs: 300 });
+  const { suggestions, loading: isSuggestionLoading, debouncedFetchSuggestions, clear } = useSemanticSuggestions({ minChars: MIN_CHARS, debounceMs: 300 });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -37,8 +38,9 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
   const lastFetchId = useRef<string|null>(null);
 
   useEffect(() => {
-    setShowSuggestions(suggestions.length > 0);
-  }, [suggestions]);
+    const hasAny = searchQuery.trim().length >= 1;
+    setShowSuggestions(hasAny);
+  }, [suggestions, isSuggestionLoading, searchQuery]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -58,10 +60,14 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     const query = e.target.value;
     setSearchQuery(query);
     setActiveSuggestionIndex(-1);
-     if (!query.trim() || query.length < 1) {
+     if (!query.trim()) {
       clear();
       setShowSuggestions(false);
+    } else if (query.length < MIN_CHARS) {
+      clear();
+      setShowSuggestions(true);
     } else {
+      setShowSuggestions(true); // open immediately with spinner while loading
       debouncedFetchSuggestions(query);
     }
   };
@@ -199,14 +205,36 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
               value={searchQuery}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onFocus={() => searchQuery.trim().length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+              onFocus={() => searchQuery.trim().length >= 1 && setShowSuggestions(true)}
               placeholder="What's the debate?"
               className="w-full pl-10 pr-4 py-3 text-base rounded-lg border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition h-12"
               disabled={isLoading}
               aria-label="Search debate topic"
               autoComplete="off"
             />
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && suggestions.length === 0 && isSuggestionLoading && (
+                <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-50 text-left">
+                  <div className="flex items-center justify-center gap-2 p-3 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Searching…</span>
+                  </div>
+                </div>
+              )}
+            {showSuggestions && suggestions.length === 0 && !isSuggestionLoading && (
+                <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-50 text-left">
+                  {searchQuery.trim().length < MIN_CHARS ? (
+                    <div className="p-3 text-sm text-muted-foreground flex items-center gap-0.5">
+                      <span>Keep typing</span>
+                      <span className="animate-pulse" style={{ animationDelay: '0ms' }}>.</span>
+                      <span className="animate-pulse" style={{ animationDelay: '200ms' }}>.</span>
+                      <span className="animate-pulse" style={{ animationDelay: '400ms' }}>.</span>
+                    </div>
+                  ) : (
+                    <div className="p-3 text-sm text-muted-foreground">No suggestions yet</div>
+                  )}
+                </div>
+              )}
+            {showSuggestions && searchQuery.trim().length >= MIN_CHARS && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-card border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto text-left">
                   {suggestions.map((suggestion, index) => (
                     <div

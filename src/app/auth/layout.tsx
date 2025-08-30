@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/db8-video-bg.mp4?alt=media" type="video/mp4" />
+          <source src="/db8-video-bg.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
       </div>

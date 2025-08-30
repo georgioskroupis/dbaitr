@@ -22,8 +22,7 @@ interface SearchBarProps {
   suggestionsPlacement?: 'down' | 'up';
 }
 
-const FAVICON_SVG_URL =
-  "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-favicon.svg?alt=media&token=0ede04eb-0397-435e-bea6-6d1a9dc705ae";
+const FAVICON_SVG_URL = "/dbaitr-favicon.svg";
 
 export function SearchBar({
   size = 'default',
@@ -33,29 +32,38 @@ export function SearchBar({
   suggestionsPlacement = 'down',
 }: SearchBarProps) {
   const isCompact = size === 'compact';
+  const MIN_CHARS = 3;
   const router = useRouter();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { suggestions, loading: isSuggestionLoading, debouncedFetchSuggestions, clear } = useSemanticSuggestions({ minChars: 1, debounceMs: 300, disabled: disabledSuggestions });
+  const { suggestions, loading: isSuggestionLoading, debouncedFetchSuggestions, clear } = useSemanticSuggestions({ minChars: MIN_CHARS, debounceMs: 300, disabled: disabledSuggestions });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setShowSuggestions(suggestions.length > 0);
-  }, [suggestions]);
+    // Show dropdown from first keystroke; content varies by state/length
+    const hasAny = searchQuery.trim().length >= 1;
+    setShowSuggestions(hasAny);
+  }, [suggestions, isSuggestionLoading, searchQuery]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
     setActiveSuggestionIndex(-1);
-    if (!query.trim() || query.length < 1) {
+    if (!query.trim()) {
       clear();
       setShowSuggestions(false);
+    } else if (query.length < MIN_CHARS) {
+      // Below threshold: clear prior suggestions and show guidance
+      clear();
+      setShowSuggestions(true);
     } else {
+      // Immediately show dropdown with spinner while fetching
+      setShowSuggestions(true);
       debouncedFetchSuggestions(query);
     }
   };
@@ -188,7 +196,7 @@ export function SearchBar({
           value={searchQuery}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => searchQuery.trim().length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+          onFocus={() => searchQuery.trim().length >= 1 && setShowSuggestions(true)}
           placeholder={placeholder ?? "What's the debate?"}
           className={cn(
             "w-full rounded-md border border-input bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring backdrop-blur-md transition",
@@ -212,6 +220,40 @@ export function SearchBar({
             <MessageSquare className={cn(isCompact ? 'h-5 w-5' : 'h-6 w-6')} />
           )}
         </button>
+
+        {showSuggestions && searchQuery.trim().length >= MIN_CHARS && suggestions.length === 0 && isSuggestionLoading && (
+          <div
+            className={cn(
+              "absolute left-0 right-0 w-full bg-card border border-border rounded-md shadow-lg z-20 overflow-y-auto text-left",
+              suggestionsPlacement === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+            )}
+          >
+            <div className="flex items-center gap-2 p-3 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className={cn(isCompact ? 'text-xs' : 'text-sm')}>Searching…</span>
+            </div>
+          </div>
+        )}
+
+        {showSuggestions && suggestions.length === 0 && !isSuggestionLoading && (
+          <div
+            className={cn(
+              "absolute left-0 right-0 w-full bg-card border border-border rounded-md shadow-lg z-20 text-left",
+              suggestionsPlacement === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+            )}
+          >
+            {searchQuery.trim().length < MIN_CHARS ? (
+              <div className={cn("p-3 text-muted-foreground flex items-center gap-0.5", isCompact ? 'text-xs' : 'text-sm')}>
+                <span>Keep typing</span>
+                <span className="animate-pulse" style={{ animationDelay: '0ms' }}>.</span>
+                <span className="animate-pulse" style={{ animationDelay: '200ms' }}>.</span>
+                <span className="animate-pulse" style={{ animationDelay: '400ms' }}>.</span>
+              </div>
+            ) : (
+              <div className={cn("p-3 text-muted-foreground", isCompact ? 'text-xs' : 'text-sm')}>No suggestions yet</div>
+            )}
+          </div>
+        )}
 
         {showSuggestions && suggestions.length > 0 && (
           <div

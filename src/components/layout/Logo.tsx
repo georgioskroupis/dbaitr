@@ -13,7 +13,7 @@ interface LogoProps {
   ratio?: number; // width/height ratio hint to reserve space
 }
 
-const DBAITR_SVG_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-logo.svg?alt=media&token=4da903b9-22ac-486a-89f3-145bd84bec11";
+const DBAITR_SVG_LOGO_URL = "/dbaitr-logo.svg";
 
 export function Logo({ className, width, height, href = "/", sizes, fluid = false, ratio }: LogoProps) {
   // Aspect ratio approx 4.5:1 (width / 4.5 for height)

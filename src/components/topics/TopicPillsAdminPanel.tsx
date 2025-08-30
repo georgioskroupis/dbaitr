@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from '@/context/AuthContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,8 +22,9 @@ const OPTIONS: Record<Cat, string[]> = {
 
 export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string; categories?: any }) {
   const { user, userProfile } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { toast } = useToast();
-  const canModerate = !!(user && (userProfile?.isModerator || userProfile?.isAdmin));
+  const canModerate = !!(user && (userProfile?.isModerator || userProfile?.isAdmin || isAdmin));
   const [note, setNote] = useState<string>('');
   const [saving, setSaving] = useState<string | null>(null);
   const [running, setRunning] = useState<boolean>(false);
@@ -33,12 +35,29 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     if (!user) return;
     setRunning(true);
     try {
-      const t = await user.getIdToken();
+      const t = await user.getIdToken(true);
       const res = await fetch('/api/analysis/recompute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId }) });
       if (!res.ok) throw new Error('Failed');
       toast({ title: 'Recompute queued', description: 'Analysis updated.' });
     } catch {
       toast({ title: 'Recompute failed', description: 'Try again shortly.', variant: 'destructive' });
+    } finally { setRunning(false); }
+  }
+
+  async function recomputeOverview() {
+    if (!user) return;
+    setRunning(true);
+    try {
+      const t = await user.getIdToken(true);
+      const res = await fetch('/api/analysis/overview/recompute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ topicId })
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast({ title: 'Overview recompute queued', description: 'Discussion Overview updated.' });
+    } catch {
+      toast({ title: 'Overview recompute failed', description: 'Try again shortly.', variant: 'destructive' });
     } finally { setRunning(false); }
   }
 
@@ -59,9 +78,10 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     <div className="p-3 rounded-lg border border-white/10 bg-black/40">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-white/70">Moderator Controls</div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Input placeholder="Override note (optional)" value={note} onChange={e => setNote(e.target.value)} className="h-8 w-64 bg-white/5 border-white/20 text-white" />
-          <Button size="sm" className="h-8" onClick={recomputeNow} disabled={running}>{running ? 'Recomputing…' : 'Recompute now'}</Button>
+          <Button size="sm" className="h-8" onClick={recomputeNow} disabled={running}>{running ? 'Recomputing…' : 'Recompute pills'}</Button>
+          <Button size="sm" variant="outline" className="h-8 border-white/30" onClick={recomputeOverview} disabled={running}>{running ? 'Recomputing…' : 'Recompute overview'}</Button>
         </div>
       </div>
       <Separator className="my-2 bg-white/10" />
@@ -86,4 +106,3 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     </div>
   );
 }
-

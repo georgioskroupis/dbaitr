@@ -266,3 +266,92 @@ export async function markAnalysisRequested(topicId: string) {
   await db.collection('_jobs').doc(`analysis_${topicId}`).set({ topicId, type: 'analysis', lastRequestedAt: FieldValue.serverTimestamp() }, { merge: true });
 }
 
+export async function markDiscussionOverviewRequested(topicId: string) {
+  const db = getDbAdmin();
+  if (!db) return;
+  await db.collection('_jobs').doc(`overview_${topicId}`).set({ topicId, type: 'discussionOverview', lastRequestedAt: FieldValue.serverTimestamp() }, { merge: true });
+}
+
+export async function evaluateDiscussionOverview(topicId: string, trigger: Trigger = 'event') {
+  const db = getDbAdmin();
+  if (!db) throw new Error('admin_not_configured');
+  const { topicRef, topic, statements, threads } = await getTopicData(db, topicId);
+  if (!topic) throw new Error('topic_not_found');
+
+  // Partition by stance
+  function stanceOf(s: any): number | null {
+    const l = typeof s?.stanceLikert === 'number' ? s.stanceLikert : null;
+    if (l) return l;
+    const pos = String(s.position || '').toLowerCase();
+    if (pos === 'for') return 5;
+    if (pos === 'against') return 1;
+    return null;
+  }
+
+  const items = [
+    ...statements.map(s => ({ id: s.id, type: 'S', content: String(s.content || ''), likert: stanceOf(s), links: extractLinks(String(s.content || '')), createdAt: parseTs(s.createdAt) })),
+    ...threads.map(t => ({ id: t.id, type: t.type === 'question' ? 'Q' : 'R', content: String(t.content || ''), likert: stanceOf(t), links: extractLinks(String(t.content || '')), createdAt: parseTs(t.createdAt) }))
+  ];
+  // Filter windows and cap
+  const sorted = items.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+  const forItems = sorted.filter(i => (i.likert || 0) >= 4).slice(0, 80);
+  const againstItems = sorted.filter(i => (i.likert || 0) <= 2 && (i.likert !== null)).slice(0, 80);
+  const neutralItems = sorted.filter(i => !i.likert || i.likert === 3).slice(0, 40);
+
+  // Evidence with domain weighting
+  function evidenceFrom(arr: any[]) {
+    const ev: Array<{ url: string; messageId: string; weight: number }> = [];
+    for (const it of arr) {
+      for (const u of it.links || []) ev.push({ url: u, messageId: it.id, weight: getDomainWeight(u) });
+    }
+    // pick top by weight
+    return ev.sort((a, b) => b.weight - a.weight).slice(0, 8);
+  }
+  const evFor = evidenceFrom(forItems);
+  const evAgainst = evidenceFrom(againstItems);
+
+  // Prepare input digest for the model
+  const digest = {
+    topic: String(topic.title || ''),
+    for: forItems.map(i => ({ id: `${i.type}${i.id}`, text: i.content.slice(0, 320) })),
+    against: againstItems.map(i => ({ id: `${i.type}${i.id}`, text: i.content.slice(0, 320) })),
+    neutral: neutralItems.map(i => ({ id: `${i.type}${i.id}`, text: i.content.slice(0, 200) })),
+    evidence: {
+      for: evFor.map(e => ({ url: e.url, messageId: `msg-${e.messageId}`, domainWeight: e.weight })),
+      against: evAgainst.map(e => ({ url: e.url, messageId: `msg-${e.messageId}`, domainWeight: e.weight })),
+    }
+  };
+
+  const { generateDiscussionOverview } = await import('@/ai/flows/generate-discussion-overview');
+  const result = await generateDiscussionOverview({ digest });
+
+  const version = { ...ANALYSIS_VERSION, updatedAt: nowIso(), prompt: 'generateDiscussionOverview' } as any;
+  const counts = {
+    forMessages: forItems.length,
+    againstMessages: againstItems.length,
+    neutralMessages: neutralItems.length,
+    participants: new Set([...statements, ...threads].map((x: any) => x.createdBy).filter(Boolean)).size,
+  };
+  const meta = { updatedAt: nowIso(), trigger, digestHash: shortHash(JSON.stringify({ f: forItems.length, a: againstItems.length })), confidence: clamp01(Number((result as any)?.meta?.confidence || 0.7)), trend24h: 0 } as any;
+
+  const overview = {
+    version,
+    meta,
+    for: result.for,
+    against: result.against,
+    counts,
+    rationaleShort: (result as any)?.rationaleShort || ''
+  };
+
+  const updates: any = { analysis: { version: { ...ANALYSIS_VERSION, updatedAt: nowIso() }, discussionOverview: overview }, analysis_flat: { discussionOverview: { updatedAt: nowIso() } } };
+
+  const histRef = topicRef.collection('discussion_overview_history');
+  const batch = db.batch();
+  batch.set(topicRef, updates, { merge: true });
+  batch.set(histRef.doc(), { createdAt: FieldValue.serverTimestamp(), overview, trigger, digestHash: meta.digestHash });
+  const snap = await histRef.orderBy('createdAt', 'desc').get();
+  const excess = snap.docs.slice(50);
+  for (const d of excess) batch.delete(d.ref);
+  await batch.commit();
+  return { ok: true, topicId, trigger, counts };
+}

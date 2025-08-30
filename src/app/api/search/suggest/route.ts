@@ -28,6 +28,10 @@ export async function GET(req: Request) {
 
     const hasAIKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     if (!hasAIKey) {
+      // In development, degrade gracefully to avoid noisy errors during UI work
+      if (process.env.NODE_ENV !== 'production') {
+        return NextResponse.json({ suggestions: [] });
+      }
       logger.error('[api/search/suggest] Missing GEMINI_API_KEY/GOOGLE_API_KEY');
       return NextResponse.json({ suggestions: [], error: 'Missing GEMINI_API_KEY/GOOGLE_API_KEY' }, { status: 500 });
     }
@@ -82,8 +86,11 @@ export async function GET(req: Request) {
     return NextResponse.json(result ?? { suggestions: [] });
   } catch (err) {
     logger.error('[api/search/suggest] Error:', err);
-    // Return 500 with an error message for client diagnostics
     const message = err instanceof Error ? err.message : 'Unknown server error';
+    // In development, degrade to empty suggestions to avoid noisy UI errors while iterating
+    if (process.env.NODE_ENV !== 'production') {
+      return NextResponse.json({ suggestions: [] });
+    }
     return NextResponse.json({ suggestions: [], error: message }, { status: 500 });
   }
 }

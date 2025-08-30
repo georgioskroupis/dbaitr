@@ -75,7 +75,7 @@ export function BottomNav({ setSearchModalOpen }: BottomNavProps) {
               <button key={itemKey} {...commonProps} onClick={item.action} aria-label={item.label}>
                 {item.id === 'start-dbaitr' ? (
                   <img
-                    src="https://firebasestorage.googleapis.com/v0/b/db8app.firebasestorage.app/o/dbaitr-favicon.svg?alt=media&token=0ede04eb-0397-435e-bea6-6d1a9dc705ae"
+                    src="/dbaitr-favicon.svg"
                     alt="dbaitr icon"
                     className="h-6 w-6 invert brightness-0 animate-gavel-strike-paused origin-bottom"
                   />
