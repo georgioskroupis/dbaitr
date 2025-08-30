@@ -6,7 +6,7 @@
     "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
+    "build": "npm run apphosting:build",
     "start": "next start",
     "lint": "next lint && node scripts/checks/missing-appcheck-header.mjs && node scripts/checks/forbid-duplicate-inits.mjs && node scripts/checks/forbid-legacy-role-flags.mjs",
     "lint:appcheck": "node scripts/checks/missing-appcheck-header.mjs",
