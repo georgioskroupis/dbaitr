@@ -157,10 +157,16 @@ export default function UnifiedAuthPage() {
       }
 
       setEmail(sanitizedEmail);
-      const exists = (serverExists !== null) ? serverExists : (methods.length > 0);
+      // Decision logic with anti-enumeration tolerance:
+      // - If Admin says true -> login
+      // - Else if methods suggest existing providers -> login
+      // - Else if inconclusive (admin false/null AND no methods) -> prefer login to avoid false negatives
+      // - Else -> signup
+      const inconclusive = (serverExists === null || serverExists === false) && methods.length === 0;
+      const exists = serverExists === true || methods.length > 0 || inconclusive;
       if (process.env.NODE_ENV !== 'production') {
-        console.debug('[auth] decision', { serverExists, methods, exists });
-        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} exists=${exists}` });
+        console.debug('[auth] decision', { serverExists, methods, inconclusive, exists });
+        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} inconclusive=${inconclusive} exists=${exists}` });
       }
       setPhase(exists ? 'login' : 'signup');
     } catch (error) {

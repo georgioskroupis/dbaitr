@@ -109,6 +109,11 @@ env:
   - variable: GEMINI_API_KEY
     secret: GEMINI_API_KEY
     availability: [ RUNTIME ]
+
+  # Firebase Admin SDK service account (server-only)
+  - variable: FIREBASE_SERVICE_ACCOUNT
+    secret: FIREBASE_SERVICE_ACCOUNT
+    availability: [ RUNTIME ]
   # Optional: Cloud Run IDV fallback service URL (add later if you deploy it)
   # - variable: CLOUD_RUN_IDV_URL
   #   value: "https://idv-xxxxx-uc.a.run.app"
