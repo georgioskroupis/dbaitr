@@ -22,12 +22,3 @@ jobs:
           fail-on: high
           comment-pr: true
           lighthouse-url: https://dbaitr.com
-
-      # (Optional) Upload report if it exists
-      - name: Upload Quality Lab report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qualitylab-report
-          path: qualitylab-report/
-          if-no-files-found: ignore
