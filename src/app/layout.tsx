@@ -18,6 +18,7 @@ import AppBootstrapper from '@/components/AppBootstrapper';
 const DBAITR_SVG_LOGO_URL = "/video-poster.svg";
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://dbaitr.com'),
   title: 'dbaitr - AI Powered Debates',
   description: 'Engage in structured debates with AI analysis on dbaitr.',
   icons: {

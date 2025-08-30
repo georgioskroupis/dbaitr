@@ -1,11 +1,16 @@
 "use client";
-// Unified Firebase client initialization with server guard
+// Unified Firebase client initialization with server guard (no top-level await)
 import { logger } from '@/lib/logger';
 import type { FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import type { FirebaseStorage } from 'firebase/storage';
+import { getStorage } from 'firebase/storage';
 import type { Database } from 'firebase/database';
+import { getDatabase } from 'firebase/database';
 
 let app: FirebaseApp | any;
 let auth: Auth | any;
@@ -14,12 +19,6 @@ let storage: FirebaseStorage | any;
 let rtdb: Database | any;
 
 if (typeof window !== 'undefined') {
-  const { initializeApp, getApps, getApp } = await import('firebase/app');
-  const { getAuth, setPersistence, browserLocalPersistence } = await import('firebase/auth');
-  const { getFirestore } = await import('firebase/firestore');
-  const { getStorage } = await import('firebase/storage');
-  const { getDatabase } = await import('firebase/database');
-
   const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,

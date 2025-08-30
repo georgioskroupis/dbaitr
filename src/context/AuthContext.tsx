@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import type { DocumentData } from 'firebase/firestore';
 import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore'; // Import Timestamp
 import * as React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { logger } from '@/lib/logger';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
