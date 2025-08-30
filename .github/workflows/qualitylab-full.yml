@@ -1,0 +1,28 @@
+name: Quality Lab – Full Scan
+
+on:
+  workflow_dispatch: {}   # run it manually from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  fullscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Quality Lab (full repo, no time budget)
+        uses: georgioskroupis/quality-lab@v1
+        with:
+          fail-on: high              # gate on severity if you want
+          comment-pr: false          # not a PR context
+          time-budget: 0             # 0 or omit = no cap (action-dependent)
+          paths: ""                  # empty = scan the whole repo
+          lighthouse-url: "https://dbaitr.com"  # keep if you want Lighthouse
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualitylab-report
+          path: qualitylab-report/
