@@ -44,7 +44,7 @@ export default function AppealsAdminPage() {
         const u = getAuth().currentUser;
         if (u) {
           const t = await u.getIdToken();
-          const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+          const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
           const j = await res.json();
           if (j?.ok && j.role === 'admin') { setAllow(true); return; }
         }
@@ -60,7 +60,7 @@ export default function AppealsAdminPage() {
       try {
         if (user) {
           const token = await user.getIdToken();
-          const res = await fetch('/api/admin/appeals', { headers: { Authorization: `Bearer ${token}` } });
+          const res = await apiFetch('/api/admin/appeals', { headers: { Authorization: `Bearer ${token}` } });
           if (res.ok) {
             const j = await res.json();
             if (j?.ok) { 
@@ -87,7 +87,7 @@ export default function AppealsAdminPage() {
     setResolvingId(appealId);
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/appeals/resolve', {
+      const res = await apiFetch('/api/appeals/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ appealId, decision, rationale: rationale[appealId] || '' }),
@@ -169,3 +169,4 @@ export default function AppealsAdminPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

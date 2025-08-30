@@ -6,7 +6,7 @@ Unified Auth + App Check Architecture
 - Firestore Rules use claims exclusively; client writes to admin/analysis are denied.
 
 Flows
-- Login → set cookies db8_idt + db8_appcheck (non-HTTPOnly) for SSR redirect only. API still uses Authorization header and X-Firebase-AppCheck.
+- Login → set presence cookies db8_authp + db8_appcp (non-HTTPOnly) for SSR redirect only; these are opaque, non-sensitive markers to avoid flicker. API calls still use Authorization header and X-Firebase-AppCheck.
 - Claim change → Admin sets claims and writes user_private/{uid}.claimsChangedAt → clients refresh tokens and cookies.
 
 References

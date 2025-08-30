@@ -92,7 +92,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     classifyDebounceRef.current = window.setTimeout(async () => {
       try {
         const token = await user.getIdToken();
-        const res = await fetch('/api/statements/classify-claim', {
+        const res = await apiFetch('/api/statements/classify-claim', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ text, topic: topic.title }),
@@ -162,7 +162,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       // Trigger server-side analysis (best-effort)
       try {
         const token = await user.getIdToken();
-        await fetch('/api/sentiment', {
+        await apiFetch('/api/sentiment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ target: 'statement', topicId: topic.id, statementId: st.id, text: values.content }),
@@ -173,7 +173,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       // Fire-and-forget classification
       try {
         const token = await user.getIdToken();
-        await fetch('/api/statements/classify', {
+        await apiFetch('/api/statements/classify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ topicId: topic.id, statementId: st.id, text: values.content }),
@@ -343,7 +343,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
                 try {
                   setAiDrafting(true);
                   const token = await user.getIdToken();
-                  const res = await fetch('/api/ai/draft', {
+                  const res = await apiFetch('/api/ai/draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ topic: topic.title, type: 'statement' }),
@@ -417,3 +417,4 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     </Form>
   );
 }
+import { apiFetch } from '@/lib/http/client';

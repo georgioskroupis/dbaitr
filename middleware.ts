@@ -7,9 +7,9 @@ export function middleware(req: NextRequest) {
   // Only guard a subset to avoid overhead; APIs are enforced server-side.
   const policy = routePolicies.find(p => pathname === p.path || (p.path.endsWith('/') && pathname.startsWith(p.path)));
   if (!policy || policy.public) return NextResponse.next();
-  const idt = req.cookies.get('db8_idt')?.value;
-  const act = req.cookies.get('db8_appcheck')?.value;
-  if (!idt || !act) {
+  const idp = req.cookies.get('db8_authp')?.value;
+  const acp = req.cookies.get('db8_appcp')?.value;
+  if (!idp || !acp) {
     const url = req.nextUrl.clone();
     url.pathname = '/auth';
     url.search = search ? `?returnTo=${encodeURIComponent(pathname+search)}` : `?returnTo=${encodeURIComponent(pathname)}`;
@@ -26,4 +26,3 @@ export const config = {
     '/live/new',
   ],
 };
-

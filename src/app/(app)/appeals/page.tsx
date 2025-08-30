@@ -41,7 +41,7 @@ export default function AppealsPage() {
     setSubmitting(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/appeals/create', {
+      const res = await apiFetch('/api/appeals/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ topicId: topicId || undefined, statementId: statementId || undefined, threadId: threadId || undefined, reason }),
@@ -92,3 +92,4 @@ export default function AppealsPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

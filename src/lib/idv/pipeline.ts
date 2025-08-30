@@ -7,7 +7,8 @@ export async function serverVerify(front: Blob, back: Blob, selfie: Blob, uid: s
     fd.append('back', back);
     fd.append('selfie', selfie);
     fd.append('uid', uid);
-    const resp = await fetch('/api/idv/verify', {
+    const { apiFetch } = await import('@/lib/http/client');
+    const resp = await apiFetch('/api/idv/verify', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: fd,

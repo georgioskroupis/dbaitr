@@ -92,7 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const current = auth.currentUser;
             if (current) {
               const t = await current.getIdToken();
-              const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
+              const { apiFetch } = await import('@/lib/http/client');
+              const res = await apiFetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
               if (res.ok) {
                 const j = await res.json();
                 if (j?.ok) setUserProfile(j.profile || null);

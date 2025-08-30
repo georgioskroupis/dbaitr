@@ -43,7 +43,7 @@ export default function ModerationPage() {
         const u = getAuth().currentUser;
         if (u) {
           const t = await u.getIdToken();
-          const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+          const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
           const j = await res.json();
           if (j?.ok && j.role === 'admin') { setAllow(true); return; }
         }
@@ -60,7 +60,7 @@ export default function ModerationPage() {
         // Use admin API to avoid client rules/App Check issues
         if (user) {
           const token = await user.getIdToken();
-          const res = await fetch('/api/admin/reports', { headers: { Authorization: `Bearer ${token}` } });
+          const res = await apiFetch('/api/admin/reports', { headers: { Authorization: `Bearer ${token}` } });
           if (res.ok) {
             const j = await res.json();
             if (j?.ok) {
@@ -116,7 +116,7 @@ export default function ModerationPage() {
     try {
       if (user) {
         const token = await user.getIdToken();
-        await fetch('/api/moderation/action', {
+        await apiFetch('/api/moderation/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -147,7 +147,7 @@ export default function ModerationPage() {
     try {
       if (user) {
         const token = await user.getIdToken();
-        await fetch('/api/moderation/action', {
+        await apiFetch('/api/moderation/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -277,3 +277,4 @@ export default function ModerationPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

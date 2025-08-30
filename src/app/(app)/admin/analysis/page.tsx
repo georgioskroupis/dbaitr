@@ -79,7 +79,7 @@ export default function AdminAnalysisPage() {
     let ok = 0, fail = 0;
     for (const topicId of ids) {
       try {
-        const res = await fetch('/api/admin/analysis/override', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId, category: bulkCat, value: bulkVal, note: bulkNote || undefined }) });
+        const res = await apiFetch('/api/admin/analysis/override', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId, category: bulkCat, value: bulkVal, note: bulkNote || undefined }) });
         if (!res.ok) throw new Error('bad');
         ok++;
       } catch { fail++; }
@@ -220,3 +220,4 @@ export default function AdminAnalysisPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

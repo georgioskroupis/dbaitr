@@ -65,19 +65,24 @@ export default function AppBootstrapper() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSeedingAttempted]); // Removed toast from deps, it's stable from useToast hook
 
-  // Keep SSR guard cookies in sync (best-effort)
+  // Keep SSR guard presence cookies in sync (best-effort)
   useEffect(() => {
     const auth = getAuth();
     const unsub = auth.onAuthStateChanged(async (u) => {
       if (!u) {
-        document.cookie = `db8_idt=; Path=/; Max-Age=0; SameSite=Lax`;
+        document.cookie = `db8_authp=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+        document.cookie = `db8_appcp=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
         return;
       }
       try {
-        const t = await u.getIdToken();
-        document.cookie = `db8_idt=${encodeURIComponent(t)}; Path=/; Max-Age=600; SameSite=Lax`;
+        // Opaque presence cookies (no tokens). Random strings.
+        const authp = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+        document.cookie = `db8_authp=${authp}; Path=/; Max-Age=1200; SameSite=Lax; Secure`;
         const ac = await getAppCheckToken();
-        if (ac) document.cookie = `db8_appcheck=${encodeURIComponent(ac)}; Path=/; Max-Age=600; SameSite=Lax`;
+        if (ac) {
+          const appcp = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+          document.cookie = `db8_appcp=${appcp}; Path=/; Max-Age=1200; SameSite=Lax; Secure`;
+        }
       } catch {}
     });
     // Listen for claimsChanged broadcast to refresh
@@ -89,10 +94,13 @@ export default function AppBootstrapper() {
           const u = getAuth().currentUser;
           if (u) {
             await u.getIdToken(true).catch(()=>{});
-            const t = await u.getIdToken().catch(()=>null);
-            if (t) document.cookie = `db8_idt=${encodeURIComponent(t)}; Path=/; Max-Age=600; SameSite=Lax`;
+            const authp = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+            document.cookie = `db8_authp=${authp}; Path=/; Max-Age=1200; SameSite=Lax; Secure`;
             const ac = await getAppCheckToken(true).catch(()=>null);
-            if (ac) document.cookie = `db8_appcheck=${encodeURIComponent(ac)}; Path=/; Max-Age=600; SameSite=Lax`;
+            if (ac) {
+              const appcp = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+              document.cookie = `db8_appcp=${appcp}; Path=/; Max-Age=1200; SameSite=Lax; Secure`;
+            }
           }
         }
       };

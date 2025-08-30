@@ -30,7 +30,7 @@ export default function DashboardPage() {
     async function fetchTopics() {
       setIsLoadingTopics(true);
       try {
-        const res = await fetch('/api/topics');
+        const res = await apiFetch('/api/topics');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setTopics(Array.isArray(data.topics) ? data.topics : []);
@@ -103,3 +103,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

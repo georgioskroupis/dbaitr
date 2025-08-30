@@ -1,21 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, getAuthAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, req) => {
   try {
     const db = getDbAdmin();
-    const auth = getAuthAdmin();
-    if (!db || !auth) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
-    // Optional: check admin claim via Firestore users doc on server for extra reliability
-    const userDoc = await db.collection('users').doc(uid).get();
-    const u = userDoc.data() as any;
-    if (!(u?.isAdmin || u?.isModerator)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    const uid = ctx?.uid as string;
 
     const body = await req.json();
     const { appealId, decision, rationale } = body || {};
@@ -33,5 +25,4 @@ export async function POST(req: Request) {
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
-
+}, { ...requireRole('moderator'), ...requireStatus(['Verified']) });

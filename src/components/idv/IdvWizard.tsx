@@ -54,7 +54,8 @@ export function IdvWizard() {
     setStep('result');
 
     // Call the new result endpoint
-    await fetch('/api/idv/result', {
+  const { apiFetch } = await import('@/lib/http/client');
+    await apiFetch('/api/idv/result', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getAppCheckAdmin } from '@/lib/firebaseAdmin';
+import { getAuthAdmin } from '@/lib/firebase/admin';
+import { withAuth } from '@/lib/http/withAuth';
 
-async function verifyAppCheck(req: Request) {
-  const appCheck = getAppCheckAdmin();
-  const hdr = req.headers.get('X-Firebase-AppCheck') || req.headers.get('X-Firebase-AppCheck-Token');
-  if (!appCheck) return process.env.NODE_ENV !== 'production';
-  // In development, allow missing header to reduce friction
-  if (!hdr && process.env.NODE_ENV !== 'production') return true;
-  try { if (!hdr) return false; await appCheck.verifyToken(hdr); return true; } catch { return false; }
-}
-
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
-    if (!(await verifyAppCheck(req))) return NextResponse.json({ ok: false, error: 'appcheck' }, { status: 401 });
     const { email } = await req.json();
     if (!email || typeof email !== 'string') return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
     const auth = getAuthAdmin();
@@ -46,4 +37,4 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}
+}, { public: true });

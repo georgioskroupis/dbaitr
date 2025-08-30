@@ -36,7 +36,7 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     setRunning(true);
     try {
       const t = await user.getIdToken(true);
-      const res = await fetch('/api/analysis/recompute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId }) });
+      const res = await apiFetch('/api/analysis/recompute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId }) });
       if (!res.ok) throw new Error('Failed');
       toast({ title: 'Recompute queued', description: 'Analysis updated.' });
     } catch {
@@ -49,7 +49,7 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     setRunning(true);
     try {
       const t = await user.getIdToken(true);
-      const res = await fetch('/api/analysis/overview/recompute', {
+      const res = await apiFetch('/api/analysis/overview/recompute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify({ topicId })
@@ -66,7 +66,7 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     setSaving(cat);
     try {
       const t = await user.getIdToken();
-      const res = await fetch('/api/admin/analysis/override', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId, category: cat, value, note: note || undefined }) });
+      const res = await apiFetch('/api/admin/analysis/override', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ topicId, category: cat, value, note: note || undefined }) });
       if (!res.ok) throw new Error('Failed');
       toast({ title: `Overridden ${cat}`, description: `Set to ${value}` });
     } catch {
@@ -106,3 +106,4 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

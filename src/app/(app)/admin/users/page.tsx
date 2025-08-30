@@ -48,7 +48,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [openUid, setOpenUid] = useState<string | null>(null);
 
-  const canView = isAdmin; // admins only per brief (claims-based)
+  const canView = isAdmin; // admins only (claims-based)
 
   async function load() {
     if (!user || !canView) return;
@@ -61,7 +61,7 @@ export default function AdminUsersPage() {
         kyc: kyc === 'any' ? undefined : kyc,
         provider: provider === 'any' ? undefined : provider,
       } as any;
-      const res = await fetch('/api/admin/users/list', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ q, filters, sortBy, sortDir, page, pageSize }) });
+      const res = await apiFetch('/api/admin/users/list', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ q, filters, sortBy, sortDir, page, pageSize }) });
       if (!res.ok) throw new Error('Failed');
       const j = await res.json();
       setRows(j.items || []);
@@ -435,3 +435,4 @@ function ConfirmModal({ open, onOpenChange, label, onConfirm }: { open: boolean;
     </AlertDialog>
   );
 }
+import { apiFetch } from '@/lib/http/client';

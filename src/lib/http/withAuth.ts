@@ -2,16 +2,21 @@ import { NextResponse } from 'next/server';
 import { verifyAppCheckStrict, verifyIdTokenStrict, HttpError, assertRole, assertStatus } from '@/lib/authz/verify';
 import type { Role, Status } from '@/lib/authz/types';
 
-type Handler<T = any> = (ctx: { uid: string; role?: Role; status?: Status; kycVerified: boolean }, req: Request) => Promise<Response | T>;
+type Ctx = { uid: string; role?: Role; status?: Status; kycVerified: boolean } | undefined;
+type Handler<T = any> = (ctx: Ctx, req: Request) => Promise<Response | T>;
 
 function json(status: number, body: any) { return new NextResponse(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
 
-export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatus?: Status[] }) {
+export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatus?: Status[]; public?: boolean }) {
   return async function (req: Request): Promise<Response> {
     const t0 = Date.now();
     const rid = Math.random().toString(36).slice(2);
     try {
       await verifyAppCheckStrict(req);
+      if (opts?.public) {
+        const res = await handler(undefined, req);
+        return res instanceof Response ? res : json(200, res);
+      }
       const { uid, claims } = await verifyIdTokenStrict(req);
       if (opts?.minRole) assertRole(opts.minRole, claims);
       if (opts?.allowedStatus) assertStatus(opts.allowedStatus, claims);
@@ -32,4 +37,3 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
 
 export function requireRole(minRole: Role) { return { minRole }; }
 export function requireStatus(list: Status[]) { return { allowedStatus: list }; }
-

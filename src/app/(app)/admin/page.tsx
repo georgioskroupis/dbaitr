@@ -19,7 +19,7 @@ export default function AdminHomePage() {
           const u = getAuth().currentUser;
           if (u) {
             const t = await u.getIdToken();
-            const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+            const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
             const j = await res.json();
             if (j?.ok && j.role === 'admin') return; // allow access
           }
@@ -95,3 +95,4 @@ export default function AdminHomePage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

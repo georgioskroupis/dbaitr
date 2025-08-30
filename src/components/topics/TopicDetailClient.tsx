@@ -29,6 +29,7 @@ import { collectionGroup } from 'firebase/firestore';
 import { TopicPills } from './TopicPills';
 import { TopicPillsAdminPanel } from './TopicPillsAdminPanel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { apiFetch } from '@/lib/http/client';
 
 
 interface TopicDetailClientProps {
@@ -319,7 +320,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
           if (s.createdBy === uid && s.position === 'pending' && !classifyRequestedRef.current.has(s.id)) {
             classifyRequestedRef.current.add(s.id);
             const token = await user.getIdToken();
-            fetch('/api/statements/classify', {
+            apiFetch('/api/statements/classify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ topicId: topic.id, statementId: s.id, text: s.content || '' }),

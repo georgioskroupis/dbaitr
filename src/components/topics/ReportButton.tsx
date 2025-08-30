@@ -18,7 +18,7 @@ export function ReportButton({
   const { toast } = useToast();
   const handleReport = async () => {
     try {
-      const res = await fetch('/api/moderation/report', {
+      const res = await apiFetch('/api/moderation/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topicId, statementId, threadId, reason: 'user_report', details: '' }),
@@ -35,4 +35,4 @@ export function ReportButton({
     </Button>
   );
 }
-
+import { apiFetch } from '@/lib/http/client';

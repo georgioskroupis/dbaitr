@@ -1,17 +1,11 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
-export async function GET(req: Request) {
+export const GET = withAuth(async (_ctx, _req) => {
   try {
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const role = (decoded as any)?.role || 'viewer';
-    if (role !== 'admin') return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
     let reports: any[] = [];
     let flaggedStatements: any[] = [];
@@ -47,4 +41,4 @@ export async function GET(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

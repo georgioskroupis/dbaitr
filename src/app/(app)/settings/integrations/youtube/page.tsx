@@ -20,7 +20,7 @@ export default function YoutubeIntegrationPage() {
     try {
       // Always refresh config
       try {
-        const res = await fetch('/api/integrations/youtube/config');
+        const res = await apiFetch('/api/integrations/youtube/config');
         const j = await res.json();
         if (j?.ok) setGlobalMode({ enabled: !!j.global, channelId: j.channelId });
       } catch {}
@@ -40,7 +40,7 @@ export default function YoutubeIntegrationPage() {
         const t = await user.getIdToken();
         headers = { Authorization: `Bearer ${t}` };
       }
-      const sr = await fetch('/api/integrations/youtube/status', { headers });
+      const sr = await apiFetch('/api/integrations/youtube/status', { headers });
       const sj = await sr.json();
       if (sj?.ok) setStatus(sj);
     } catch {}
@@ -65,7 +65,7 @@ export default function YoutubeIntegrationPage() {
   const getAuthUrl = async () => {
     if (!user) return;
     const token = await user.getIdToken();
-    const res = await fetch('/api/integrations/youtube/oauth/start', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/integrations/youtube/oauth/start', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     const j = await res.json();
     if (j?.ok) setAuthUrl(j.authUrl);
   };
@@ -73,7 +73,7 @@ export default function YoutubeIntegrationPage() {
   const revoke = async () => {
     if (!user) return;
     const token = await user.getIdToken();
-    await fetch('/api/integrations/youtube/revoke', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch('/api/integrations/youtube/revoke', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     setMessage('Disconnected.');
     refreshStatus();
   };
@@ -137,3 +137,4 @@ export default function YoutubeIntegrationPage() {
     </div>
   );
 }
+import { apiFetch } from '@/lib/http/client';

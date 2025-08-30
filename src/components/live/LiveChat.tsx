@@ -83,7 +83,7 @@ export function LiveChat({ roomId }: { roomId: string }) {
     setSending(true);
     try {
       const token = user ? await user.getIdToken() : '';
-      const res = await fetch('/api/livechat/post', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ roomId, text, type: room?.settings?.questionsOnly ? 'question' : 'message' }) });
+      const res = await apiFetch('/api/livechat/post', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ roomId, text, type: room?.settings?.questionsOnly ? 'question' : 'message' }) });
       const j = await res.json();
       if (!res.ok || !j?.ok) {
         const reason = j?.error || 'unknown_error';
@@ -118,14 +118,14 @@ export function LiveChat({ roomId }: { roomId: string }) {
       if (cmd === 'slow') {
         const arg = parts[1] || '';
         const seconds = arg === 'off' ? 'off' : String(parseInt(arg, 10) || 0);
-        await fetch('/api/livechat/mod/slow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, seconds }) });
+        await apiFetch('/api/livechat/mod/slow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, seconds }) });
       } else if (cmd === 'pin' || cmd === 'unpin') {
         const msgId = parts[1] || '';
-        if (msgId) await fetch('/api/livechat/mod/pin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, msgId, action: cmd }) });
+        if (msgId) await apiFetch('/api/livechat/mod/pin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, msgId, action: cmd }) });
       } else if (cmd === 'shadow' || cmd === 'unshadow') {
         const uidPart = parts[1] || '';
         const targetUid = uidPart.replace(/^uid[:@]?/i, '');
-        if (targetUid) await fetch('/api/livechat/mod/shadow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, targetUid, action: cmd }) });
+        if (targetUid) await apiFetch('/api/livechat/mod/shadow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, targetUid, action: cmd }) });
       }
     } catch {}
     setText('');
@@ -152,7 +152,7 @@ export function LiveChat({ roomId }: { roomId: string }) {
               <span className="font-semibold text-white">{m.displayName || 'User'}</span>
               <RoleBadge role={m.role} />
               {m.type==='question' && <span className="ml-2 text-amber-300 text-xs">Question</span>}
-              {(isHost || isMod) && (<span className="ml-2 text-xs"><button className="underline" onClick={async ()=>{ const token = user ? await user.getIdToken() : ''; const pinned = pinnedSet.has(m.id); await fetch('/api/livechat/mod/pin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, msgId: m.id, action: pinned?'unpin':'pin' }) }); }}>{pinnedSet.has(m.id)?'Unpin':'Pin'}</button></span>)}
+              {(isHost || isMod) && (<span className="ml-2 text-xs"><button className="underline" onClick={async ()=>{ const token = user ? await user.getIdToken() : ''; const pinned = pinnedSet.has(m.id); await apiFetch('/api/livechat/mod/pin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roomId, msgId: m.id, action: pinned?'unpin':'pin' }) }); }}>{pinnedSet.has(m.id)?'Unpin':'Pin'}</button></span>)}
               <div className="text-white/80 whitespace-pre-wrap break-words">{m.text}</div>
             </div>
           ))}
@@ -174,3 +174,4 @@ export function LiveChat({ roomId }: { roomId: string }) {
     </Card>
   );
 }
+import { apiFetch } from '@/lib/http/client';

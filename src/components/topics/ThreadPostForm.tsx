@@ -254,7 +254,7 @@ export function ThreadPostForm({
                 try {
                   setAiDrafting(true);
                   const token = await user.getIdToken();
-                  const res = await fetch('/api/ai/draft', {
+                  const res = await apiFetch('/api/ai/draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({
@@ -330,3 +330,4 @@ export function ThreadPostForm({
     </Form>
   );
 }
+import { apiFetch } from '@/lib/http/client';
