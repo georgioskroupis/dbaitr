@@ -94,4 +94,4 @@ export const GET = withAuth(async (_ctx, req) => {
     }
     return NextResponse.json({ suggestions: [], error: message }, { status: 500 });
   }
-}, { public: true });
+}, { public: true, rateLimit: { ipPerMin: 300 } });

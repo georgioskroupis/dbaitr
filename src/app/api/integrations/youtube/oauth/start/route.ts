@@ -27,6 +27,14 @@ export const POST = withAuth(async (ctx, _req) => {
       getEnv('YOUTUBE_CLIENT_SECRET'),
       getEnv('YOUTUBE_REDIRECT_URI')
     );
+    // PKCE setup (S256)
+    const codeVerifier = ((randomUUID ? randomUUID() : Math.random().toString(36).slice(2)) + Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9\-._~]/g, '').slice(0, 64);
+    const enc = new TextEncoder();
+    const data = enc.encode(codeVerifier);
+    // @ts-ignore
+    const digest = await (globalThis.crypto?.subtle || require('crypto').webcrypto.subtle).digest('SHA-256', data);
+    const buf = Buffer.from(digest);
+    const codeChallenge = buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
     // Create a short-lived state record to correlate callback → uid without relying on headers
     const db = getDbAdmin();
     const sid = (randomUUID ? randomUUID() : Math.random().toString(36).slice(2)) + '-' + Date.now().toString(36);
@@ -34,12 +42,15 @@ export const POST = withAuth(async (ctx, _req) => {
       uid: ctx?.uid,
       createdAt: FieldValue.serverTimestamp(),
       mode: globalChannel ? 'global' : 'user',
+      codeVerifier,
     });
     const url = o.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/youtube'],
       prompt: 'consent', // ensure refresh_token on first connect
       state: sid,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
     });
     return NextResponse.json({ ok: true, authUrl: url });
   } catch (e: any) {

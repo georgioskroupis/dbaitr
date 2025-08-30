@@ -32,3 +32,10 @@ export function hasCapability(role: Role | undefined, cap: CapabilityKey): boole
   return CapabilitiesByRole[role].includes(cap);
 }
 
+export function minRoleForCapability(cap: CapabilityKey): Role {
+  const order: Role[] = ['restricted','viewer','supporter','moderator','admin','super-admin'];
+  for (const r of order) {
+    if (CapabilitiesByRole[r].includes(cap)) return r;
+  }
+  return 'super-admin';
+}

@@ -75,9 +75,9 @@ async function getOAuthClientFor(uid: string): Promise<OAuth2Client> {
   return o;
 }
 
-async function exchangeCodeForTokens(code: string, uid: string) {
+async function exchangeCodeForTokens(code: string, uid: string, codeVerifier?: string) {
   const o = oauthClient();
-  const { tokens } = await o.getToken(code);
+  const { tokens } = await o.getToken(codeVerifier ? { code, codeVerifier } as any : (code as any));
   if (!tokens.refresh_token) {
     // If refresh_token is missing (user previously consented), we cannot manage lives reliably.
     throw new Error('missing_refresh_token');
@@ -128,8 +128,8 @@ function toPrivacyStatus(v: Visibility): youtube_v3.Schema$LiveBroadcastStatus['
 }
 
 export const youtubeProvider: VideoProvider = {
-  async connect(uid, code) {
-    return exchangeCodeForTokens(code, uid);
+  async connect(uid, code, codeVerifier?) {
+    return exchangeCodeForTokens(code, uid, codeVerifier);
   },
   async revoke(uid) {
     const { TARGET_CHANNEL_ID } = getConfig();

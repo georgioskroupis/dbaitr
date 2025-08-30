@@ -54,4 +54,4 @@ export const POST = withAuth(async (ctx, req) => {
     console.error('Error handling IDV result:', error);
     return NextResponse.json({ success: false, reason: 'server_error' }, { status: 500 });
   }
-}, { ...requireStatus(['Grace','Verified']) });
+}, { ...requireStatus(['Grace','Verified']), rateLimit: { userPerMin: 6, ipPerMin: 60 }, idempotent: true });

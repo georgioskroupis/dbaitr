@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getAuthAdmin, getDbAdmin } from '@/lib/firebase/admin';
+import { forceRefreshClaims } from '@/lib/authz/claims';
 import youtubeProvider from '@/providers/video/youtube';
 
 export async function GET(req: Request) {
@@ -44,8 +45,12 @@ export async function GET(req: Request) {
       }
     }
 
-    await youtubeProvider.connect(uid, code);
+    // Retrieve PKCE codeVerifier from pending state
+    let codeVerifier: string | undefined = undefined;
+    try { codeVerifier = (snap.data() as any)?.codeVerifier || undefined; } catch {}
+    await youtubeProvider.connect(uid, code!, codeVerifier);
     await ref.delete();
+    try { await forceRefreshClaims(uid); } catch {}
     // Redirect back to settings page with success
     const redirect = '/settings/integrations/youtube?connected=1';
     return NextResponse.redirect(new URL(redirect, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'));

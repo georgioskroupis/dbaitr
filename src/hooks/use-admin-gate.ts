@@ -14,13 +14,15 @@ export function useAdminGate() {
       try {
         const res = await apiFetch('/api/admin/whoami');
         const j = await res.json().catch(() => ({}));
-        if (!cancelled && j?.ok && (j.role === 'admin' || j.role === 'super-admin')) {
+        if (!cancelled && res.ok && j?.ok && (j.role === 'admin' || j.role === 'super-admin')) {
           setAllowed(true);
         } else if (!cancelled) {
-          router.replace('/');
+          if (res.status === 401) router.replace('/errors/401?reason=unauthenticated');
+          else if (res.status === 423) router.replace('/errors/423?reason=locked');
+          else router.replace('/errors/403?reason=forbidden');
         }
       } catch {
-        if (!cancelled) router.replace('/auth');
+        if (!cancelled) router.replace('/errors/401?reason=unauthenticated');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -29,4 +31,3 @@ export function useAdminGate() {
   }, [router]);
   return { allowed, loading } as const;
 }
-

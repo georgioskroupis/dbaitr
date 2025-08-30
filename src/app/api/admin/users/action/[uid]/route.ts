@@ -95,4 +95,4 @@ export const POST = withAuth(async (ctx, { params }: { params: { uid: string } }
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
-}, { ...requireRole('admin'), ...requireStatus(['Verified']) });
+}, { ...requireRole('admin'), ...requireStatus(['Verified']), rateLimit: { userPerMin: 10, ipPerMin: 60 }, idempotent: true });
