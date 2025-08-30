@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export default function ProfilePage() {
+  const db = getDb();
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const form = useForm<Values>({

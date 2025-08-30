@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 // Avoid server action imports in client code
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { GavelHookIcon as GavelIcon } from '@/components/layout/GavelIcon'; // Corrected import
@@ -79,7 +79,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     setActiveSuggestionIndex(-1);
     try {
       async function getTopicByTitle(t: string) {
-        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const q = query(collection(getDb(), 'topics'), where('title', '==', t), limit(1));
         const snap = await getDocs(q);
         if (snap.empty) return null;
         const d = snap.docs[0];
@@ -121,7 +121,7 @@ export function GlobalSearchModal({ isOpen, onOpenChange }: GlobalSearchModalPro
     
     try {
       async function getTopicByTitle(t: string) {
-        const q = query(collection(db, 'topics'), where('title', '==', t), limit(1));
+        const q = query(collection(getDb(), 'topics'), where('title', '==', t), limit(1));
         const snap = await getDocs(q);
         if (snap.empty) return null;
         const d = snap.docs[0];

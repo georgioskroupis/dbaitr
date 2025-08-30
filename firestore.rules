@@ -147,10 +147,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public analytics/transparency documents (read-only)
+    match /analytics/{docId} {
+      allow read, list: if true;
+      allow write: if false;
+    }
+
     // Private deny-by-default area
     match /_private/{document=**} {
       allow read, write: if false;
     }
   }
 }
-

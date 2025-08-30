@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ type LiveDebate = {
 };
 
 export function LiveIndex({ embedded = false, hideHeading = false }: { embedded?: boolean; hideHeading?: boolean }) {
+  const db = getDb();
   const [tab, setTab] = React.useState<'live'|'upcoming'|'past'>('live');
   const [items, setItems] = React.useState<LiveDebate[]>([]);
 

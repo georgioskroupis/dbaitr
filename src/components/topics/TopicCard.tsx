@@ -12,7 +12,7 @@ import type { UserProfile } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { getAuthorStatusBadge } from '@/lib/react-utils'; 
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { doc, getDoc } from 'firebase/firestore';
 import { LikertBar } from '@/components/analytics/LikertBar';
 import { bucketLabel } from '@/lib/sentiment';
@@ -31,7 +31,7 @@ export function TopicCard({ topic }: TopicCardProps) {
     async function fetchCreator() {
       try {
         if (topic.createdBy) {
-          const ref = doc(db, 'users', topic.createdBy);
+          const ref = doc(getDb(), 'users', topic.createdBy);
           const snap = await getDoc(ref);
           if (snap.exists()) setCreatorProfile(snap.data() as any);
         }
@@ -48,11 +48,11 @@ export function TopicCard({ topic }: TopicCardProps) {
         const { collection, getDocs, query, where, collectionGroup, limit } = await import('firebase/firestore');
         const uid = user?.uid;
         if (!uid) { setUserStats({ hasStatement: false, userQ: 0, distinctStatements: 0 }); return; }
-        const stSnap = await getDocs(query(collection(db, 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
+        const stSnap = await getDocs(query(collection(getDb(), 'topics', topic.id, 'statements'), where('createdBy', '==', uid), limit(1)));
         const hasStatement = !stSnap.empty;
         try {
           // Preferred: collection group query (requires composite index)
-          const qSnap = await getDocs(query(collectionGroup(db, 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
+          const qSnap = await getDocs(query(collectionGroup(getDb(), 'threads'), where('topicId', '==', topic.id), where('type', '==', 'question'), where('createdBy', '==', uid)));
           const userQ = qSnap.size;
           const distinct = new Set<string>();
           qSnap.docs.forEach(d => { const data: any = d.data() || {}; if (data.statementId) distinct.add(data.statementId); });
@@ -60,13 +60,13 @@ export function TopicCard({ topic }: TopicCardProps) {
         } catch {
           // Fallback without composite index: iterate statements and count user's questions per statement
           const { collection, getDocs, query, where } = await import('firebase/firestore');
-          const stList = await getDocs(collection(db, 'topics', topic.id, 'statements'));
+          const stList = await getDocs(collection(getDb(), 'topics', topic.id, 'statements'));
           let userQ = 0;
           const distinct = new Set<string>();
           for (const s of stList.docs) {
             const sid = s.id;
             // Single-field filter by createdBy; filter type in memory to avoid composite index
-            const qs = await getDocs(query(collection(db, 'topics', topic.id, 'statements', sid, 'threads'), where('createdBy', '==', uid)));
+            const qs = await getDocs(query(collection(getDb(), 'topics', topic.id, 'statements', sid, 'threads'), where('createdBy', '==', uid)));
             const arr = qs.docs.map(d => d.data() as any).filter(d => d?.type === 'question');
             if (arr.length > 0) distinct.add(sid);
             userQ += arr.length;
@@ -90,7 +90,7 @@ export function TopicCard({ topic }: TopicCardProps) {
     let cancelled = false;
     async function fetchAgg() {
       try {
-        const ref = doc(db, 'topics', topic.id, 'aggregations', 'sentiment');
+        const ref = doc(getDb(), 'topics', topic.id, 'aggregations', 'sentiment');
         const snap = await getDoc(ref);
         if (!snap.exists()) return;
         const d = snap.data() as any;

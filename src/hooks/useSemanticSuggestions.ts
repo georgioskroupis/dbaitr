@@ -45,7 +45,8 @@ export function useSemanticSuggestions(options: Options = {}) {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(q)}`);
+      const { apiFetch } = await import('@/lib/http/client');
+      const res = await apiFetch(`/api/search/suggest?q=${encodeURIComponent(q)}`);
       if (!res.ok) {
         let serverError = '';
         try {

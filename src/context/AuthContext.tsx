@@ -8,7 +8,7 @@ import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore'; // Impo
 import * as React from 'react';
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { logger } from '@/lib/logger';
-import { auth, db } from '@/lib/firebase';
+import { getAuth, getDb } from '@/lib/firebase/client';
 import type { UserProfile } from '@/types';
 // Avoid server action import in client provider
 
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const profileUnsubRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
       logger.debug("📡 [AuthContext] onAuthStateChanged triggered:", firebaseUser);
       setLoading(true); 
       // Always tear down any previous profile listener before switching user state
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Profile creation ensured server-side on first write; skip client-side server action
 
-        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocRef = doc(getDb(), "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const rawProfileData = docSnap.data();
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fallback: fetch via admin API in case rules block client read
           try {
             // Only try fallback if still authenticated
-            const current = auth.currentUser;
+            const current = getAuth().currentUser;
             if (current) {
               const t = await current.getIdToken();
               const { apiFetch } = await import('@/lib/http/client');

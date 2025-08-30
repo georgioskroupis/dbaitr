@@ -60,23 +60,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Dev-only rewrite to silence extension-initiated CSS reload 404 spam
+  // Dev-only rewrite for favicon only (avoid touching Next internal asset paths)
   async rewrites() {
     if (process.env.NODE_ENV === 'production') return [] as any;
     return [
       {
-        source: '/_next/static/css/app/layout.css',
-        destination: '/dev-noop.css',
-      },
-      // Serve SVG favicon in dev to avoid flaky app/favicon.ico route
-      {
         source: '/favicon.ico',
         destination: '/dbaitr-favicon.svg',
-      },
-      // Guard: vendor-chunks probes to noop (silences dev spam)
-      {
-        source: '/_next/server/vendor-chunks/:path*',
-        destination: '/dev-noop.css',
       },
     ];
   },

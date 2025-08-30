@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query, startAfter, where, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminGate } from '@/hooks/use-admin-gate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ const CAT_VALUES: Record<Cat, string[]> = {
 type Row = { id: string; title: string; analysis?: any; analysis_flat?: any };
 
 export default function AdminAnalysisPage() {
+  const db = getDb();
   const { user } = useAuth();
   const { allowed: isAdmin, loading: gateLoading } = useAdminGate();
   const { toast } = useToast();

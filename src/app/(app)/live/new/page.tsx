@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/http/client';
 
 export default function NewLivePage() {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function NewLivePage() {
     setLoading(true);
     try {
       const token = await user.getIdToken(true); // force refresh to pick up updated claims
-      const res = await fetch('/api/live/create', { method: 'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title, description, visibility }) });
+      const res = await apiFetch('/api/live/create', { method: 'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title, description, visibility }) });
       if (res.status === 403) {
         setMessage('Hosting live debates is limited to Supporters or Admins. Visit Pricing to upgrade.');
         return;

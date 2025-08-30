@@ -15,7 +15,7 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore"; // Import Firestore functions
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase/client";
 // Avoid importing server actions into client page
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { Loader2, Mail, KeyRound, User, Eye, EyeOff, Apple, Chrome } from "lucid
 import { cn } from "@/lib/utils";
 import { useFormEnterSubmit, focusById } from "@/hooks/useFormEnterSubmit";
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/http/client';
 
 
 const emailSchema = z.object({
@@ -112,7 +113,7 @@ export default function UnifiedAuthPage() {
 
     setIsLoading(true);
     try {
-      logger.debug("🔥 Auth instance project:", auth.app.options.projectId);
+      logger.debug("🔥 Auth instance project:", getAuth().app.options.projectId);
       logger.debug("📬 Email submitted:", sanitizedEmail);
 
       // Ask server (Admin SDK) whether the email exists; in dev, App Check header is optional per API handler
@@ -124,9 +125,9 @@ export default function UnifiedAuthPage() {
         const appCheckInstance = getAppCheckInstance();
         const tokenResult = appCheckInstance ? await getToken(appCheckInstance, /* forceRefresh */ true).catch(() => null) : null;
         const appCheckToken = tokenResult?.token;
-        const res = await fetch('/api/auth/check-email', {
+        const res = await apiFetch('/api/auth/check-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}) },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: sanitizedEmail })
         });
         if (process.env.NODE_ENV !== 'production') {
@@ -144,7 +145,7 @@ export default function UnifiedAuthPage() {
       // Production: Fetch sign-in methods for hints and as a fallback signal
       let methods: string[] = [];
       try {
-        methods = await fetchSignInMethodsForEmail(auth, sanitizedEmail);
+        methods = await fetchSignInMethodsForEmail(getAuth(), sanitizedEmail);
         setSignInHints(methods);
         if ((serverExists ?? (methods.length > 0)) && methods.length && !methods.includes('password')) {
           const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
@@ -191,16 +192,16 @@ export default function UnifiedAuthPage() {
       logger.debug("🚨 Attempting login with (sanitized):", { emailSanitized, hasPassword: !!passwordSanitized });
     }
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, emailSanitized, passwordSanitized);
+      const userCredential = await signInWithEmailAndPassword(getAuth(), emailSanitized, passwordSanitized);
       if (process.env.NODE_ENV !== "production") {
         logger.debug("✅ Sign in successful. Firebase User Credential:", userCredential);
-        logger.debug("👤 Firebase currentUser after sign in:", auth.currentUser);
+        logger.debug("👤 Firebase currentUser after sign in:", getAuth().currentUser);
       }
 
       // Profile document is created lazily by backend flows; skip here
 
       await new Promise<void>((resolve) => {
-        const unsub = onAuthStateChanged(auth, (user) => {
+        const unsub = onAuthStateChanged(getAuth(), (user) => {
           if (user) {
             unsub();
             resolve();
@@ -209,7 +210,7 @@ export default function UnifiedAuthPage() {
       });
 
       if (process.env.NODE_ENV !== "production") {
-        logger.debug("User after login state stabilization:", auth.currentUser);
+        logger.debug("User after login state stabilization:", getAuth().currentUser);
       }
 
       toast({ title: "Signed in successfully!" });
@@ -226,7 +227,7 @@ export default function UnifiedAuthPage() {
       const code = authError.code;
       if (code === 'auth/invalid-credential') {
         try {
-          const methods = await fetchSignInMethodsForEmail(auth, emailSanitized);
+          const methods = await fetchSignInMethodsForEmail(getAuth(), emailSanitized);
           if (methods.length && !methods.includes('password')) {
             const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
             toast({
@@ -304,7 +305,7 @@ export default function UnifiedAuthPage() {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, finalValuesForFirebase.email, finalValuesForFirebase.password);
+      const userCredential = await createUserWithEmailAndPassword(getAuth(), finalValuesForFirebase.email, finalValuesForFirebase.password);
       if (process.env.NODE_ENV !== "production") {
         logger.debug("✅ Sign up successful. Firebase User Credential:", userCredential);
       }
@@ -327,11 +328,11 @@ export default function UnifiedAuthPage() {
         }
       }
       if (process.env.NODE_ENV !== "production") {
-        logger.debug("🧾 Firebase current user immediately after signup success in try block:", auth.currentUser);
+        logger.debug("🧾 Firebase current user immediately after signup success in try block:", getAuth().currentUser);
       }
 
       await new Promise<void>((resolve) => {
-        const unsub = onAuthStateChanged(auth, (user) => {
+        const unsub = onAuthStateChanged(getAuth(), (user) => {
           if (user) {
             unsub();
             resolve();

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { db, rtdb } from '@/lib/firebase';
+import { getDb, getRtdb } from '@/lib/firebase/client';
 import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { ref as rRef, onValue, set } from 'firebase/database';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ function RoleBadge({ role }: { role: Message['role'] }) {
 }
 
 export function LiveChat({ roomId }: { roomId: string }) {
+  const db = getDb();
+  const rtdb = getRtdb();
   const { user } = useAuth();
   const [room, setRoom] = React.useState<Room | null>(null);
   const [msgs, setMsgs] = React.useState<Message[]>([]);

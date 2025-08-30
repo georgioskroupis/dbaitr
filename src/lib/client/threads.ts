@@ -1,5 +1,5 @@
 // Client-only Firestore helpers for threads
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { logger } from '@/lib/logger';
 import {
   addDoc,
@@ -63,7 +63,7 @@ export async function createThreadNode(data: {
 
 export async function getUserQuestionCountForStatement(userId: string, statementId: string, topicId: string): Promise<number> {
   const q = query(
-    collection(db, 'topics', topicId, 'statements', statementId, 'threads'),
+    collection(getDb(), 'topics', topicId, 'statements', statementId, 'threads'),
     where('createdBy', '==', userId),
     where('type', '==', 'question')
   );

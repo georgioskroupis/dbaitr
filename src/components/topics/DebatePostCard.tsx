@@ -1,3 +1,4 @@
+'use client';
 
 import type { Statement, ThreadNode } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { ThumbsUp, ThumbsDown, User, Info, MessageSquare, ShieldAlert, ShieldChe
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import * as React from 'react';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { collection, getDocs, orderBy, query, where, doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
 import { ThreadList } from './ThreadList';
@@ -30,6 +31,7 @@ interface DebateStatementCardProps {
 }
 
 export function DebatePostCard({ statement }: DebateStatementCardProps) {
+  const db = getDb();
   const router = useRouter();
   const { user, kycVerified, loading: authLoading, isSuspended: currentUserIsSuspended } = useAuth();
   const { toast } = useToast();
@@ -358,7 +360,8 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
                 try {
                   setAiDrafting(true);
                   const token = await user.getIdToken();
-                  const res = await fetch('/api/ai/draft', {
+                  const { apiFetch } = await import('@/lib/http/client');
+                  const res = await apiFetch('/api/ai/draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({

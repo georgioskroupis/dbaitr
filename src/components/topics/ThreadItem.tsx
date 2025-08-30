@@ -6,7 +6,7 @@ import * as React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, User, CornerDownRight, Edit3, AlertCircle, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
@@ -42,7 +42,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
     async function fetchAuthor() {
       try {
         if (node.createdBy) {
-          const snap = await getDoc(doc(db, 'users', node.createdBy));
+          const snap = await getDoc(doc(getDb(), 'users', node.createdBy));
           if (snap.exists()) setAuthorProfile(snap.data() as any);
         }
       } catch {}
@@ -56,7 +56,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
             setIsLoadingQuestionCount(true);
             try {
                 const q = query(
-                  collection(db, 'topics', node.topicId, 'statements', node.statementId, 'threads'),
+                  collection(getDb(), 'topics', node.topicId, 'statements', node.statementId, 'threads'),
                   where('createdBy', '==', user.uid),
                   where('type', '==', 'question')
                 );
@@ -100,7 +100,7 @@ export function ThreadItem({ node, statementAuthorId, allNodes, level, onThreadU
         setIsLoadingQuestionCount(true);
         (async () => {
           const q = query(
-            collection(db, 'topics', node.topicId, 'statements', node.statementId, 'threads'),
+            collection(getDb(), 'topics', node.topicId, 'statements', node.statementId, 'threads'),
             where('createdBy', '==', user.uid),
             where('type', '==', 'question')
           );

@@ -1,5 +1,5 @@
 // Client-only Firestore helpers for topics
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { logger } from '@/lib/logger';
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { Topic } from '@/types';
@@ -14,7 +14,7 @@ export async function createTopic(title: string, initialDescription: string | un
     scoreAgainst: 0,
     scoreNeutral: 0,
   };
-  const ref = await addDoc(collection(db, 'topics'), payload);
+  const ref = await addDoc(collection(getDb(), 'topics'), payload);
   logger.info('Topic created:', ref.id);
   // Return minimal Topic; timestamps will be normalized by readers
   return {
@@ -24,9 +24,8 @@ export async function createTopic(title: string, initialDescription: string | un
 }
 
 export async function updateTopicDescriptionWithAISummary(topicId: string, summary: string): Promise<void> {
-  await updateDoc(doc(db, 'topics', topicId), {
+  await updateDoc(doc(getDb(), 'topics', topicId), {
     description: summary,
     updatedAt: serverTimestamp(),
   });
 }
-

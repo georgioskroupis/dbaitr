@@ -6,7 +6,7 @@ import { TopicAnalysis } from './TopicAnalysis';
 import { DiscussionOverview } from './DiscussionOverview';
 import { LikertBar } from '@/components/analytics/LikertBar';
 import { doc, getDoc, collection, getDocs, orderBy, query, updateDoc, where, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { PostForm } from './PostForm';
 import { DebatePostCard } from './DebatePostCard';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -38,6 +38,7 @@ interface TopicDetailClientProps {
 }
 
 export function TopicDetailClient({ initialTopic, initialStatements }: TopicDetailClientProps) {
+  const db = getDb();
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState<Topic>(initialTopic);
   const [statements, setStatements] = useState<StatementType[]>(initialStatements);
@@ -171,7 +172,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       if (!topic?.id) return;
       setLoadingStats(true);
       try {
-        const res = await fetch(`/api/topics/${encodeURIComponent(topic.id)}/stats`);
+        const res = await apiFetch(`/api/topics/${encodeURIComponent(topic.id)}/stats`);
         if (res.ok) {
           const j = await res.json();
           const totalStatements = Number(j.totalStatements || 0);

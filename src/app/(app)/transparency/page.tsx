@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { doc, getDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { logger } from '@/lib/logger';
+import { useAuth } from '@/context/AuthContext';
+import { getAppCheckToken, getClientApp } from '@/lib/firebase/client';
+import { apiFetch } from '@/lib/http/client';
 
 type PeriodStats = {
   reports?: number;
@@ -22,23 +26,43 @@ type TransparencyDoc = {
 };
 
 export default function TransparencyPage() {
+  const db = getDb();
   const [data, setData] = useState<TransparencyDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user, userProfile } = useAuth();
 
   useEffect(() => {
     (async () => {
       try {
-        const ref = doc(db, 'analytics', 'transparency');
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          setData(snap.data() as any);
-        } else {
-          setData({});
+        try {
+          const app = getClientApp();
+          logger.debug('[transparency] app.projectId', (app?.options as any)?.projectId);
+        } catch (e) {
+          logger.debug('[transparency] getClientApp failed', (e as any)?.message || e);
         }
+        try {
+          const t = await getAppCheckToken().catch(() => null);
+          logger.debug('[transparency] appcheck token present?', !!t, 'len', t ? String(t).length : 0);
+        } catch {}
+        logger.debug('[transparency] auth state', {
+          uid: user?.uid || null,
+          email: user?.email || null,
+          role: (userProfile as any)?.role ?? null,
+          status: (userProfile as any)?.status ?? null,
+        });
+
+        logger.debug('[transparency] fetching via API /api/analytics/transparency');
+        const res = await apiFetch('/api/analytics/transparency');
+        const j = await res.json();
+        logger.debug('[transparency] api status', res.status, 'ok?', j?.ok === true);
+        if (j?.ok) setData(j.data || {});
+        else setData({});
       } finally {
         setLoading(false);
       }
     })();
+    // One-shot diagnostics
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const S = ({ title, stats }: { title: string; stats?: PeriodStats }) => (

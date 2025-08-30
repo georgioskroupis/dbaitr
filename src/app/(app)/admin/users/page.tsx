@@ -251,7 +251,7 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
       if (!uid || !user) return;
       try {
         const t = await user.getIdToken();
-        const res = await fetch(`/api/admin/users/get/${uid}`, { headers: { Authorization: `Bearer ${t}` } });
+        const res = await apiFetch(`/api/admin/users/get/${uid}`, { headers: { Authorization: `Bearer ${t}` } });
         if (!res.ok) throw new Error();
         setData(await res.json());
       } catch { setData(null); toast({ title: 'Failed to load user', variant: 'destructive' }); }
@@ -367,11 +367,11 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                       if (!user) return;
                       try {
                         const t = await user.getIdToken();
-                        const res = await fetch(`/api/admin/users/notes/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ text: noteText }) });
+                        const res = await apiFetch(`/api/admin/users/notes/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ text: noteText }) });
                         if (!res.ok) throw new Error();
                         setNoteText('');
                         // refresh notes
-                        const r2 = await fetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
+                        const r2 = await apiFetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
                         if (r2.ok) setData(await r2.json());
                       } catch { /* ignore */ }
                     }}>Add</Button>
@@ -393,7 +393,7 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                 const payload: any = { action: confirmOpen.action, reason };
                 if (confirmOpen.action === 'changeRole') payload.role = roleSel;
                 if (confirmOpen.action === 'kycOverride') payload.kyc = kycVal === 'true';
-                const res = await fetch(`/api/admin/users/action/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify(payload) });
+                const res = await apiFetch(`/api/admin/users/action/${data.uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify(payload) });
                 if (!res.ok) throw new Error();
                 if (confirmOpen.action === 'forcePasswordReset') {
                   const j = await res.json();
@@ -402,7 +402,7 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                 setReason('');
                 setConfirmOpen(null);
                 // Refresh drawer data
-                const r2 = await fetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
+                const r2 = await apiFetch(`/api/admin/users/get/${data.uid}`, { headers: { Authorization: `Bearer ${t}` } });
                 if (r2.ok) setData(await r2.json());
               } catch { /* ignore */ }
             }} />

@@ -9,7 +9,7 @@ import { highlightSemanticMatches } from '@/lib/react-utils';
 import { useSemanticSuggestions } from '@/hooks/useSemanticSuggestions';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 
 type Size = 'default' | 'compact';
@@ -31,6 +31,7 @@ export function SearchBar({
   className,
   suggestionsPlacement = 'down',
 }: SearchBarProps) {
+  const db = getDb();
   const isCompact = size === 'compact';
   const MIN_CHARS = 3;
   const router = useRouter();

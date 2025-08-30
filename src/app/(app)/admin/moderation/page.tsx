@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, orderBy, limit, query, deleteDoc, doc, collectionGroup, updateDoc, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminGate } from '@/hooks/use-admin-gate';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,7 @@ interface ReportItem {
 }
 
 export default function ModerationPage() {
+  const db = getDb();
   const { userProfile, user } = useAuth();
   const { allowed: isAdmin, loading: adminLoading } = useAdminGate();
   const { toast } = useToast();

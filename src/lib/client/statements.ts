@@ -1,7 +1,7 @@
 // Client-only Firestore helpers for statements
 // Used by client components to avoid importing server stubs.
 
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { logger } from '@/lib/logger';
 import {
   addDoc,
@@ -15,7 +15,7 @@ import {
 
 export async function checkIfUserHasPostedStatement(userId: string, topicId: string): Promise<boolean> {
   const q = query(
-    collection(db, 'topics', topicId, 'statements'),
+    collection(getDb(), 'topics', topicId, 'statements'),
     where('createdBy', '==', userId),
     limit(1)
   );

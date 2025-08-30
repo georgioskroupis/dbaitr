@@ -40,7 +40,8 @@ export function useIsAdmin() {
           if (!cancelled && role !== 'admin') {
             try {
               const t = await user.getIdToken();
-              const res = await fetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
+              const { apiFetch } = await import('@/lib/http/client');
+              const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
               if (res.ok) {
                 const j = await res.json();
                 if (j?.ok && j.role === 'admin') {

@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase/client";
 import { useAuth } from "@/context/AuthContext";
 import { logger } from '@/lib/logger';
 import { useIsAdmin } from '@/hooks/use-is-admin';
@@ -32,7 +32,7 @@ export function UserNav({ includeMobileExtras = false }: { includeMobileExtras?:
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await signOut(getAuth());
       toast({ title: "Signed out successfully." });
       router.push("/");
     } catch (error: any) {

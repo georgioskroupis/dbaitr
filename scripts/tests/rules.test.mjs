@@ -4,6 +4,10 @@ import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebas
 import fs from 'node:fs';
 
 async function run() {
+  if (!process.env.FIRESTORE_EMULATOR_HOST) {
+    console.log('Rules tests skipped: FIRESTORE_EMULATOR_HOST not set.');
+    return;
+  }
   const rules = fs.readFileSync('firestore.rules', 'utf8');
   const env = await initializeTestEnvironment({ projectId: 'demo-test', firestore: { rules } });
   const unauth = env.unauthenticatedContext().firestore();

@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from 'react';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase/client';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LiveChat } from '@/components/live/LiveChat';
+import { apiFetch } from '@/lib/http/client';
 
 function Player({ videoId, live }: { videoId: string; live: boolean }) {
   if (!videoId) return null;
@@ -19,6 +20,7 @@ function Player({ videoId, live }: { videoId: string; live: boolean }) {
 }
 
 export default function LiveDetailPage(props: any) {
+  const db = getDb();
   const params = (props as any)?.params as { id: string };
   const { user } = useAuth();
   const [data, setData] = React.useState<any>(null);
@@ -35,7 +37,7 @@ export default function LiveDetailPage(props: any) {
   const fetchIngest = async () => {
     if (!user) return;
     const token = await user.getIdToken();
-    const res = await fetch(`/api/live/${params.id}/ingest`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch(`/api/live/${params.id}/ingest`, { headers: { Authorization: `Bearer ${token}` } });
     const j = await res.json();
     if (j?.ok) setIngest({ ingestAddress: j.ingestAddress, streamName: j.streamName });
   };
@@ -43,7 +45,7 @@ export default function LiveDetailPage(props: any) {
   const transition = async (to: 'testing'|'live'|'complete') => {
     if (!user) return;
     const token = await user.getIdToken();
-    await fetch(`/api/live/${params.id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
+    await apiFetch(`/api/live/${params.id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
   };
 
   if (!data) return null;

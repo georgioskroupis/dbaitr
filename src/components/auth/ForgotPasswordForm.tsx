@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase/client";
 import { logger } from '@/lib/logger';
 import { useFormEnterSubmit, focusById } from '@/hooks/useFormEnterSubmit';
 
@@ -50,7 +50,7 @@ export function ForgotPasswordForm() {
   async function onSubmit(values: ForgotPasswordFormValues) {
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, values.email);
+      await sendPasswordResetEmail(getAuth(), values.email);
       toast({
         title: "Password Reset Email Sent",
         description: "If an account exists for this email, a password reset link has been sent. Please check your inbox (and spam folder).",

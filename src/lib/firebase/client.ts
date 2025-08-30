@@ -1,11 +1,11 @@
 "use client";
 
 // Canonical Firebase client initialization with App Check support
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
-import { getDatabase, type Database } from 'firebase/database';
+import { initializeApp, getApps, getApp as getAppSdk, type FirebaseApp } from 'firebase/app';
+import { getAuth as getAuthSdk, setPersistence, browserLocalPersistence, type Auth } from 'firebase/auth';
+import { getFirestore as getFirestoreSdk, type Firestore } from 'firebase/firestore';
+import { getStorage as getStorageSdk, type FirebaseStorage } from 'firebase/storage';
+import { getDatabase as getDatabaseSdk, type Database } from 'firebase/database';
 import { initializeAppCheck, ReCaptchaV3Provider, getToken, type AppCheck } from 'firebase/app-check';
 import { logger } from '@/lib/logger';
 
@@ -26,11 +26,11 @@ function initApp() {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   } as const;
-  app = getApps().length ? getApp() : initializeApp(cfg);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  try { rtdb = getDatabase(app); } catch { rtdb = undefined; }
+  app = getApps().length ? getAppSdk() : initializeApp(cfg);
+  auth = getAuthSdk(app);
+  db = getFirestoreSdk(app);
+  storage = getStorageSdk(app);
+  try { rtdb = getDatabaseSdk(app); } catch { rtdb = undefined; }
   setPersistence(auth, browserLocalPersistence).catch((e) => {
     logger.error('auth persistence error', e?.code || '', e?.message || e);
   });
@@ -71,7 +71,7 @@ export function ensureAppCheck(): AppCheck | null {
   if (typeof window === 'undefined') return null;
   try {
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-    if (!siteKey) return null;
+    if (!siteKey) { logger.debug('[AppCheck] site key not configured; skipping init'); return null; }
     if (!app) initApp();
     if (!appCheck) {
       // Dev: honor global debug token if present
@@ -79,6 +79,7 @@ export function ensureAppCheck(): AppCheck | null {
         provider: new ReCaptchaV3Provider(siteKey),
         isTokenAutoRefreshEnabled: true,
       });
+      logger.debug('[AppCheck] initialized');
     }
     return appCheck;
   } catch (e) {
@@ -91,7 +92,9 @@ export async function getAppCheckToken(force = false): Promise<string | null> {
   try {
     const ac = ensureAppCheck();
     if (!ac) return null;
-    const res = await getToken(ac, force).catch(() => null);
+    const res = await getToken(ac, force).catch((err) => { logger.debug('[AppCheck] getToken error', (err as any)?.message || err); return null; });
+    if (res?.token) logger.debug('[AppCheck] token acquired', { len: String(res.token).length, force });
+    else logger.debug('[AppCheck] no token', { force });
     return res?.token || null;
   } catch { return null; }
 }
@@ -110,3 +113,4 @@ export const appClient = {
 export const getAuth = getAuthClient;
 export const getDb = getDbClient;
 export const getApp = getClientApp;
+export const getRtdb = getRtdbClient;
