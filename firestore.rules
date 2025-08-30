@@ -2,183 +2,155 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() { return request.auth != null && request.auth.token.role == 'admin'; }
-    function isModerator() { return request.auth != null && request.auth.token.role == 'moderator'; }
-    function isSupporter() { return request.auth != null && (request.auth.token.role == 'supporter' || request.auth.token.role == 'admin'); }
-    function isOwner(ownerId) { return request.auth != null && request.auth.uid == ownerId; }
+    function hasAuth() { return request.auth != null; }
+    function role() { return hasAuth() ? request.auth.token.role : null; }
+    function status() { return hasAuth() ? request.auth.token.status : null; }
+    function kycVerified() { return hasAuth() && request.auth.token.kycVerified == true; }
+    function isOwner(ownerId) { return hasAuth() && request.auth.uid == ownerId; }
+
+    // Role helpers (ordered)
+    function minRole(required) {
+      return hasAuth() && (
+        (required == 'restricted') ||
+        (required == 'viewer' && (role() in ['viewer','supporter','moderator','admin','super-admin'])) ||
+        (required == 'supporter' && (role() in ['supporter','moderator','admin','super-admin'])) ||
+        (required == 'moderator' && (role() in ['moderator','admin','super-admin'])) ||
+        (required == 'admin' && (role() in ['admin','super-admin'])) ||
+        (required == 'super-admin' && (role() == 'super-admin'))
+      );
+    }
+    function statusAllowed(allowed) { return hasAuth() && (status() in allowed); }
+    function isVerifiedOrGrace() { return hasAuth() && (status() in ['Verified','Grace']); }
 
     // Users
     match /users/{userId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
-      );
-      allow create: if request.auth != null && request.auth.uid == userId &&
+      allow read: if hasAuth() && (request.auth.uid == userId || minRole('admin'));
+      allow create: if hasAuth() && request.auth.uid == userId &&
         request.resource.data.uid == userId &&
         request.resource.data.email == request.auth.token.email &&
         !exists(/databases/$(database)/documents/users/$(userId));
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','photoURL','updatedAt']) ||
-          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true &&
-           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['kycVerified','updatedAt','idDocumentUrl']))
-        );
+      allow update: if hasAuth() && request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','photoURL','updatedAt']);
       allow delete: if false;
+    }
+
+    // Private per-user
+    match /user_private/{userId} {
+      allow read, write: if hasAuth() && (request.auth.uid == userId || minRole('admin'));
     }
 
     // Reports
     match /reports/{reportId} {
-      allow read, list: if request.auth != null && (
-        isAdmin() || isModerator() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow read, list: if minRole('moderator');
       allow create, update, delete: if false;
     }
 
     // Moderation actions
     match /moderation_actions/{actionId} {
-      allow read, list: if request.auth != null && (
-        isAdmin() || isModerator() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow read, list: if minRole('moderator');
       allow create, update, delete: if false;
     }
 
     // Settings
     match /settings/{docId} {
       allow read, list: if true;
-      allow write: if request.auth != null && (
-        isAdmin() || isModerator() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow write: if minRole('moderator');
     }
 
     // Appeals
     match /appeals/{appealId} {
-      allow read, list: if request.auth != null && (
-        resource.data.createdBy == request.auth.uid ||
-        isAdmin() || isModerator() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow read, list: if hasAuth() && (resource.data.createdBy == request.auth.uid || minRole('moderator'));
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid &&
         (request.resource.data.statementId is string || request.resource.data.threadId is string || request.resource.data.topicId is string) &&
         request.resource.data.reason is string && request.resource.data.reason.size() >= 10;
-      allow update: if request.auth != null && (
-        isAdmin() || isModerator() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow update: if minRole('moderator');
       allow delete: if false;
     }
 
     // Topics and subcollections
     match /topics/{topicId} {
       allow read, list: if true;
-      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      allow update: if request.auth != null && (
-        // Owners can edit limited fields only (never analysis fields)
+      allow create: if hasAuth() && request.resource.data.createdBy == request.auth.uid && isVerifiedOrGrace();
+      allow update: if hasAuth() && (
         (
           resource.data.createdBy == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','updatedAt'])
         ) ||
-        // Admin/Moderators may edit topic, but never analysis fields from client
         (
-          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+          minRole('moderator') &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['analysis','analysis_flat'])
         )
       );
-      allow delete: if request.auth != null && (
-        resource.data.createdBy == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-      );
+      allow delete: if hasAuth() && (resource.data.createdBy == request.auth.uid || minRole('moderator'));
 
       // Statements
       match /statements/{statementId} {
         allow read, list: if true;
-        allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-        allow update: if request.auth != null && (
+        allow create: if hasAuth() && request.resource.data.createdBy == request.auth.uid && isVerifiedOrGrace();
+        allow update: if hasAuth() && (
           resource.data.createdBy == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content','lastEditedAt']) ||
-          ((get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+          (minRole('moderator') &&
            request.resource.data.diff(resource.data).affectedKeys().hasAny(['position','aiConfidence','lastEditedAt','claimType','sourceUrl','moderation']))
         );
-        allow delete: if request.auth != null && (
-          resource.data.createdBy == request.auth.uid ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-        );
+        allow delete: if hasAuth() && (resource.data.createdBy == request.auth.uid || minRole('moderator'));
 
         // Threads
         match /threads/{threadNodeId} {
           allow read, list: if true;
-          allow create: if request.auth != null &&
-            request.resource.data.createdBy == request.auth.uid &&
+          allow create: if hasAuth() &&
+            request.resource.data.createdBy == request.auth.uid && isVerifiedOrGrace() &&
             request.resource.data.topicId == topicId &&
             request.resource.data.statementId == statementId &&
             request.resource.data.content is string && request.resource.data.content.size() > 0 &&
             request.resource.data.type is string &&
-            request.resource.data.type in ['question','response'] &&
-            (
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.kycVerified == true ||
-              (
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.registeredAt is timestamp &&
-                request.time < get(/databases/$(database)/documents/users/$(request.auth.uid)).data.registeredAt + duration.value(10,'d')
-              )
-            );
-          allow update: if request.auth != null && (
-            (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true) &&
+            request.resource.data.type in ['question','response'];
+          allow update: if hasAuth() && (
+            minRole('moderator') &&
             request.resource.data.diff(resource.data).affectedKeys().hasAny(['content','moderation'])
           );
-          allow delete: if request.auth != null && (
-            resource.data.createdBy == request.auth.uid ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-          );
+          allow delete: if hasAuth() && (resource.data.createdBy == request.auth.uid || minRole('moderator'));
         }
 
         // Aggregations under statement
         match /aggregations/{aggId} {
           allow read: if true;
-          allow write: if request.auth != null && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-          );
+          allow write: if false;
         }
       }
 
       // Topic-wide aggregations
       match /aggregations/{aggId} {
         allow read: if true;
-        allow write: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true
-        );
+        allow write: if false;
       }
     }
 
     // Live Debates
     match /liveDebates/{id} {
       allow read: if true;
-      allow create: if isSupporter() &&
+      allow create: if minRole('supporter') && statusAllowed(['Verified']) &&
         request.resource.data.createdBy == request.auth.uid &&
         !('youtube' in request.resource.data) &&
         !('status' in request.resource.data);
-      allow update: if (isOwner(resource.data.createdBy) || isAdmin()) &&
+      allow update: if (isOwner(resource.data.createdBy) || minRole('admin')) &&
         !(('youtube' in request.resource.data) || ('status' in request.resource.data));
-      allow delete: if isOwner(resource.data.createdBy) || isAdmin();
+      allow delete: if isOwner(resource.data.createdBy) || minRole('admin');
     }
 
-    // Private admin-only storage
+    // Admin and analysis: client writes denied
+    match /admin/{document=**} {
+      allow read, write: if false;
+    }
+    match /analysis/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Private deny-by-default area
     match /_private/{document=**} {
       allow read, write: if false;
     }
   }
 }
+

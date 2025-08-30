@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
 type Action = 'suspend'|'ban'|'reinstate'|'changeRole'|'forceSignOut'|'forcePasswordReset'|'invalidateSessions'|'kycOverride'|'hardDelete';
 
-export async function POST(req: Request, { params }: { params: { uid: string } }) {
+export const POST = withAuth(async (ctx, { params }: { params: { uid: string } }) => {
   try {
     const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const actorUid = decoded.uid;
-    const actorRole = (decoded as any)?.role || '';
+    const actorUid = ctx.uid;
+    const actorRole = ctx.role || '';
     const body = await req.json();
     const action: Action = body?.action;
     const reason: string = String(body?.reason || '').trim();
@@ -98,4 +95,4 @@ export async function POST(req: Request, { params }: { params: { uid: string } }
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

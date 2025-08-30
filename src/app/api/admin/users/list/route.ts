@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (_ctx, req) => {
   try {
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const role = (decoded as any)?.role || '';
-    if (role !== 'admin' && role !== 'super-admin') return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
     const body = await req.json();
     const { q = '', filters = {}, sortBy = 'createdAt', sortDir = 'desc', page = 1, pageSize = 20 } = body || {};
@@ -63,7 +57,7 @@ export async function POST(req: Request) {
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });
 
 function toRow(uid: string, d: any) {
   return {
@@ -90,4 +84,3 @@ function tsToIso(ts: any): string | null {
   } catch {}
   return null;
 }
-

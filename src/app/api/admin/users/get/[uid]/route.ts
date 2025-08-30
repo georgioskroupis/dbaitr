@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getAuthAdmin, getDbAdmin } from '@/lib/firebaseAdmin';
+import { getDbAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { uid: string } }) {
+export const GET = withAuth(async (_ctx, { params }: { params: { uid: string } }) => {
   try {
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = _req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const role = (decoded as any)?.role || '';
-    if (role !== 'admin' && role !== 'super-admin' && role !== 'moderator') return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
 
     const uid = params.uid;
     const userDoc = await db.collection('users').doc(uid).get();
@@ -66,7 +60,7 @@ export async function GET(_req: Request, { params }: { params: { uid: string } }
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireRole('moderator'), ...requireStatus(['Verified']) });
 
 function toIso(ts: any): string | null {
   try {
@@ -78,4 +72,3 @@ function toIso(ts: any): string | null {
   } catch {}
   return null;
 }
-

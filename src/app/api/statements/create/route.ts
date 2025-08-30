@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, getAuthAdmin, getAppCheckAdmin, FieldValue } from '@/lib/firebaseAdmin';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 import { analyzeToxicity } from '@/lib/perspective';
 import { getClientKey, postIpLimiter, postUserLimiter } from '@/lib/rateLimit';
@@ -19,13 +20,6 @@ function withinGrace(registeredAt: any, days = 10): boolean {
   } catch { return false; }
 }
 
-async function verifyAppCheck(req: Request) {
-  const appCheck = getAppCheckAdmin();
-  const hdr = req.headers.get('X-Firebase-AppCheck') || req.headers.get('X-Firebase-AppCheck-Token');
-  if (!appCheck) return process.env.NODE_ENV !== 'production';
-  if (!hdr) return process.env.NODE_ENV !== 'production';
-  try { await appCheck.verifyToken(hdr); return true; } catch { return false; }
-}
 
 async function recomputeTallies(db: FirebaseFirestore.Firestore, topicId: string) {
   const base = db.collection('topics').doc(topicId).collection('statements');
@@ -41,16 +35,10 @@ async function recomputeTallies(db: FirebaseFirestore.Firestore, topicId: string
   }, { merge: true });
 }
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (ctx, req) => {
   try {
-    if (!(await verifyAppCheck(req))) return NextResponse.json({ ok: false, error: 'appcheck' }, { status: 401 });
-    const auth = getAuthAdmin();
     const db = getDbAdmin();
-    if (!auth || !db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
+    const uid = ctx.uid;
 
     const body = await req.json();
     const { topicId, content, claimType, sourceUrl, aiAssisted } = body || {};
@@ -148,4 +136,4 @@ export async function POST(req: Request) {
   } catch (e) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-}
+}, { ...requireStatus(['Grace','Verified']) });

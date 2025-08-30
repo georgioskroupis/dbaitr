@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 // Seeding disabled in production/CI to avoid server-client boundary issues
 import { initAppCheckIfConfigured } from '@/lib/appCheckClient';
+import { getAuth } from '@/lib/firebase/client';
+import { getAppCheckToken } from '@/lib/firebase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const SEED_FLAG_KEY = 'db8_seeded_v3_multitopic'; // Changed key to ensure re-seed with new data
@@ -62,6 +64,41 @@ export default function AppBootstrapper() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSeedingAttempted]); // Removed toast from deps, it's stable from useToast hook
+
+  // Keep SSR guard cookies in sync (best-effort)
+  useEffect(() => {
+    const auth = getAuth();
+    const unsub = auth.onAuthStateChanged(async (u) => {
+      if (!u) {
+        document.cookie = `db8_idt=; Path=/; Max-Age=0; SameSite=Lax`;
+        return;
+      }
+      try {
+        const t = await u.getIdToken();
+        document.cookie = `db8_idt=${encodeURIComponent(t)}; Path=/; Max-Age=600; SameSite=Lax`;
+        const ac = await getAppCheckToken();
+        if (ac) document.cookie = `db8_appcheck=${encodeURIComponent(ac)}; Path=/; Max-Age=600; SameSite=Lax`;
+      } catch {}
+    });
+    // Listen for claimsChanged broadcast to refresh
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('authz');
+      bc.onmessage = async (ev) => {
+        if (ev?.data?.type === 'claimsChanged') {
+          const u = getAuth().currentUser;
+          if (u) {
+            await u.getIdToken(true).catch(()=>{});
+            const t = await u.getIdToken().catch(()=>null);
+            if (t) document.cookie = `db8_idt=${encodeURIComponent(t)}; Path=/; Max-Age=600; SameSite=Lax`;
+            const ac = await getAppCheckToken(true).catch(()=>null);
+            if (ac) document.cookie = `db8_appcheck=${encodeURIComponent(ac)}; Path=/; Max-Age=600; SameSite=Lax`;
+          }
+        }
+      };
+    } catch {}
+    return () => { try { unsub(); } catch {}; try { bc && bc.close(); } catch {} };
+  }, []);
 
   return null;
 }

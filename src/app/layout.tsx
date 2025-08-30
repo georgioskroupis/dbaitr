@@ -10,6 +10,7 @@ import '@fontsource/fredoka/700.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/AuthContext';
 import QueryProvider from '@/context/QueryProvider';
+import { AuthZProvider } from '@/lib/authz/context';
 import AppBootstrapper from '@/components/AppBootstrapper';
 
 // Define CSS variable in globals.css; using @fontsource-loaded family 'Fredoka'
@@ -61,8 +62,10 @@ export default function RootLayout({
         <AppBootstrapper />
         <QueryProvider>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <AuthZProvider>
+              {children}
+              <Toaster />
+            </AuthZProvider>
           </AuthProvider>
         </QueryProvider>
       </body>
