@@ -23,6 +23,19 @@ export const POST = withAuth(async (ctx, req, context: any) => {
     await youtubeProvider.transition(uid, broadcastId, body.to);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
+    const msg = (e?.message || '').toString();
+    if (msg === 'youtube_not_connected') {
+      return NextResponse.json({ ok: false, error: 'youtube_not_connected' }, { status: 409 });
+    }
+    if (msg === 'live_streaming_not_enabled') {
+      return NextResponse.json({ ok: false, error: 'live_streaming_not_enabled' }, { status: 409 });
+    }
+    if (msg === 'invalid_transition') {
+      return NextResponse.json({ ok: false, error: 'invalid_transition' }, { status: 400 });
+    }
+    if (msg === 'stream_not_bound') {
+      return NextResponse.json({ ok: false, error: 'stream_not_bound' }, { status: 409 });
+    }
+    return NextResponse.json({ ok: false, error: 'server_error', message: msg }, { status: 500 });
   }
 }, { ...requireStatus(['Verified']) });

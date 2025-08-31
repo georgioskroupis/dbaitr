@@ -19,6 +19,8 @@ export default function AppBootstrapper() {
     // Initialize App Check if configured
     initAppCheckIfConfigured();
 
+    // No dev globals
+
     // Dev-only: surface App Check debug token via toast once per session
     if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
       try {

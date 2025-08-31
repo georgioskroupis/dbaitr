@@ -186,6 +186,10 @@ export const youtubeProvider: VideoProvider = {
     const snippet: youtube_v3.Schema$LiveStreamSnippet = { title: input.title };
     const cdn: youtube_v3.Schema$CdnSettings = {
       ingestionType: 'rtmp',
+      // Some channels require explicit resolution/framerate on stream creation
+      // Defaults chosen for broad compatibility.
+      resolution: '720p',
+      frameRate: '30fps',
     };
     const contentDetails: youtube_v3.Schema$LiveStreamContentDetails = {
       // Ultra-low latency is typically a channel default; YouTube API has limited toggles here.
@@ -219,7 +223,26 @@ export const youtubeProvider: VideoProvider = {
       complete: 'complete',
       canceled: 'revoked',
     };
-    await yt.liveBroadcasts.transition({ id: broadcastId, part: ['status', 'contentDetails'], broadcastStatus: mapping[to] });
+    try {
+      await yt.liveBroadcasts.transition({ id: broadcastId, part: ['status', 'contentDetails'], broadcastStatus: mapping[to] });
+    } catch (e: any) {
+      const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || '';
+      const message = (e?.message || '').toString();
+      // Common cases we want to surface as non-500s
+      if (reason === 'invalidTransition' || message.includes('invalid transition')) {
+        throw new Error('invalid_transition');
+      }
+      if (reason === 'liveStreamNotBound' || message.includes('stream not bound')) {
+        throw new Error('stream_not_bound');
+      }
+      if (reason === 'forbidden' || message.includes('insufficient')) {
+        throw new Error('youtube_not_connected');
+      }
+      if (reason === 'liveStreamingNotEnabled' || message.includes('not enabled for live streaming')) {
+        throw new Error('live_streaming_not_enabled');
+      }
+      throw e;
+    }
   },
   async getIngest(uid, streamId) {
     const o = await getOAuthClientFor(uid);

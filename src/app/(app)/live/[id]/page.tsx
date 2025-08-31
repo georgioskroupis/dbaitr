@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LiveChat } from '@/components/live/LiveChat';
 import { apiFetch } from '@/lib/http/client';
+import { useParams } from 'next/navigation';
 
 function Player({ videoId, live }: { videoId: string; live: boolean }) {
   if (!videoId) return null;
@@ -19,25 +20,31 @@ function Player({ videoId, live }: { videoId: string; live: boolean }) {
   );
 }
 
-export default function LiveDetailPage(props: any) {
+export default function LiveDetailPage() {
   const db = getDb();
-  const params = (props as any)?.params as { id: string };
+  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [data, setData] = React.useState<any>(null);
   const [ingest, setIngest] = React.useState<{ ingestAddress: string; streamName: string } | null>(null);
 
   React.useEffect(() => {
-    const ref = doc(db, 'liveDebates', params.id);
-    const unsub = onSnapshot(ref, (snap) => setData({ id: snap.id, ...(snap.data() || {}) }));
+    const ref = doc(db, 'liveDebates', id);
+    const unsub = onSnapshot(ref, (snap) => setData({ id: snap.id, ...(snap.data() || {}) }), (err) => {
+      const code = (err as any)?.code || '';
+      if (code !== 'permission-denied') {
+        // eslint-disable-next-line no-console
+        console.warn('[LiveDetailPage] debate listener error:', code);
+      }
+    });
     return () => unsub();
-  }, [params.id]);
+  }, [id]);
 
   const isOwner = user && data?.createdBy === user.uid;
 
   const fetchIngest = async () => {
     if (!user) return;
     const token = await user.getIdToken();
-    const res = await apiFetch(`/api/live/${params.id}/ingest`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch(`/api/live/${id}/ingest`, { headers: { Authorization: `Bearer ${token}` } });
     const j = await res.json();
     if (j?.ok) setIngest({ ingestAddress: j.ingestAddress, streamName: j.streamName });
   };
@@ -45,7 +52,7 @@ export default function LiveDetailPage(props: any) {
   const transition = async (to: 'testing'|'live'|'complete') => {
     if (!user) return;
     const token = await user.getIdToken();
-    await apiFetch(`/api/live/${params.id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
+    await apiFetch(`/api/live/${id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
   };
 
   if (!data) return null;
@@ -83,7 +90,7 @@ export default function LiveDetailPage(props: any) {
         </Card>
       )}
 
-      <LiveChat roomId={params.id} />
+      <LiveChat roomId={id} />
     </div>
   );
 }

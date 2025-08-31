@@ -36,15 +36,15 @@ export function useIsAdmin() {
           await user.getIdToken(true);
           const r = await user.getIdTokenResult();
           const role = (r?.claims as any)?.role;
-          if (!cancelled) setIsAdmin(role === 'admin');
-          if (!cancelled && role !== 'admin') {
+          if (!cancelled) setIsAdmin(role === 'admin' || role === 'super-admin');
+          if (!cancelled && !(role === 'admin' || role === 'super-admin')) {
             try {
               const t = await user.getIdToken();
               const { apiFetch } = await import('@/lib/http/client');
               const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
               if (res.ok) {
                 const j = await res.json();
-                if (j?.ok && j.role === 'admin') {
+                if (j?.ok && (j.role === 'admin' || j.role === 'super-admin')) {
                   setIsAdmin(true);
                   await user.getIdToken(true);
                 }

@@ -22,8 +22,11 @@ export function AuthZProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<AuthZ>({ user: null, role: undefined, status: undefined, kycVerified: false, can: {} as any });
 
   React.useEffect(() => {
+    let claimsUnsub: (() => void) | null = null;
     const auth = getAuth();
     const unsub = auth.onAuthStateChanged(async (u) => {
+      // Tear down previous claims listener if any
+      try { if (claimsUnsub) { claimsUnsub(); claimsUnsub = null; } } catch {}
       if (!u) { setState({ user: null, role: undefined, status: undefined, kycVerified: false, can: {} as any }); return; }
       // Refresh token to pick latest claims
       await u.getIdToken(true).catch(() => {});
@@ -39,14 +42,18 @@ export function AuthZProvider({ children }: { children: React.ReactNode }) {
       // Subscribe to claimsChangedAt
       const db = getDbClient();
       const ref = doc(db, 'user_private', u.uid);
-      const unsub2 = onSnapshot(ref, async (snap) => {
+      claimsUnsub = onSnapshot(ref, async (snap) => {
         const t = (snap.exists() ? (snap.data() as any).claimsChangedAt : null) || null;
         if (t) { await u.getIdToken(true).catch(()=>{}); const r2 = await u.getIdTokenResult(); const role2 = (r2.claims as any).role as Role | undefined; const status2 = (r2.claims as any).status as Status | undefined; const kyc2 = !!(r2.claims as any).kycVerified; const caps2 = CapabilitiesByRole[role2 || 'restricted'] || []; const map2: any = {}; for (const c of caps2) map2[c] = true; setState(s => ({ ...s, role: role2, status: status2, kycVerified: kyc2, can: map2, claimsChangedAt: t })); broadcastClaimsChanged(); }
+      }, (err) => {
+        const code = (err as any)?.code || '';
+        if (code !== 'permission-denied') {
+          // eslint-disable-next-line no-console
+          console.warn('[AuthZ] claims listener error', code);
+        }
       });
-      // Clean up nested subscription when user logs out
-      return () => { try { unsub2(); } catch {} };
     });
-    return () => unsub();
+    return () => { try { unsub(); } catch {}; try { if (claimsUnsub) claimsUnsub(); } catch {} };
   }, []);
 
   return <AuthZContext.Provider value={state}>{children}</AuthZContext.Provider>;
@@ -57,4 +64,3 @@ export function useAuthZ() { return React.useContext(AuthZContext); }
 function broadcastClaimsChanged() {
   try { new BroadcastChannel('authz').postMessage({ type: 'claimsChanged' }); } catch {}
 }
-

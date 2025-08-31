@@ -14,6 +14,9 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
     const t0 = Date.now();
     const rid = Math.random().toString(36).slice(2);
     const route = (() => { try { const u = new URL(req.url); return u.pathname; } catch { return 'unknown'; } })();
+    // Debug-only snapshot of identity to include in denial logs
+    let dbgUid: string | null = null;
+    let dbgClaims: any = null;
     try {
       await verifyAppCheckStrict(req);
       // Public endpoints: apply IP rate limits after App Check
@@ -28,6 +31,8 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
         return res instanceof Response ? res : json(200, res);
       }
       const { uid, claims } = await verifyIdTokenStrict(req);
+      dbgUid = uid;
+      dbgClaims = claims;
       if (opts?.capability && !hasCapability(claims.role as Role | undefined, opts.capability)) {
         throw new HttpError(403, 'forbidden');
       }
@@ -71,10 +76,22 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
             route,
             code: e.code,
             status: e.status,
+            uid: dbgUid || null,
+            role: dbgClaims?.role || null,
+            statusClaim: dbgClaims?.status || null,
             at: new Date(),
           });
         } catch {}
-        try { console.warn(JSON.stringify({ level: 'warn', requestId: rid, route, error: e.code, status: e.status, latency_ms: Date.now() - t0 })); } catch {}
+        try {
+          console.warn(JSON.stringify({
+            level: 'warn', requestId: rid, route,
+            error: e.code, status: e.status,
+            uid: dbgUid || null,
+            role: dbgClaims?.role || null,
+            statusClaim: dbgClaims?.status || null,
+            latency_ms: Date.now() - t0,
+          }));
+        } catch {}
         return json(e.status, body);
       }
       try { console.error(JSON.stringify({ level: 'error', requestId: rid, route, error: 'server_error', latency_ms: Date.now() - t0 })); } catch {}

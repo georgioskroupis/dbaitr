@@ -17,13 +17,30 @@ export default function NewLivePage() {
   const [visibility, setVisibility] = React.useState<'public'|'unlisted'|'private'>('unlisted');
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
+  // Default scheduled start time: now + 10 minutes, as a local datetime-local string
+  const toLocalInput = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const yr = d.getFullYear();
+    const mo = pad(d.getMonth()+1);
+    const da = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yr}-${mo}-${da}T${hh}:${mi}`;
+  };
+  const [scheduledLocal, setScheduledLocal] = React.useState<string>(() => {
+    const dt = new Date(Date.now() + 10*60*1000);
+    return toLocalInput(dt);
+  });
 
   const createLive = async () => {
     if (!user) { router.push('/auth'); return; }
     setLoading(true);
     try {
       const token = await user.getIdToken(true); // force refresh to pick up updated claims
-      const res = await apiFetch('/api/live/create', { method: 'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title, description, visibility }) });
+      // Convert local datetime to ISO; if parsing fails, omit to let server validate
+      let scheduledStartTime: string | undefined = undefined;
+      try { if (scheduledLocal) scheduledStartTime = new Date(scheduledLocal).toISOString(); } catch {}
+      const res = await apiFetch('/api/live/create', { method: 'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title, description, visibility, scheduledStartTime }) });
       if (res.status === 403) {
         setMessage('Hosting live debates is limited to Supporters or Admins. Visit Pricing to upgrade.');
         return;
@@ -72,6 +89,11 @@ export default function NewLivePage() {
                 <button key={v} onClick={() => setVisibility(v)} className={`px-3 py-1.5 rounded-md text-sm ${visibility===v?'bg-rose-500/20 text-rose-300 border border-rose-500/30':'bg-white/5 text-white/80 border border-white/10'}`}>{v}</button>
               ))}
             </div>
+          </div>
+          <div>
+            <label className="text-sm text-white/80">Scheduled Start</label>
+            <Input type="datetime-local" value={scheduledLocal} onChange={(e) => setScheduledLocal(e.target.value)} className="mt-1 bg-white/5 border-white/10 text-white" />
+            <p className="text-xs text-white/50 mt-1">Required for YouTube live. Defaults to ~10 minutes from now.</p>
           </div>
           <Button onClick={createLive} disabled={loading} className="bg-rose-500 hover:bg-rose-400">{loading?'Creating…':'Create'}</Button>
           {message && (

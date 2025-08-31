@@ -35,20 +35,28 @@ function initAdmin() {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const out = { uid: process.env.UID || null, email: process.env.EMAIL || null, role: process.env.ROLE || null };
+  const out = {
+    uid: process.env.UID || null,
+    email: process.env.EMAIL || null,
+    role: process.env.ROLE || null,
+    status: process.env.STATUS || null,
+    kyc: process.env.KYC || null,
+  };
   for (let i = 0; i < args.length; i++) {
     const k = args[i];
     if (k === '--uid') out.uid = args[++i];
     else if (k === '--email') out.email = args[++i];
     else if (k === '--role') out.role = args[++i];
+    else if (k === '--status') out.status = args[++i];
+    else if (k === '--kyc') out.kyc = args[++i];
   }
   return out;
 }
 
 async function main() {
-  const { uid, email, role } = parseArgs();
-  if (!role || (!uid && !email)) {
-    console.error('Usage: node scripts/admin/set-role.mjs (--uid UID | --email EMAIL) --role ROLE');
+  const { uid, email, role, status, kyc } = parseArgs();
+  if (!role && !status && (kyc === null || kyc === undefined) || (!uid && !email)) {
+    console.error('Usage: node scripts/admin/set-role.mjs (--uid UID | --email EMAIL) [--role ROLE] [--status STATUS] [--kyc true|false]');
     process.exit(1);
   }
   initAdmin();
@@ -61,11 +69,16 @@ async function main() {
     process.exit(1);
   }
   const claims = user.customClaims || {};
-  const newClaims = { ...claims, role };
+  const newClaims = { ...claims };
+  if (role) newClaims.role = role;
+  if (status) newClaims.status = status;
+  if (kyc !== null && kyc !== undefined) {
+    const v = String(kyc).toLowerCase();
+    newClaims.kycVerified = v === 'true' || v === '1' || v === 'yes';
+  }
   await auth.setCustomUserClaims(user.uid, newClaims);
-  console.log(`Set role for ${user.uid} (${user.email || 'no-email'}) → ${role}`);
+  console.log(`Updated claims for ${user.uid} (${user.email || 'no-email'}) →`, newClaims);
   console.log('Note: The user must refresh their ID token (sign out/in, or call getIdToken(true)).');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-

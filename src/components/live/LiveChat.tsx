@@ -40,6 +40,12 @@ export function LiveChat({ roomId }: { roomId: string }) {
       const d = snap.data() as any;
       if (!d) { setRoom(null); return; }
       setRoom({ id: snap.id, title: d.title, status: d.status, hostUid: d.hostUid, moderators: d.moderators || [], settings: d.settings || {}, pinned: d.pinned || [] });
+    }, (err) => {
+      const code = (err as any)?.code || '';
+      if (code !== 'permission-denied') {
+        // eslint-disable-next-line no-console
+        console.warn('[LiveChat] room listener error:', code);
+      }
     });
     return () => unsub();
   }, [roomId]);
@@ -52,6 +58,12 @@ export function LiveChat({ roomId }: { roomId: string }) {
       snap.forEach(d => out.push({ id: d.id, ...(d.data() as any) } as Message));
       const filtered = out.filter(m => !m.shadowed || isHost || isMod || (user && m.uid === user.uid));
       setMsgs(filtered.reverse());
+    }, (err) => {
+      const code = (err as any)?.code || '';
+      if (code !== 'permission-denied') {
+        // eslint-disable-next-line no-console
+        console.warn('[LiveChat] messages listener error:', code);
+      }
     });
     return () => unsub();
   }, [roomId, isHost, isMod, user?.uid]);

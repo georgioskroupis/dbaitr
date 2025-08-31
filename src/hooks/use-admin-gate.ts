@@ -28,16 +28,25 @@ export function useAdminGate() {
         } catch {}
         let res = await apiFetch('/api/admin/whoami', headers ? { headers } : undefined);
         const j = await res.json().catch(() => ({}));
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.debug('[adminGate] whoami status', res.status, 'payload', j);
+        }
         if (!cancelled && res.ok && j?.ok && (j.role === 'admin' || j.role === 'super-admin')) {
           setAllowed(true);
         } else if (!cancelled) {
-          if (res.status === 401) {
+          if (res.status === 401 || res.status === 403) {
             // quick retry after forcing tokens
             try {
               await getAppCheckToken(true).catch(() => null);
               const u2 = getAuth().currentUser;
               const hdr2 = u2 ? { Authorization: `Bearer ${await u2.getIdToken(true)}` } : undefined;
               res = await apiFetch('/api/admin/whoami', hdr2 ? { headers: hdr2 } : undefined);
+              if (process.env.NODE_ENV !== 'production') {
+                const j2 = await res.clone().json().catch(() => ({}));
+                // eslint-disable-next-line no-console
+                console.debug('[adminGate] whoami retry status', res.status, 'payload', j2);
+              }
             } catch {}
           }
           if (res.status === 401) router.replace('/errors/401?reason=unauthenticated');

@@ -110,7 +110,7 @@ export default function YoutubeIntegrationPage() {
           </div>
           {globalMode.enabled && !status.connected && (
             <div className="text-xs text-amber-300/90">
-              Channel is configured by env but not connected. {role === 'admin' ? (
+              Channel is configured by env but not connected. {(role === 'admin' || role === 'super-admin') ? (
                 <>
                   Click <button onClick={getAuthUrl} className="underline text-amber-300">Reconnect</button> to authorize the global channel.
                 </>
@@ -119,7 +119,7 @@ export default function YoutubeIntegrationPage() {
               )}
             </div>
           )}
-          {(!globalMode.enabled || role === 'admin') ? (
+          {(!globalMode.enabled || role === 'admin' || role === 'super-admin') ? (
             <>
               <div className="flex gap-2">
                 <Button onClick={getAuthUrl} className="bg-rose-500 hover:bg-rose-400">{globalMode.enabled ? 'Connect Global Channel' : 'Get Connect URL'}</Button>

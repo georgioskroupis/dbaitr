@@ -113,6 +113,12 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
         if (c?.updatedAt) c.updatedAt = toISO(c.updatedAt);
       }
       setTopic(prev => ({ ...(prev || {}), ...d } as any));
+    }, (err) => {
+      const code = (err as any)?.code || '';
+      if (code !== 'permission-denied') {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicDetailClient] topic listener error:', code);
+      }
     });
     return () => unsub();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,7 +292,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
       setIsLoadingStatements(false);
       setIsLoadingTopicDetails(false);
     }
-  }, [topic?.id, topic?.title, toast]);
+  }, [topic?.id, topic?.title, toast]); 
 
   // Realtime updates for statements so position/sentiment changes reflect quickly
   useEffect(() => {
@@ -329,6 +335,12 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
           }
         }
       } catch {}
+    }, (err) => {
+      const code = (err as any)?.code || '';
+      if (code !== 'permission-denied') {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicDetailClient] statements listener error:', code);
+      }
     });
     return () => unsub();
   }, [topic?.id, user?.uid]);
