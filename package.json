@@ -20,6 +20,7 @@
     "ai:refactor": "node scripts/ai/codex-run.mjs --session refactor -p docs/ai/templates/refactor.md",
     "dev:seed": "node scripts/seed/seed.mjs",
     "ci:trigger": "bash scripts/ops/trigger-ci.sh",
+    "ops:protect:main": "bash scripts/ops/enforce-main-protection.sh",
     "ops:deploy:prod": "bash scripts/ops/deploy-production.sh",
     "ops:push:main": "bash scripts/ops/push-main.sh",
     "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
