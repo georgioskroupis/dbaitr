@@ -48,7 +48,7 @@ export const GET = withAuth(async (_req, _ctx) => {
       const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || e?.response?.data?.error?.status || '';
       if (httpStatus === 401 || /invalid_grant/i.test(String(reason))) {
         try { await markInvalid(); } catch {}
-        if (process.env.NODE_ENV !== 'production') { try { console.error(JSON.stringify({ action: 'yt.validate', result: 'unauthorized' })); } catch {} }
+        try { console.error(JSON.stringify({ action: 'yt.validate', result: 'unauthorized' })); } catch {}
         return NextResponse.json({ ok: false, error: 'youtube_not_connected' }, { status: 409 });
       }
       if (httpStatus === 403 || /insufficientPermissions/i.test(String(reason))) {
@@ -60,4 +60,3 @@ export const GET = withAuth(async (_req, _ctx) => {
     return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
 }, { ...requireRole('admin'), ...requireStatus(['Verified']) });
-

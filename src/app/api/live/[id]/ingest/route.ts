@@ -204,7 +204,10 @@ export async function GET(req: Request, context?: { params?: any }) {
           return NextResponse.json({ ok: false, error: 'youtube_not_connected_global_mismatch', requestId }, { status: 409 });
         }
         if (httpStatus === 401 || httpStatus === 403 || reason === 'invalid_grant' || reason === 'authError' || reason === 'UNAUTHENTICATED') {
-          try { await purgeYoutubeCredentials(uid); } catch {}
+          try {
+            const yMod = await import('@/providers/video/youtube');
+            await yMod.purgeYoutubeCredentials(uid);
+          } catch {}
           return NextResponse.json({ ok: false, error: 'youtube_not_connected', requestId }, { status: 409 });
         }
         if (httpStatus === 404 || reason === 'notFound') {

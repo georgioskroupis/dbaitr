@@ -343,7 +343,8 @@ export default function UnifiedAuthPage() {
       // Send email verification (best effort)
       try {
         const { sendEmailVerification } = await import('firebase/auth');
-        if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+        const currentAuth = getAuth();
+        if (currentAuth.currentUser) await sendEmailVerification(currentAuth.currentUser);
       } catch {}
       toast({
         title: "Account Created!",

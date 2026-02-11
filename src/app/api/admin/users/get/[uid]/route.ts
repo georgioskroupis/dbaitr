@@ -47,8 +47,8 @@ export const GET = withAuth(async (_req, ctx?: { params?: { uid: string } }) => 
     const flaggedSt = await db.collectionGroup('statements').where('createdBy', '==', uid).where('moderation.flagged', '==', true).limit(5).get().catch(() => ({ docs: []} as any));
     const flaggedTh = await db.collectionGroup('threads').where('createdBy', '==', uid).where('moderation.flagged', '==', true).limit(5).get().catch(() => ({ docs: []} as any));
     const flags = [
-      ...flaggedSt.docs.map(d => ({ id: d.id, reason: (d.data() as any)?.moderation?.reason || 'flagged', createdAt: toIso((d.data() as any)?.createdAt) })),
-      ...flaggedTh.docs.map(d => ({ id: d.id, reason: (d.data() as any)?.moderation?.reason || 'flagged', createdAt: toIso((d.data() as any)?.createdAt) })),
+      ...flaggedSt.docs.map((d: any) => ({ id: d.id, reason: (d.data() as any)?.moderation?.reason || 'flagged', createdAt: toIso((d.data() as any)?.createdAt) })),
+      ...flaggedTh.docs.map((d: any) => ({ id: d.id, reason: (d.data() as any)?.moderation?.reason || 'flagged', createdAt: toIso((d.data() as any)?.createdAt) })),
     ];
 
     const security = {

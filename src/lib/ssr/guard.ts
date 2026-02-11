@@ -1,19 +1,17 @@
 import { redirect } from 'next/navigation';
 import type { Role, Status } from '@/lib/authz/types';
-import { headers, cookies } from 'next/headers';
+import { cookies } from 'next/headers';
 
 type Policy = { public?: boolean; minRole?: Role; allowedStatus?: Status[] };
 
 export async function guardRoute(policy: Policy, options?: { returnTo?: string }) {
   if (policy.public) return;
-  // Best-effort SSR presence check: require client to set ID token and App Check in cookies
-  const h = headers(); void h; // reserved for future header checks
-  const c = cookies();
-  const idt = c.get('db8_idt')?.value;
-  const act = c.get('db8_appcheck')?.value;
-  if (!idt || !act) {
+  // Best-effort SSR presence check: require presence cookies only (opaque, no tokens).
+  const c = await cookies();
+  const authPresence = c.get('db8_authp')?.value;
+  const appCheckPresence = c.get('db8_appcp')?.value;
+  if (!authPresence || !appCheckPresence) {
     const rt = options?.returnTo || '';
     redirect(`/auth${rt ? `?returnTo=${encodeURIComponent(rt)}` : ''}`);
   }
 }
-

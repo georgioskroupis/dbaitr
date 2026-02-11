@@ -2,7 +2,7 @@ export type Visibility = 'public' | 'unlisted' | 'private';
 export type Lifecycle = 'scheduled' | 'testing' | 'live' | 'complete' | 'canceled' | 'error';
 
 export interface VideoProvider {
-  connect(uid: string, code: string): Promise<{ channelId: string; channelTitle: string }>;
+  connect(uid: string, code: string, codeVerifier?: string): Promise<{ channelId: string; channelTitle: string }>;
   revoke(uid: string): Promise<void>;
   createBroadcast(
     uid: string,
@@ -21,6 +21,15 @@ export interface VideoProvider {
   bind(uid: string, broadcastId: string, streamId: string): Promise<void>;
   transition(uid: string, broadcastId: string, to: 'testing' | 'live' | 'complete' | 'canceled'): Promise<void>;
   getIngest(uid: string, streamId: string): Promise<{ ingestAddress: string; streamName: string }>;
+  getBroadcastInfo(uid: string, broadcastId: string): Promise<{
+    lifecycle: string | null;
+    boundStreamId: string | null;
+    scheduledStartTime: string | null;
+  }>;
+  getStreamInfo(uid: string, streamId: string): Promise<{
+    streamStatus: string | null;
+    healthStatus: string | null;
+  }>;
   getStatus(uid: string, broadcastId: string): Promise<{ lifecycle: Lifecycle; health: 'good' | 'ok' | 'bad' }>;
 }
 
@@ -29,4 +38,3 @@ export function getVideoProvider(): 'youtube' {
   const p = (process.env.VIDEO_PROVIDER || 'youtube').toLowerCase();
   return p as 'youtube';
 }
-

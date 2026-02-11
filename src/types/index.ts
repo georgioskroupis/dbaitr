@@ -29,6 +29,7 @@ export interface Topic {
       prompt?: string;
       updatedAt?: string;
     };
+    discussionOverview?: unknown;
     categories?: {
       tone?: AnalysisCategory;
       style?: AnalysisCategory;

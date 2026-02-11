@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import { google } from 'googleapis';
+import { CodeChallengeMethod } from 'google-auth-library';
 import { randomUUID } from 'crypto';
 
 function getEnv(name: string): string {
@@ -47,7 +48,7 @@ export const POST = withAuth(async (_req, ctx: any) => {
       prompt: 'consent', // ensure refresh_token on first connect
       state: sid,
       code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
+      code_challenge_method: CodeChallengeMethod.S256,
     });
     return NextResponse.json({ ok: true, authUrl: url });
   } catch (e: any) {
