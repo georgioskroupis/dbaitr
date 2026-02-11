@@ -4,11 +4,11 @@ import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const GET = withAuth(async (_ctx, { params }: { params: { uid: string } }) => {
+export const GET = withAuth(async (_req, ctx?: { params?: { uid: string } }) => {
   try {
     const db = getDbAdmin();
 
-    const uid = params.uid;
+    const uid = (ctx?.params as any)?.uid as string;
     const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const d = userDoc.data() as any;
@@ -37,6 +37,7 @@ export const GET = withAuth(async (_ctx, { params }: { params: { uid: string } }
 
     // Notes (moderator-only)
     let notes: any[] = [];
+    const role = (ctx as any)?.role as string | undefined;
     if (role === 'admin' || role === 'super-admin' || role === 'moderator') {
       const ns = await db.collection('users').doc(uid).collection('admin_notes').orderBy('createdAt', 'desc').limit(10).get();
       notes = ns.docs.map(x => ({ id: x.id, ...(x.data() as any), createdAt: toIso((x.data() as any)?.createdAt) }));

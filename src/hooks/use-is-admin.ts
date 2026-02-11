@@ -3,9 +3,9 @@
 import * as React from 'react';
 import { onAuthStateChanged, type User, getAuth } from 'firebase/auth';
 
-export function useIsAdmin() {
+export function useHasAdminRole() {
   const [user, setUser] = React.useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
+  const [hasAdminRole, setHasAdminRole] = React.useState<boolean>(false);
   const [loading, setLoading] = React.useState<boolean>(true);
 
   React.useEffect(() => {
@@ -36,7 +36,7 @@ export function useIsAdmin() {
           await user.getIdToken(true);
           const r = await user.getIdTokenResult();
           const role = (r?.claims as any)?.role;
-          if (!cancelled) setIsAdmin(role === 'admin' || role === 'super-admin');
+          if (!cancelled) setHasAdminRole(role === 'admin' || role === 'super-admin');
           if (!cancelled && !(role === 'admin' || role === 'super-admin')) {
             try {
               const t = await user.getIdToken();
@@ -45,17 +45,17 @@ export function useIsAdmin() {
               if (res.ok) {
                 const j = await res.json();
                 if (j?.ok && (j.role === 'admin' || j.role === 'super-admin')) {
-                  setIsAdmin(true);
+                  setHasAdminRole(true);
                   await user.getIdToken(true);
                 }
               }
             } catch {}
           }
         } else if (!cancelled) {
-          setIsAdmin(false);
+          setHasAdminRole(false);
         }
       } catch {
-        if (!cancelled) setIsAdmin(false);
+        if (!cancelled) setHasAdminRole(false);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -63,5 +63,5 @@ export function useIsAdmin() {
     return () => { cancelled = true; };
   }, [user]);
 
-  return { isAdmin, loading } as const;
+  return { hasAdminRole, loading } as const;
 }

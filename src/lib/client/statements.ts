@@ -1,15 +1,16 @@
+"use client";
+
 // Client-only Firestore helpers for statements
 // Used by client components to avoid importing server stubs.
 
 import { getDb } from '@/lib/firebase/client';
+import { apiFetch } from '@/lib/http/client';
 import { logger } from '@/lib/logger';
 import {
-  addDoc,
   collection,
   getDocs,
   limit,
   query,
-  serverTimestamp,
   where,
 } from 'firebase/firestore';
 
@@ -33,21 +34,11 @@ export async function createStatement(
   userName?: string,
   userPhotoURL?: string
 ) {
-  // Use API route to enforce server-side gates
-  const token = await (await import('firebase/auth')).getAuth().currentUser?.getIdToken();
-  // Optional App Check token if configured
-  let appCheckToken: string | undefined = undefined;
-  try {
-    const { getToken } = await import('firebase/app-check');
-    const r = await getToken(undefined as any, false);
-    appCheckToken = r?.token;
-  } catch {}
-  const res = await fetch('/api/statements/create', {
+  // Use API route to enforce server-side gates. apiFetch attaches App Check + ID token.
+  const res = await apiFetch('/api/statements/create', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
     },
     body: JSON.stringify({ topicId, content, claimType, sourceUrl, aiAssisted }),
   });

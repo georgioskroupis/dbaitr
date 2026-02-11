@@ -40,29 +40,17 @@ export function IdvWizard() {
     if (which === 'selfie') {
       const small = await downscaleBlob(blob, 1280, 'image/jpeg', 0.85);
       setSelfieBlob(small);
-      if (user) await decide(blob, user.uid);
+      if (user) await decide(blob);
     }
   };
 
-  const decide = async (selfieBlob: Blob, uid: string) => {
+  const decide = async (selfieBlob: Blob) => {
     if (!frontBlob || !backBlob || !selfieBlob) return;
-    const token = await user?.getIdToken();
-    if (!token) { setReason('unauthorized'); return; }
-    const result = await serverVerify(frontBlob, backBlob, selfieBlob, uid, token);
+    if (!user) { setReason('unauthorized'); return; }
+    const result = await serverVerify(frontBlob, backBlob, selfieBlob);
     setApproved(result.approved);
     setReason(result.reason || null);
     setStep('result');
-
-    // Call the new result endpoint
-  const { apiFetch } = await import('@/lib/http/client');
-    await apiFetch('/api/idv/result', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(result),
-    });
   };
 
   const getErrorMessage = (reason: string | null) => {

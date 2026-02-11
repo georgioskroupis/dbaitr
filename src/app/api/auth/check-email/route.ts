@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthAdmin } from '@/lib/firebase/admin';
 import { withAuth } from '@/lib/http/withAuth';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const { email } = await req.json();
     if (!email || typeof email !== 'string') return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });

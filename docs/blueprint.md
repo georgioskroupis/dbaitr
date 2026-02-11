@@ -16,3 +16,11 @@
 - Responsive and accessible design for optimal viewing and interaction across devices.
 - Subtle animations for a polished user experience.
 - Accent: Soft, muted red (#B33A3A) to highlight interactive elements without causing eye strain.
+Version: 2025.09
+Last updated: 2025-09-01
+Owner: Platform Engineering
+Non-negotiables:
+- App Check + Auth enforced on protected endpoints
+- Server-only writes in privileged collections
+- Build pipeline gated by lint + rules tests
+Acceptance: Blueprint reflects current defaults

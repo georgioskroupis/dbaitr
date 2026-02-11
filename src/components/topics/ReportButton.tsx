@@ -3,6 +3,7 @@
 import { Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/http/client';
 
 export function ReportButton({
   topicId,
@@ -35,4 +36,3 @@ export function ReportButton({
     </Button>
   );
 }
-import { apiFetch } from '@/lib/http/client';

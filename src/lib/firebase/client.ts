@@ -3,7 +3,7 @@
 // Canonical Firebase client initialization with App Check support
 import { initializeApp, getApps, getApp as getAppSdk, type FirebaseApp } from 'firebase/app';
 import { getAuth as getAuthSdk, setPersistence, browserLocalPersistence, type Auth } from 'firebase/auth';
-import { getFirestore as getFirestoreSdk, type Firestore } from 'firebase/firestore';
+import { getFirestore as getFirestoreSdk, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage as getStorageSdk, type FirebaseStorage } from 'firebase/storage';
 import { getDatabase as getDatabaseSdk, type Database } from 'firebase/database';
 import { initializeAppCheck, ReCaptchaV3Provider, getToken, type AppCheck } from 'firebase/app-check';
@@ -28,9 +28,33 @@ function initApp() {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     ...(computedDbUrl ? { databaseURL: computedDbUrl } : {}),
   } as const;
-  app = getApps().length ? getAppSdk() : initializeApp(cfg);
+  if (getApps().length) {
+    app = getAppSdk();
+  } else {
+    app = initializeApp(cfg);
+  }
   auth = getAuthSdk(app);
-  db = getFirestoreSdk(app);
+  // Configure Firestore transport to avoid WebChannel flakiness in dev environments
+  try {
+    if (!getApps().length) {
+      // no-op; handled above
+    }
+    // If Firestore was not previously initialized, prefer initializeFirestore with long polling
+    try {
+      // This throws if Firestore already initialized; we guard below
+      db = initializeFirestore(app, {
+        // Prefer long polling in dev/hot-reload to avoid INTERNAL ASSERTION crashes
+        experimentalAutoDetectLongPolling: true,
+        // Disable fetch streams; fall back to XHR which is more stable in some dev setups
+        // Cast to any to avoid type coupling across SDK minors
+        ...(typeof window !== 'undefined' ? ({ useFetchStreams: false } as any) : {}),
+      } as any);
+    } catch {
+      db = getFirestoreSdk(app);
+    }
+  } catch {
+    db = getFirestoreSdk(app);
+  }
   storage = getStorageSdk(app);
   try { rtdb = getDatabaseSdk(app); } catch { rtdb = undefined; }
   setPersistence(auth, browserLocalPersistence).catch((e) => {
@@ -54,6 +78,8 @@ export function getAuthClient(): Auth {
 
 export function getDbClient(): Firestore {
   if (!app) initApp();
+  // Ensure App Check is initialized before Firestore use
+  try { ensureAppCheck(); } catch {}
   if (!db) throw new Error('Firestore not initialized');
   return db;
 }
@@ -76,6 +102,16 @@ export function ensureAppCheck(): AppCheck | null {
     if (!siteKey) { logger.debug('[AppCheck] site key not configured; skipping init'); return null; }
     if (!app) initApp();
     if (!appCheck) {
+      // In development, set a fixed debug token from env (no auto-generate/fallback)
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          const dbg = process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN;
+          if (dbg) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = dbg;
+          }
+        } catch {}
+      }
       // Dev: honor global debug token if present
       appCheck = initializeAppCheck(app!, {
         provider: new ReCaptchaV3Provider(siteKey),

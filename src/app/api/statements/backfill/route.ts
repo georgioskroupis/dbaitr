@@ -5,7 +5,7 @@ import { classifyPostPosition } from '@/ai/flows/classify-post-position';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const db = getDbAdmin();
 

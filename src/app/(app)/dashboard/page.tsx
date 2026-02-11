@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LiveIndex } from '@/components/live/LiveIndex';
+import { apiFetch } from '@/lib/http/client';
 // import { seedMultiTopicTestData } from '@/lib/seedDatabase';
 
 
@@ -103,4 +104,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

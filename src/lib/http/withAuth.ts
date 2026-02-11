@@ -1,19 +1,30 @@
 import { NextResponse } from 'next/server';
-import { verifyAppCheckStrict, verifyIdTokenStrict, HttpError, assertRole, assertStatus } from '@/lib/authz/verify';
-import type { Role, Status, CapabilityKey } from '@/lib/authz/types';
+import { verifyAppCheckStrict, verifyIdTokenStrict, HttpError } from '@/lib/authz/verify';
+import type { Role, Status, CapabilityKey, ClaimsShape } from '@/lib/authz/types';
 import { hasCapability } from '@/lib/authz/types';
 
-type Ctx = { uid: string; role?: Role; status?: Status; kycVerified: boolean } | undefined;
-type Handler<T = any> = (ctx: Ctx, req: Request) => Promise<Response | T>;
+type Ctx = { uid: string; role?: Role; status?: Status; kycVerified: boolean; claims?: ClaimsShape } | undefined;
+type RouteCtx = { params?: any } | undefined;
+type Handler = (req: Request, ctx?: (NonNullable<Ctx> & { params?: any }) | { params?: any }) => Promise<Response>;
 
 function json(status: number, body: any) { return new NextResponse(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
 
 type RateLimitOpts = { userPerMin?: number; ipPerMin?: number };
 export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatus?: Status[]; public?: boolean; capability?: CapabilityKey; rateLimit?: RateLimitOpts; idempotent?: boolean }) {
-  return async function (req: Request): Promise<Response> {
+  // Next 15 passes (req, ctx?) where ctx.params may be a Promise
+  return async function (req: Request, ctx?: RouteCtx): Promise<Response> {
     const t0 = Date.now();
     const rid = Math.random().toString(36).slice(2);
     const route = (() => { try { const u = new URL(req.url); return u.pathname; } catch { return 'unknown'; } })();
+    if (process.env.NODE_ENV !== 'production') {
+      try { console.error('[withAuth] entry', { requestId: rid, route }); } catch {}
+    }
+    // Resolve params if provided and may be a promise
+    let paramsResolved: any = undefined;
+    try {
+      const p = (ctx as any)?.params;
+      paramsResolved = p && typeof p.then === 'function' ? await p : p;
+    } catch { paramsResolved = undefined; }
     // Debug-only snapshot of identity to include in denial logs
     let dbgUid: string | null = null;
     let dbgClaims: any = null;
@@ -27,14 +38,51 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
           try { console.warn(JSON.stringify({ level: 'warn', requestId: rid, route, error: 'rate_limited', subject: 'ip', latency_ms: Date.now() - t0 })); } catch {}
           return json(429, { ok: false, error: 'rate_limited', requestId: rid });
         }
-        const res = await handler(undefined, req);
-        return res instanceof Response ? res : json(200, res);
+        const res = await handler(req, { params: paramsResolved });
+        return res instanceof Response ? res : (res || json(200, { ok: true }));
       }
       const { uid, claims } = await verifyIdTokenStrict(req);
       dbgUid = uid;
       dbgClaims = claims;
       if (opts?.capability && !hasCapability(claims.role as Role | undefined, opts.capability)) {
         throw new HttpError(403, 'forbidden');
+      }
+      // Role gate with normalized hierarchy
+      if (opts?.minRole) {
+        const rank: Record<string, number> = {
+          'restricted': 0,
+          'viewer': 1,
+          'supporter': 2,
+          'moderator': 3,
+          'admin': 4,
+          'super-admin': 5,
+        };
+        const haveRole = (claims.role as string | undefined) || '';
+        const haveRank = rank[haveRole] ?? -1;
+        const needRank = rank[String(opts.minRole)] ?? 999;
+        if (!(haveRank >= needRank)) {
+          if (process.env.NODE_ENV !== 'production') {
+            try { console.error(`[withAuth] deny role: have=${haveRole || 'none'}, rank=${haveRank} need>=${needRank} requestId=${rid}`); } catch {}
+          }
+          throw new HttpError(403, 'forbidden');
+        }
+      }
+      // Status gate, case-insensitive
+      if (opts?.allowedStatus && opts.allowedStatus.length) {
+        const have = ((claims.status as string | undefined) || '').toLowerCase();
+        const allowed = opts.allowedStatus.map(s => String(s).toLowerCase());
+        if (have === 'suspended') {
+          if (process.env.NODE_ENV !== 'production') {
+            try { console.error(`[withAuth] deny status: have=${claims.status || 'none'} needAny=${allowed.join('|')} requestId=${rid}`); } catch {}
+          }
+          throw new HttpError(423, 'locked');
+        }
+        if (!allowed.includes(have)) {
+          if (process.env.NODE_ENV !== 'production') {
+            try { console.error(`[withAuth] deny status: have=${claims.status || 'none'} needAny=${allowed.join('|')} requestId=${rid}`); } catch {}
+          }
+          throw new HttpError(403, 'forbidden');
+        }
       }
       // Per-route user/IP rate limiting
       const rlOk = await rateLimitOkProtected(req, uid, opts?.rateLimit);
@@ -52,10 +100,20 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
           return json(prior.status || 200, prior.body || { ok: true });
         }
       }
-      if (opts?.minRole) assertRole(opts.minRole, claims);
-      if (opts?.allowedStatus) assertStatus(opts.allowedStatus, claims);
-      const res = await handler({ uid, role: claims.role as Role | undefined, status: claims.status as Status | undefined, kycVerified: !!claims.kycVerified }, req);
-      const out = res instanceof Response ? res : json(200, res);
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.error('[withAuth] ok', { requestId: rid, uid, role: claims.role || null, status: claims.status || null });
+        } catch {}
+      }
+      const res = await handler(req, {
+        uid,
+        role: claims.role as Role | undefined,
+        status: claims.status as Status | undefined,
+        kycVerified: !!claims.kycVerified,
+        claims: claims as ClaimsShape,
+        params: paramsResolved
+      } as any);
+      const out = res instanceof Response ? res : (res || json(200, { ok: true }));
       // Save idempotency snapshot
       if (opts?.idempotent && idemKey) {
         try {
@@ -66,6 +124,9 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
       try { console.log(JSON.stringify({ level: 'info', requestId: rid, route, uid, role: claims.role || null, status: claims.status || null, appCheck: 'ok', latency_ms: Date.now() - t0 })); } catch {}
       return out;
     } catch (e: any) {
+      if (process.env.NODE_ENV !== 'production') {
+        try { console.error('[withAuth] exception', (e?.message || e) + ''); } catch {}
+      }
       if (e instanceof HttpError) {
         const body = { ok: false, error: e.code, requestId: rid };
         try {

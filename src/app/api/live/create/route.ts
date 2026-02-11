@@ -19,7 +19,7 @@ const Schema = z.object({
   }).optional(),
 });
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
     const uid = ctx?.uid as string;
@@ -81,8 +81,8 @@ export const POST = withAuth(async (ctx, req) => {
     if (msg === 'youtube_not_connected') {
       return NextResponse.json({ ok: false, error: 'youtube_not_connected', message: 'YouTube is not connected. An admin must connect the configured channel in Settings → Integrations → YouTube.' }, { status: 409 });
     }
-    if (msg === 'channel_mismatch') {
-      return NextResponse.json({ ok: false, error: 'channel_mismatch', message: 'Connected channel does not match YOUTUBE_CHANNEL_ID. Reconnect using the correct channel.' }, { status: 409 });
+    if (msg === 'youtube_not_connected_global_mismatch') {
+      return NextResponse.json({ ok: false, error: 'youtube_not_connected_global_mismatch', message: 'Connected account/channel does not match YOUTUBE_CHANNEL_ID/YOUTUBE_CHANNEL_USER_ID. Reconnect as the correct channel owner.' }, { status: 409 });
     }
     if (msg === 'live_streaming_not_enabled') {
       return NextResponse.json({ ok: false, error: 'live_streaming_not_enabled', message: 'Live streaming is not enabled for the configured YouTube channel. In YouTube Studio, enable Live Streaming under Settings → Channel → Feature eligibility (or Live → Enable), then wait up to 24 hours for activation.' }, { status: 409 });

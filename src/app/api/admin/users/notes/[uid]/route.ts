@@ -4,14 +4,14 @@ import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (ctx, { params }: { params: { uid: string } }) => {
+export const POST = withAuth(async (req, ctx?: { params?: { uid: string } }) => {
   try {
     const db = getDbAdmin();
-    const actorUid = ctx?.uid;
+    const actorUid = (ctx as any)?.uid;
     const body = await req.json();
     const text = String(body?.text || '').trim();
     if (text.length < 3) return NextResponse.json({ ok: false, error: 'short' }, { status: 400 });
-    const uid = params.uid;
+    const uid = (ctx?.params as any)?.uid as string;
     const userRef = db.collection('users').doc(uid);
     const noteRef = userRef.collection('admin_notes').doc();
     await noteRef.set({ text, by: actorUid, createdAt: FieldValue.serverTimestamp() });

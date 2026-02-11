@@ -2,13 +2,12 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
-import { setClaims } from '@/lib/authz/claims';
 
 export const runtime = 'nodejs';
 
-// This endpoint is called by the IdvWizard component to store the result of the verification
-// and approve the user if the verification was successful.
-export const POST = withAuth(async (ctx, req) => {
+// Optional client acknowledgement endpoint.
+// Final approval is decided server-side in /api/idv/verify.
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     // Rate limit result posting per client
     if (!globalRateLimiter.check(getClientKey(req))) {
@@ -16,40 +15,27 @@ export const POST = withAuth(async (ctx, req) => {
     }
     const uid = ctx?.uid as string;
 
-    const { approved, reason } = await req.json();
+    const { reason } = await req.json().catch(() => ({}));
 
     const db = getDbAdmin();
-    if (!db) {
-      throw new Error('Firestore not initialized');
-    }
+    const latestSnap = await db.collection('idv_latest').doc(uid).get();
+    const latest = latestSnap.exists ? (latestSnap.data() as any) : null;
 
-    // Store the verification attempt with server timestamp
-    const attemptRef = db.collection('idv_attempts').doc();
-    await attemptRef.set({
+    // Audit client acknowledgement only. Approval is decided server-side in /api/idv/verify.
+    await db.collection('idv_attempts').add({
       uid,
-      approved: !!approved,
-      reason: reason || null,
+      approved: !!latest?.approved,
+      reason: latest?.reason || null,
+      clientReason: reason || null,
+      source: 'client_ack',
       timestamp: FieldValue.serverTimestamp(),
     });
 
-    // If approved, update the user's profile
-    if (approved) {
-      const userRef = db.collection('users').doc(uid);
-      // Merge verification flags expected by the client and retain backward-compatible fields
-      await userRef.set(
-        {
-          kycVerified: true,
-          identity: { verified: true },
-          idv_verified: true,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-      // Claims: Verified
-      await setClaims(uid, { status: 'Verified', kycVerified: true });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      approved: !!latest?.approved,
+      reason: latest?.reason || null,
+    });
   } catch (error) {
     console.error('Error handling IDV result:', error);
     return NextResponse.json({ success: false, reason: 'server_error' }, { status: 500 });

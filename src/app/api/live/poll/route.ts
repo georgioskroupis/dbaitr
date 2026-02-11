@@ -4,7 +4,7 @@ import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import youtubeProvider from '@/providers/video/youtube';
 
 // Best-effort poller to refresh statuses. Can be invoked by client or cron.
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const db = getDbAdmin();
     if (!db) return NextResponse.json({ ok: false, error: 'admin_not_configured' }, { status: 501 });

@@ -24,7 +24,7 @@ async function inferRawProbs(text: string): Promise<RawProbs> {
   return probs;
 }
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`sentiment:${key}`)) return NextResponse.json({ ok: false }, { status: 429 });

@@ -47,12 +47,35 @@ export default function LiveDetailPage() {
     const res = await apiFetch(`/api/live/${id}/ingest`, { headers: { Authorization: `Bearer ${token}` } });
     const j = await res.json();
     if (j?.ok) setIngest({ ingestAddress: j.ingestAddress, streamName: j.streamName });
+    else {
+      // eslint-disable-next-line no-alert
+      alert(j?.error || 'server_error');
+    }
   };
 
   const transition = async (to: 'testing'|'live'|'complete') => {
     if (!user) return;
     const token = await user.getIdToken();
-    await apiFetch(`/api/live/${id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
+    try {
+      // If jumping to live from scheduled, attempt testing first to avoid invalid_transition
+      if (to === 'live' && data?.status === 'scheduled') {
+        const r1 = await apiFetch(`/api/live/${id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to: 'testing' }) });
+        if (!r1.ok) {
+          const j = await r1.json().catch(()=>({}));
+          // Surface common errors to the host
+          alert(`Transition failed: ${j?.error || 'server_error'}`);
+          return;
+        }
+      }
+      const r2 = await apiFetch(`/api/live/${id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
+      if (!r2.ok) {
+        const j = await r2.json().catch(()=>({}));
+        alert(`Transition failed: ${j?.error || 'server_error'}`);
+      }
+    } catch {
+      // eslint-disable-next-line no-alert
+      alert('Transition failed: network_error');
+    }
   };
 
   if (!data) return null;

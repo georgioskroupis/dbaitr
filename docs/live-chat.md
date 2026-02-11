@@ -80,3 +80,11 @@ Operations
 - Slow-mode: toggle `liveRooms/{roomId}.settings.slowModeSec` (seconds). The server enforces and the client shows a general disabled state; a retry-after is returned on hit.
 - Supporter-only: set `liveRooms/{roomId}.settings.supporterOnly=true`.
 - Shadow-ban & moderation tools: implement as privileged endpoints to flip `shadowed` on messages or maintain a banlist, and update UI via existing mod tools.
+Version: 2025.09
+Last updated: 2025-09-01
+Owner: Platform Engineering
+Non-negotiables:
+- Client reads messages; writes/mod actions via server APIs only
+- RTDB presence is read-only on client; server updates watchers/typing
+- App Check enforced for Firestore and APIs; fixed dev token in local
+Acceptance: Document matches component behavior and APIs

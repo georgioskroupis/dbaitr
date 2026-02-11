@@ -6,6 +6,7 @@ import { collection, getDocs, orderBy, limit, query, deleteDoc, doc, collectionG
 import { getDb } from '@/lib/firebase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminGate } from '@/hooks/use-admin-gate';
+import { apiFetch } from '@/lib/http/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +24,8 @@ interface ReportItem {
 
 export default function ModerationPage() {
   const db = getDb();
-  const { userProfile, user } = useAuth();
-  const { allowed: isAdmin, loading: adminLoading } = useAdminGate();
+  const { user } = useAuth();
+  const { allowed: hasAdminAccess, loading: adminLoading } = useAdminGate();
   const { toast } = useToast();
   const router = useRouter();
   const [reports, setReports] = useState<ReportItem[]>([]);
@@ -32,7 +33,7 @@ export default function ModerationPage() {
   const [flaggedStatements, setFlaggedStatements] = useState<any[]>([]);
   const [flaggedThreads, setFlaggedThreads] = useState<any[]>([]);
 
-  const canModerate = isAdmin || !!(userProfile as any)?.isModerator;
+  const canModerate = hasAdminAccess;
   const [allow, setAllow] = useState(false);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function ModerationPage() {
           const t = await u.getIdToken();
           const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
           const j = await res.json();
-          if (j?.ok && j.role === 'admin') { setAllow(true); return; }
+          if (j?.ok && (j.role === 'admin' || j.role === 'super-admin')) { setAllow(true); return; }
         }
       } catch {}
       router.replace('/dashboard');
@@ -278,4 +279,3 @@ export default function ModerationPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

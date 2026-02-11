@@ -73,4 +73,3 @@ export default function AdminHomePage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

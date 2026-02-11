@@ -4,7 +4,7 @@ import { ai } from '@/ai/genkit';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const { topic, context, type } = await req.json();
     const prompt = `Write a concise ${type || 'statement'} for a debate.\nTopic: ${topic || ''}\nContext: ${context || ''}\nKeep it respectful and clear.`;

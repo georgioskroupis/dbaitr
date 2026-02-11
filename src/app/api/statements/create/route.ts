@@ -35,7 +35,7 @@ async function recomputeTallies(db: FirebaseFirestore.Firestore, topicId: string
   }, { merge: true });
 }
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
     const uid = ctx.uid;

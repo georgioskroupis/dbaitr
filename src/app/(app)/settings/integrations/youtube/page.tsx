@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/http/client';
 
 export default function YoutubeIntegrationPage() {
   const { user } = useAuth();
@@ -12,7 +13,7 @@ export default function YoutubeIntegrationPage() {
   const [message, setMessage] = React.useState<string | null>(null);
   const [globalMode, setGlobalMode] = React.useState<{ enabled: boolean; channelId?: string | null }>({ enabled: false });
   const [role, setRole] = React.useState<string | null>(null);
-  const [status, setStatus] = React.useState<{ connected: boolean; channelId?: string | null; channelTitle?: string | null; global: boolean }>({ connected: false, global: false });
+  const [status, setStatus] = React.useState<any>({ connected: false, global: false });
   const [statusLoading, setStatusLoading] = React.useState(false);
 
   const refreshStatus = React.useCallback(async () => {
@@ -102,13 +103,17 @@ export default function YoutubeIntegrationPage() {
           <div className="text-sm text-white/80 flex items-center gap-2">
             <span>Status:</span>
             {statusLoading && <Loader2 className="h-4 w-4 animate-spin text-white/60" />}
-            {status.connected ? (
+            {status.connected && !status.mismatch && (
               <span className="text-emerald-300">Connected{status.channelTitle ? ` to ${status.channelTitle}` : ''}{status.channelId ? ` (${status.channelId})` : ''}</span>
-            ) : (
+            )}
+            {!status.connected && (
               <span className="text-white/60">Not connected</span>
             )}
+            {status.mismatch && (
+              <span className="text-rose-400">Mismatch — reconnect as owner of {status?.required?.channelId || '(missing env)'}.</span>
+            )}
           </div>
-          {globalMode.enabled && !status.connected && (
+          {globalMode.enabled && (!status.connected || status.mismatch) && (
             <div className="text-xs text-amber-300/90">
               Channel is configured by env but not connected. {(role === 'admin' || role === 'super-admin') ? (
                 <>
@@ -137,4 +142,3 @@ export default function YoutubeIntegrationPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

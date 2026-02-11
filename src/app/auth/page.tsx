@@ -14,8 +14,8 @@ import {
   type AuthError,
   onAuthStateChanged,
 } from "firebase/auth";
-import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore"; // Import Firestore functions
-import { getAuth } from "@/lib/firebase/client";
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore"; // Firestore helpers only
+import { getAuth, getDb } from "@/lib/firebase/client";
 // Avoid importing server actions into client page
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -313,7 +313,7 @@ export default function UnifiedAuthPage() {
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: finalValuesForFirebase.fullName });
         try {
-          const db = getFirestore();
+          const db = getDb();
           const uref = doc(db, 'users', userCredential.user.uid);
           await setDoc(uref, {
             uid: userCredential.user.uid,

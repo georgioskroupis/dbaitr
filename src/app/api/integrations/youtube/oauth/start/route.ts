@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
-import { withAuth, requireStatus } from '@/lib/http/withAuth';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 import { google } from 'googleapis';
 import { randomUUID } from 'crypto';
 
@@ -11,16 +11,12 @@ function getEnv(name: string): string {
   return v;
 }
 
-export const POST = withAuth(async (ctx, _req) => {
+export const POST = withAuth(async (_req, ctx: any) => {
   try {
-    const role = ctx?.role || 'viewer';
-    const subscription = undefined;
-    const globalChannel = !!process.env.YOUTUBE_CHANNEL_ID;
-    // If a global channel is configured, only admins may connect it
-    const eligible = globalChannel
-      ? role === 'admin'
-      : (process.env.NODE_ENV !== 'production' || role === 'admin' || role === 'supporter' || subscription === 'plus' || subscription === 'supporter' || subscription === 'core');
-    if (!eligible) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    if (process.env.NODE_ENV !== 'production') {
+      try { console.error(JSON.stringify({ action: 'yt.oauth.start.authz', uid: ctx?.uid || null, role: ctx?.role || null, status: ctx?.status || null })); } catch {}
+    }
+    if (!process.env.YOUTUBE_CHANNEL_ID) return NextResponse.json({ ok: false, error: 'not_configured' }, { status: 500 });
     // Lazy env access at handler runtime only (not module import time)
     const o = new google.auth.OAuth2(
       getEnv('YOUTUBE_CLIENT_ID'),
@@ -41,7 +37,8 @@ export const POST = withAuth(async (ctx, _req) => {
     await db!.collection('_private').doc('youtubeOAuthStates').collection('pending').doc(sid).set({
       uid: ctx?.uid,
       createdAt: FieldValue.serverTimestamp(),
-      mode: globalChannel ? 'global' : 'user',
+      mode: 'global',
+      ttlMin: 15,
       codeVerifier,
     });
     const url = o.generateAuthUrl({
@@ -54,6 +51,9 @@ export const POST = withAuth(async (ctx, _req) => {
     });
     return NextResponse.json({ ok: true, authUrl: url });
   } catch (e: any) {
+    if (process.env.NODE_ENV !== 'production' && (e?.status === 403 || e?.code === 'forbidden')) {
+      try { console.error(JSON.stringify({ action: 'yt.oauth.start.deny', reason: 'role/status' })); } catch {}
+    }
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }
-}, { ...requireStatus(['Grace','Verified']) });
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

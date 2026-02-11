@@ -14,7 +14,7 @@ const TITLES_TTL_MS = 60_000;  // cache titles for 60s
 const suggestCache = new Map<string, { ts: number; result: FindSimilarTopicsOutput }>();
 let titlesCache: { ts: number; titles: string[] } | null = null;
 
-export const GET = withAuth(async (_ctx, req) => {
+export const GET = withAuth(async (req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`suggest:${key}`)) return NextResponse.json({ suggestions: [] }, { status: 429 });

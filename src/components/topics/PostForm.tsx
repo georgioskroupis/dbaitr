@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { logger } from '@/lib/logger';
 import { ToastAction } from "@/components/ui/toast";
+import { apiFetch } from '@/lib/http/client';
 
 
 const formSchema = z.object({
@@ -417,4 +418,3 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     </Form>
   );
 }
-import { apiFetch } from '@/lib/http/client';

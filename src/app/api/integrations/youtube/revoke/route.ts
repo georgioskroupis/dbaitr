@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import youtubeProvider from '@/providers/video/youtube';
 
-export const POST = withAuth(async (ctx, _req) => {
+export const POST = withAuth(async (_req, ctx: any) => {
   try {
     const role = ctx?.role || 'viewer';
-    if (process.env.YOUTUBE_CHANNEL_ID && role !== 'admin') {
+    if (process.env.YOUTUBE_CHANNEL_ID && !(role === 'admin' || role === 'super-admin')) {
       return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
     }
     await youtubeProvider.revoke(ctx?.uid as string);

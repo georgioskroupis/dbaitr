@@ -9,7 +9,7 @@ This document outlines how to enable YouTube Live integration for dbaitr.
 - `YOUTUBE_CLIENT_SECRET`
 - `YOUTUBE_REDIRECT_URI` — e.g., `https://your.app/api/integrations/youtube/oauth/callback`
 
-Also ensure existing Firebase env vars are set for the app. For local dev, App Check debug token is enabled automatically.
+Also ensure existing Firebase env vars are set for the app. In local dev, a fixed App Check debug token from env is used.
 
 ## Google Cloud / YouTube Setup
 
@@ -40,6 +40,7 @@ Security rules ensure only hosts/admin can create/update/delete liveDebates and 
 - Server creates YouTube broadcast + stream, binds them, and stores ingest details server-side.
 - Host can fetch RTMP ingest + key from `/api/live/:id/ingest` (host-only).
 - Host transitions broadcast from testing → live → complete via `/api/live/:id/transition`.
+- Preflight (server logs): verifies `boundStreamId`, `streamStatus` is ACTIVE, lifecycle ordering.
 
 ## Player
 
@@ -48,6 +49,7 @@ Security rules ensure only hosts/admin can create/update/delete liveDebates and 
 ## Poller
 
 - `/api/live/poll` can be triggered to refresh statuses from YouTube.
+ - Reconciles Firestore status to YouTube lifecycle (e.g., complete/revoked).
 
 ## Security Notes
 
@@ -56,5 +58,14 @@ Security rules ensure only hosts/admin can create/update/delete liveDebates and 
 - App Check enforced on client; dev uses debug token; production uses ReCAPTCHA.
 
 ## Future Providers
+# Live Debates (YouTube) — Setup & Notes
+Version: 2025.09
+Last updated: 2025-09-01
+Owner: Platform Engineering
+Non-negotiables:
+- All YouTube calls are server-side behind withAuth (App Check + ID token)
+- Server-only writes for `youtube.*` and `status` using Admin SDK
+- Preconditions for going live: bound stream, ACTIVE streamStatus, correct order (testing → live)
+Acceptance: Steps and preflight reflect current handlers
 
 - Abstraction in `src/providers/video` allows swapping to Livepeer/Mux/Cloudflare later.

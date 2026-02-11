@@ -4,8 +4,8 @@ import { withAuth } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const GET = withAuth(async (_ctx, _req, context: { params: Promise<{ id: string }> }) => {
-  const { id } = await context.params;
+export const GET = withAuth(async (_req, context?: { params?: { id: string } }) => {
+  const { id } = (context?.params || {}) as { id: string };
   const topicId = id;
   if (!topicId) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
 

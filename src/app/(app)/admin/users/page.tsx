@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { apiFetch } from '@/lib/http/client';
 
 type UserRow = {
   uid: string;
@@ -33,7 +34,7 @@ const SORTABLE = ['fullName','email','uid','role','status','kycVerified','create
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { allowed: isAdmin, loading: gateLoading } = useAdminGate();
+  const { allowed: hasAdminAccess, loading: gateLoading } = useAdminGate();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [q, setQ] = useState('');
   const [role, setRole] = useState('any');
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [openUid, setOpenUid] = useState<string | null>(null);
 
-  const canView = isAdmin; // admins only (claims-based)
+  const canView = hasAdminAccess; // admins only (claims-based)
 
   async function load() {
     if (!user || !canView) return;
@@ -435,4 +436,3 @@ function ConfirmModal({ open, onOpenChange, label, onConfirm }: { open: boolean;
     </AlertDialog>
   );
 }
-import { apiFetch } from '@/lib/http/client';

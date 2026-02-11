@@ -21,12 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 import { getAuth } from "@/lib/firebase/client";
 import { useAuth } from "@/context/AuthContext";
 import { logger } from '@/lib/logger';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useHasAdminRole } from '@/hooks/use-is-admin';
 import { BrandTooltip } from '@/components/branding/BrandTooltip';
 
 export function UserNav({ includeMobileExtras = false }: { includeMobileExtras?: boolean } = {}) {
   const { user, userProfile, kycVerified, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const { hasAdminRole } = useHasAdminRole();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -116,7 +116,7 @@ export function UserNav({ includeMobileExtras = false }: { includeMobileExtras?:
               <span>Transparency</span>
             </DropdownMenuItem>
           </Link>
-          {isAdmin && (
+          {hasAdminRole && (
             <Link href="/admin" passHref>
               <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
                 <Shield className="mr-2 h-4 w-4" />

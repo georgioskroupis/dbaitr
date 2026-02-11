@@ -1,5 +1,11 @@
 # Firebase Authentication + App Check Audit (dbaitr)
 
+Historical — pre-redesign
+
+Note: This document reflects the system state before the unified Auth + App Check redesign (2025.09). It is kept for historical reference. For the current design, see:
+- docs/authz-architecture.md
+- docs/appcheck-policy.md
+
 This report audits how Authentication and App Check are implemented across dbaitr (Next.js App Router on Firebase App Hosting with Firestore, Auth, App Check). It documents current behavior, highlights inconsistencies, and proposes design requirements for a unified, reliable approach. All references include file paths for verification.
 
 ## Executive Summary
@@ -286,4 +292,3 @@ References: See API files under `src/app/api/**`, providers/components mentioned
 ---
 
 Appendix: See CSVs under `/docs/audit_csv/` for machine-readable matrices.
-

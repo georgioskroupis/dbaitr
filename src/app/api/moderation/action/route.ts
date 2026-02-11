@@ -6,10 +6,10 @@ export const runtime = 'nodejs';
 
 type ActionType = 'clear_flag' | 'delete' | 'edit' | 'warn' | 'suppress' | 'other';
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
-    const uid = ctx.uid;
+    const uid = ctx?.uid;
 
     const body = await req.json();
     const { action, target, topicId, statementId, threadId, tags, notes, scores, maxLabel, maxScore } = body || {};

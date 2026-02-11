@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin } from '@/lib/firebase/admin';
 import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
-export const GET = withAuth(async (_ctx, req) => {
+export const GET = withAuth(async (req) => {
   const db = getDbAdmin();
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code') || undefined;

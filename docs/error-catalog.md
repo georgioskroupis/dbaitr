@@ -1,3 +1,12 @@
+Version: 2025.09
+Last updated: 2025-09-01
+Owner: Platform Engineering
+Non-negotiables:
+- Do not leak provider/raw errors to clients
+- Map common failures to stable app codes
+- Keep 401/403/423/429/440 semantics consistent platform-wide
+Acceptance: Codes align with handlers and docs
+
 Standardized API Error Semantics
 
 - 401 UNAUTHENTICATED
@@ -18,3 +27,11 @@ Standardized API Error Semantics
 - 500 SERVER ERROR
   - Code: server_error
   - Meaning: Unhandled failure; inspect logs
+
+YouTube integration app codes
+- Create: 409 youtube_not_connected, 409 live_streaming_not_enabled
+- Ingest: 400 no_stream, 404 stream_not_found, 409 youtube_not_connected, 409 no_ingestion_info
+- Transition: 400 invalid_transition, 409 stream_not_bound, 409 stream_inactive, 409 too_early, 409 youtube_not_connected, 409 live_streaming_not_enabled
+
+Notes
+- API responses include `{ ok: boolean, error?: string, requestId?: string }` for tracing.

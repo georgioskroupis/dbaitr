@@ -60,15 +60,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Dev-only rewrite for favicon only (avoid touching Next internal asset paths)
-  async rewrites() {
-    if (process.env.NODE_ENV === 'production') return [] as any;
-    return [
-      {
-        source: '/favicon.ico',
-        destination: '/dbaitr-favicon.svg',
-      },
-    ];
-  },
+  // No rewrites; avoid interfering with Next's internal assets in dev
 };
 export default nextConfig;

@@ -3,12 +3,13 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin } from '@/lib/firebase/admin';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
 
-export const DELETE = withAuth(async (ctx, context: any) => {
-  const { params } = context as { params: { id: string } };
+export const DELETE = withAuth(async (_req, ctx: any) => {
+  const id = (ctx?.params as any)?.id;
+  if (!id) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
   try {
     const db = getDbAdmin();
     const uid = ctx?.uid as string;
-    const ref = db.collection('liveDebates').doc(params.id);
+    const ref = db.collection('liveDebates').doc(id);
     const snap = await ref.get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const d = snap.data() as any;

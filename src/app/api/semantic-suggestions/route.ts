@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/http/withAuth';
 import { findSimilarTopics, type FindSimilarTopicsInput } from '@/ai/flows/find-similar-topics';
 import { logger } from '@/lib/logger';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const query: string = (body?.query ?? '').toString();

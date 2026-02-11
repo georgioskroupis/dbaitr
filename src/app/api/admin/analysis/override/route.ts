@@ -4,7 +4,7 @@ import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const db = getDbAdmin();
 

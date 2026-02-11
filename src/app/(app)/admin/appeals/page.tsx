@@ -6,6 +6,7 @@ import { collection, doc, getDocs, limit, orderBy, query } from 'firebase/firest
 import { getDb } from '@/lib/firebase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminGate } from '@/hooks/use-admin-gate';
+import { apiFetch } from '@/lib/http/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,8 +25,8 @@ interface AppealItem {
 
 export default function AppealsAdminPage() {
   const db = getDb();
-  const { userProfile, user } = useAuth();
-  const { allowed: isAdmin, loading: adminLoading } = useAdminGate();
+  const { user } = useAuth();
+  const { allowed: hasAdminAccess, loading: adminLoading } = useAdminGate();
   const { toast } = useToast();
   const router = useRouter();
   const [appeals, setAppeals] = useState<AppealItem[]>([]);
@@ -33,7 +34,7 @@ export default function AppealsAdminPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [rationale, setRationale] = useState<Record<string, string>>({});
 
-  const canModerate = isAdmin || !!(userProfile as any)?.isModerator;
+  const canModerate = hasAdminAccess;
   const [allow, setAllow] = useState(false);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function AppealsAdminPage() {
           const t = await u.getIdToken();
           const res = await apiFetch('/api/admin/whoami', { headers: { Authorization: `Bearer ${t}` } });
           const j = await res.json();
-          if (j?.ok && j.role === 'admin') { setAllow(true); return; }
+          if (j?.ok && (j.role === 'admin' || j.role === 'super-admin')) { setAllow(true); return; }
         }
       } catch {}
       router.replace('/dashboard');
@@ -170,4 +171,3 @@ export default function AppealsAdminPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

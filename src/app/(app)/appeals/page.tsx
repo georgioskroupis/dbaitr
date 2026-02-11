@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
+import { apiFetch } from '@/lib/http/client';
 
 export default function AppealsPage() {
   const { user } = useAuth();
@@ -92,4 +93,3 @@ export default function AppealsPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

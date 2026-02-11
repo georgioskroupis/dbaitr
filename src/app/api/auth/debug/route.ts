@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthAdmin } from '@/lib/firebase/admin';
+import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
 // Read-only diagnostics to help verify production Firebase configuration alignment.
 // Does not expose secrets; API key is public by nature, and we only return a short prefix.
-export async function GET() {
+export const GET = withAuth(async () => {
   try {
     const admin = getAuthAdmin();
     const adminProjectId = (admin as any)?.app?.options?.projectId || process.env.GOOGLE_CLOUD_PROJECT || null;
@@ -19,7 +20,7 @@ export async function GET() {
       apiKeyPrefix: apiKey ? apiKey.slice(0, 6) : null,
       nodeEnv: process.env.NODE_ENV,
     });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || 'debug_failed' }, { status: 500 });
+  } catch {
+    return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
-}
+}, { ...requireRole('admin'), ...requireStatus(['Verified']) });

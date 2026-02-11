@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { getClientKey, globalRateLimiter } from '@/lib/rateLimit';
 import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`sentiment-backfill:${key}`)) return NextResponse.json({ ok: false }, { status: 429 });

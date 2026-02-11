@@ -19,6 +19,21 @@ export default function AppBootstrapper() {
     // Initialize App Check if configured
     initAppCheckIfConfigured();
 
+    // Dev-only startup diagnostics: log runtime appId and warn if it mismatches env
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const appId = getAuth().app?.options?.appId || null;
+        const projectId = getAuth().app?.options?.projectId || null;
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify({ level: 'info', action: 'app.start', appId, projectId }));
+        const expected = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+        if (expected && appId && appId !== expected) {
+          // eslint-disable-next-line no-console
+          console.warn(`[AppCheck] Warning: runtime appId (${appId}) does not match NEXT_PUBLIC_FIREBASE_APP_ID (${expected}). Ensure your Web App/App Check config match.`);
+        }
+      } catch {}
+    }
+
     // No dev globals
 
     // Dev-only: surface App Check debug token via toast once per session

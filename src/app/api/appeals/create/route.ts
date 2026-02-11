@@ -4,7 +4,7 @@ import { withAuth, requireStatus } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
     const uid = ctx?.uid as string;

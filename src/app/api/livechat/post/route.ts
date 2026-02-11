@@ -10,11 +10,11 @@ function isProfaneOrSuspicious(text: string): boolean {
   return bad.test(text) || url.test(text);
 }
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
     const uid = ctx?.uid as string;
-    const claims: any = { role: ctx?.role };
+    const claims = (ctx?.claims || {}) as Record<string, unknown>;
     const body = await req.json();
     const roomId = (body?.roomId || '').trim();
     const text = (body?.text || '').toString();
@@ -29,7 +29,10 @@ export const POST = withAuth(async (ctx, req) => {
 
     const isHost = room.hostUid === uid;
     const isMod = Array.isArray(room.moderators) && room.moderators.includes(uid);
-    const isSupporter = !!claims.supporter || ['plus','supporter','core'].includes((claims.subscription || '').toString());
+    const isSupporter =
+      ctx?.role === 'supporter' ||
+      claims.supporter === true ||
+      ['plus','supporter','core'].includes(String(claims.subscription || ''));
 
     if (room?.settings?.supporterOnly) {
       if (!(isHost || isMod || isSupporter)) {
@@ -71,7 +74,7 @@ export const POST = withAuth(async (ctx, req) => {
     }); } catch {}
 
     return NextResponse.json({ ok: true, id: msgRef.id });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
 }, { ...requireStatus(['Grace','Verified']) });

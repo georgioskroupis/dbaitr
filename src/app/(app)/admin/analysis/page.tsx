@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/http/client';
 
 type Cat = 'tone'|'style'|'outcome'|'substance'|'engagement'|'argumentation';
 
@@ -31,9 +32,9 @@ type Row = { id: string; title: string; analysis?: any; analysis_flat?: any };
 export default function AdminAnalysisPage() {
   const db = getDb();
   const { user } = useAuth();
-  const { allowed: isAdmin, loading: gateLoading } = useAdminGate();
+  const { allowed: hasAdminAccess, loading: gateLoading } = useAdminGate();
   const { toast } = useToast();
-  const canModerate = !!isAdmin; // claim-based to avoid client Firestore read dependency
+  const canModerate = !!hasAdminAccess; // claim-based to avoid client Firestore read dependency
   const [primaryCat, setPrimaryCat] = useState<Cat>('tone');
   const [primaryVal, setPrimaryVal] = useState<string>('any');
   const [secondaryCat, setSecondaryCat] = useState<Cat | 'none'>('none');
@@ -88,6 +89,14 @@ export default function AdminAnalysisPage() {
     toast({ title: 'Bulk overrides complete', description: `${ok} ok, ${fail} failed.` });
     setSelected({});
     loadPage(true);
+  }
+
+  if (gateLoading) {
+    return (
+      <div className="container mx-auto py-10">
+        <p className="text-white/70">Checking admin access…</p>
+      </div>
+    );
   }
 
   if (!canModerate) {
@@ -221,4 +230,3 @@ export default function AdminAnalysisPage() {
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

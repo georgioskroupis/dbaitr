@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
 
-export const POST = withAuth(async (ctx, req) => {
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
     const uid = ctx?.uid as string;

@@ -8,7 +8,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "npm run apphosting:build",
     "start": "next start",
-    "lint": "next lint && node scripts/checks/missing-appcheck-header.mjs && node scripts/checks/forbid-duplicate-inits.mjs && node scripts/checks/forbid-legacy-role-flags.mjs",
+    "lint": "next lint && node scripts/checks/missing-appcheck-header.mjs && node scripts/checks/forbid-duplicate-inits.mjs && node scripts/checks/forbid-legacy-role-flags.mjs && node scripts/checks/forbid-youtube-per-user.mjs && node scripts/checks/no-trailing-imports.mjs && node scripts/checks/security-regression-guards.mjs",
     "lint:appcheck": "node scripts/checks/missing-appcheck-header.mjs",
     "check": "npm run lint && npm run test:rules",
     "apphosting:build": "npm run check && next build",
@@ -22,7 +22,7 @@
     "ci:trigger": "bash scripts/ops/trigger-ci.sh",
     "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
     "admin:set-role": "node scripts/admin/set-role.mjs",
-    "test:rules": "node scripts/tests/rules.test.mjs"
+    "test:rules": "node scripts/tests/rules.test.mjs && node scripts/tests/api-security.test.mjs"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.1.0",

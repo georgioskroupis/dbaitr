@@ -1,13 +1,14 @@
 "use client";
 
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useHasAdminRole } from '@/hooks/use-is-admin';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/http/client';
 
 type Cat = 'tone'|'style'|'outcome'|'substance'|'engagement'|'argumentation';
 
@@ -21,10 +22,10 @@ const OPTIONS: Record<Cat, string[]> = {
 };
 
 export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string; categories?: any }) {
-  const { user, userProfile } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const { user } = useAuth();
+  const { hasAdminRole } = useHasAdminRole();
   const { toast } = useToast();
-  const canModerate = !!(user && (userProfile?.isModerator || userProfile?.isAdmin || isAdmin));
+  const canModerate = !!(user && hasAdminRole);
   const [note, setNote] = useState<string>('');
   const [saving, setSaving] = useState<string | null>(null);
   const [running, setRunning] = useState<boolean>(false);
@@ -106,4 +107,3 @@ export function TopicPillsAdminPanel({ topicId, categories }: { topicId: string;
     </div>
   );
 }
-import { apiFetch } from '@/lib/http/client';

@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
+import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { setClaims } from '@/lib/authz/claims';
 
 export const runtime = 'nodejs';
 
-// Proxies to Cloud Run if configured; does not persist or log payloads
-export const POST = withAuth(async (_ctx, req) => {
+// Verifies captures through Cloud Run (or dev fallback) and persists only decision metadata.
+export const POST = withAuth(async (req, ctx: any) => {
   try {
     // Basic rate limit to reduce abuse
     if (!globalRateLimiter.check(getClientKey(req))) {
       return NextResponse.json({ approved: false, reason: 'rate_limited' }, { status: 429 });
     }
-    const uid = (_ctx?.uid as string);
+    const uid = ctx?.uid as string;
+    const db = getDbAdmin();
 
     const form = await req.formData();
     const front = form.get('front');
@@ -26,6 +29,9 @@ export const POST = withAuth(async (_ctx, req) => {
       // Try a local dev service if available
       cloudUrl = process.env.IDV_DEV_LOCAL_URL || 'http://localhost:8000';
     }
+    let approved = false;
+    let reason: string | null = null;
+    let source: 'cloud' | 'dev_fallback' | 'unavailable' = 'unavailable';
     if (cloudUrl) {
       // Proxy form-data to Cloud Run endpoint
       const fd = new FormData();
@@ -41,16 +47,54 @@ export const POST = withAuth(async (_ctx, req) => {
           'X-User-Id': uid,
         },
       });
-      // Only return approved boolean + reason; never expose payload
       const data = await resp.json().catch(() => ({}));
-      return NextResponse.json({ approved: !!data?.approved, reason: data?.reason || null }, { status: resp.ok ? 200 : 502 });
+      source = 'cloud';
+      approved = resp.ok && !!data?.approved;
+      reason = typeof data?.reason === 'string' ? data.reason : (resp.ok ? null : 'cloud_unavailable');
+    } else if (process.env.IDV_DEV_FAKE_APPROVE === 'true' && process.env.NODE_ENV !== 'production') {
+      // Minimal fallback if verification backend not configured
+      source = 'dev_fallback';
+      approved = true;
+      reason = 'dev_mode';
+    } else {
+      source = 'unavailable';
+      approved = false;
+      reason = 'cloud_unavailable';
     }
 
-    // Minimal fallback if verification backend not configured
-    if (process.env.IDV_DEV_FAKE_APPROVE === 'true' && process.env.NODE_ENV !== 'production') {
-      return NextResponse.json({ approved: true, reason: 'dev_mode' }, { status: 200 });
+    // Persist server decision for audit and anti-spoofing checks.
+    const attemptRef = db.collection('idv_attempts').doc();
+    await attemptRef.set({
+      uid,
+      approved,
+      reason: reason || null,
+      source,
+      timestamp: FieldValue.serverTimestamp(),
+    });
+    await db.collection('idv_latest').doc(uid).set({
+      attemptId: attemptRef.id,
+      approved,
+      reason: reason || null,
+      source,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    // Approval must happen on the server path only; never trust client-posted approval payloads.
+    if (approved) {
+      await db.collection('users').doc(uid).set(
+        {
+          kycVerified: true,
+          identity: { verified: true },
+          idv_verified: true,
+          status: 'verified',
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      await setClaims(uid, { status: 'Verified', kycVerified: true });
     }
-    return NextResponse.json({ approved: false, reason: 'cloud_unavailable' }, { status: 503 });
+
+    return NextResponse.json({ approved, reason }, { status: 200 });
   } catch {
     return NextResponse.json({ approved: false, reason: 'server_error' }, { status: 500 });
   }

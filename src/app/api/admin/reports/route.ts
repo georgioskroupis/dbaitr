@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getDbAdmin } from '@/lib/firebase/admin';
 import { withAuth, requireRole, requireStatus } from '@/lib/http/withAuth';
 
-export const GET = withAuth(async (_ctx, _req) => {
+export const GET = withAuth(async () => {
   try {
     const db = getDbAdmin();
 

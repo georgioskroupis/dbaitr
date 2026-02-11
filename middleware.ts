@@ -4,6 +4,10 @@ import { routePolicies } from '@/lib/authz/routePolicy';
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.error('[mw] hit', pathname);
+  }
   // Only guard a subset to avoid overhead; APIs are enforced server-side.
   const policy = routePolicies.find(p => pathname === p.path || (p.path.endsWith('/') && pathname.startsWith(p.path)));
   if (!policy || policy.public) return NextResponse.next();
@@ -18,11 +22,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: [
-    '/dashboard',
-    '/topics/new',
-    '/admin/:path*',
-    '/live/new',
-  ],
-};
+export const config = { matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'] };

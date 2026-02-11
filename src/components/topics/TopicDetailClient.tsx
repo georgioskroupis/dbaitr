@@ -24,7 +24,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
-import { useIsAdmin } from '@/hooks/use-is-admin';
+import { useHasAdminRole } from '@/hooks/use-is-admin';
 import { collectionGroup } from 'firebase/firestore';
 import { TopicPills } from './TopicPills';
 import { TopicPillsAdminPanel } from './TopicPillsAdminPanel';
@@ -61,8 +61,8 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const { toast } = useToast();
-  const { user, userProfile } = useAuth();
-  const { isAdmin } = useIsAdmin();
+  const { user } = useAuth();
+  const { hasAdminRole } = useHasAdminRole();
   
   const [clientTopicCreatedAtDate, setClientTopicCreatedAtDate] = useState<string | null>(null);
   const [stats, setStats] = useState<{
@@ -347,6 +347,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
 
 
   const creatorNameDisplay = creatorProfile?.fullName || 'Anonymous';
+  const canModerateTopic = !!(user && hasAdminRole);
 
   if (!topic) { 
     return (
@@ -361,7 +362,7 @@ export function TopicDetailClient({ initialTopic, initialStatements }: TopicDeta
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       {/* Moderator controls (collapsible, visible only to moderators/admins) */}
-      {(user && (userProfile?.isModerator || userProfile?.isAdmin || isAdmin)) ? (
+      {canModerateTopic ? (
         <Accordion type="single" collapsible>
           <AccordionItem value="mod-controls" className="border-white/10">
             <AccordionTrigger className="text-sm text-white/80">

@@ -6,7 +6,7 @@ import { withAuth } from '@/lib/http/withAuth';
 
 export const runtime = 'nodejs';
 
-export const GET = withAuth(async (_ctx, req) => {
+export const GET = withAuth(async (req) => {
   try {
     const key = getClientKey(req);
     if (!globalRateLimiter.check(`topics:${key}`)) return NextResponse.json({ topics: [] }, { status: 429 });

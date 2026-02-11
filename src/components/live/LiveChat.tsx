@@ -8,6 +8,7 @@ import { ref as rRef, onValue, set } from 'firebase/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { apiFetch } from '@/lib/http/client';
 
 type Room = { id: string; title: string; status: 'live'|'ended'|'scheduled'; hostUid: string; moderators?: string[]; settings?: { supporterOnly?: boolean; slowModeSec?: number; emojiOnly?: boolean; questionsOnly?: boolean; bannedUids?: string[] }; pinned?: string[] };
 type Message = { id: string; uid: string; displayName: string; role: 'host'|'mod'|'supporter'|'viewer'; text: string; type: 'message'|'question'|'answer'|'system'; replyToMsgId?: string|null; shadowed?: boolean; createdAt?: any };
@@ -188,4 +189,3 @@ export function LiveChat({ roomId }: { roomId: string }) {
     </Card>
   );
 }
-import { apiFetch } from '@/lib/http/client';

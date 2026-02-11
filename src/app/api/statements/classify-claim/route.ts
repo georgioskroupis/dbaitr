@@ -4,7 +4,7 @@ import { classifyClaimType } from '@/ai/flows/classify-claim-type';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (_ctx, req) => {
+export const POST = withAuth(async (req) => {
   try {
     const { text, topic } = await req.json();
     if (!text || typeof text !== 'string') return NextResponse.json({ ok: false, error: 'missing_text' }, { status: 400 });

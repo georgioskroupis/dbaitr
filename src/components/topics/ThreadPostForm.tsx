@@ -20,6 +20,7 @@ import { logger } from '@/lib/logger';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ToastAction } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { apiFetch } from '@/lib/http/client';
 
 const formSchema = z.object({
   content: z.string().min(5, "Content must be at least 5 characters.").max(1000, "Content must be at most 1000 characters."),
@@ -330,4 +331,3 @@ export function ThreadPostForm({
     </Form>
   );
 }
-import { apiFetch } from '@/lib/http/client';
