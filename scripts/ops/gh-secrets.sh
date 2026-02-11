@@ -8,6 +8,9 @@ set -euo pipefail
 #   - GitHub CLI installed and authenticated: gh auth login
 #   - Repo is the current working directory or set GH_REPO env (owner/repo)
 #   - An env file containing required variables (see scripts/ops/gh-secrets.example.env)
+#
+# Optional:
+#   - gcloud CLI for IAM role verification of FIREBASE_SERVICE_ACCOUNT
 
 DRY_RUN=${DRY_RUN:-0}
 
@@ -54,6 +57,47 @@ run() {
   fi
 }
 
+verify_deploy_sa_roles() {
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "+ verify Firebase deploy service account IAM roles"
+    return 0
+  fi
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "Note: gcloud CLI not found; skipping deploy service account IAM verification."
+    return 0
+  fi
+
+  local sa_email
+  sa_email=$(node -e "const fs=require('fs');const p=process.argv[1];try{const j=JSON.parse(fs.readFileSync(p,'utf8'));if(j&&j.client_email)process.stdout.write(j.client_email);}catch{}" "${FIREBASE_SERVICE_ACCOUNT_FILE}")
+  if [[ -z "${sa_email}" ]]; then
+    echo "Warning: Could not parse client_email from FIREBASE_SERVICE_ACCOUNT_FILE; skipping IAM verification."
+    return 0
+  fi
+
+  local roles
+  roles=$(gcloud projects get-iam-policy "${FIREBASE_PROJECT_ID}" \
+    --flatten='bindings[].members' \
+    --filter="bindings.members:serviceAccount:${sa_email}" \
+    --format='value(bindings.role)' 2>/dev/null || true)
+
+  local missing=0
+  if ! grep -qx 'roles/firebase.admin' <<<"${roles}"; then
+    echo "Warning: ${sa_email} is missing roles/firebase.admin on project ${FIREBASE_PROJECT_ID}."
+    missing=1
+  fi
+  if ! grep -qx 'roles/serviceusage.serviceUsageConsumer' <<<"${roles}"; then
+    echo "Warning: ${sa_email} is missing roles/serviceusage.serviceUsageConsumer on project ${FIREBASE_PROJECT_ID}."
+    missing=1
+  fi
+  if [[ "${missing}" == "1" ]]; then
+    echo "Grant missing roles with:"
+    echo "  gcloud projects add-iam-policy-binding ${FIREBASE_PROJECT_ID} --member serviceAccount:${sa_email} --role roles/firebase.admin --condition=None"
+    echo "  gcloud projects add-iam-policy-binding ${FIREBASE_PROJECT_ID} --member serviceAccount:${sa_email} --role roles/serviceusage.serviceUsageConsumer --condition=None"
+  else
+    echo "Verified deploy service account roles for ${sa_email}."
+  fi
+}
+
 # Firebase
 [[ -z "${FIREBASE_PROJECT_ID:-}" ]] && { echo "Missing FIREBASE_PROJECT_ID" >&2; exit 1; }
 [[ -z "${FIREBASE_SERVICE_ACCOUNT_FILE:-}" ]] && { echo "Missing FIREBASE_SERVICE_ACCOUNT_FILE" >&2; exit 1; }
@@ -64,6 +108,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
 else
   gh secret set FIREBASE_SERVICE_ACCOUNT --repo "${REPO}" < "${FIREBASE_SERVICE_ACCOUNT_FILE}"
 fi
+verify_deploy_sa_roles
 
 # Cloud Run / GCP
 [[ -z "${GCP_PROJECT_ID:-}" ]] && { echo "Missing GCP_PROJECT_ID" >&2; exit 1; }

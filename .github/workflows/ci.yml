@@ -1,14 +1,24 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: ["**"]
+  push:
+    branches-ignore: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  ci:
+  quality_gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: 1
       CI: true
@@ -30,16 +40,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npm run -s typecheck
 
-      - name: Lint (if configured)
-        run: npm run -s lint || echo "lint step skipped"
-
-      - name: Build
-        run: npm run -s build
+      - name: App Hosting quality gate
+        run: npm run -s apphosting:build
 
       - name: Boundary checks
         run: npm run -s check:boundaries

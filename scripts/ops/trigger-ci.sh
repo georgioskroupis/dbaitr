@@ -1,135 +1,131 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# trigger-ci.sh — Commit current changes (or make an empty commit) and push to trigger CI/CD
+# trigger-ci.sh — Explicitly dispatch the CI workflow via GitHub Actions.
 #
 # Usage:
-#   bash scripts/ops/trigger-ci.sh [-b branch] [-r remote] [-m message] [--empty] [-f] [-n] [--pull-rebase] [--force-push]
+#   bash scripts/ops/trigger-ci.sh [--ref <git-ref>] [--repo <owner/repo>] [--wait]
 #
-# Options:
-#   -b, --branch   Target branch (default: current branch)
-#   -r, --remote   Git remote name (default: origin)
-#   -m, --message  Commit message (default: chore: ci trigger <UTC-ISO>)
-#   --empty         Do not commit changes; create an empty commit instead
-#   -f, --force     When using --empty with local changes, stash temporarily
-#   -n, --no-push   Do not push; create commit locally only
-#   --pull-rebase   Rebase local branch onto remote before pushing (handles non-fast-forward)
-#   --force-push    Push with --force-with-lease (use with care; check protections)
-#   -h, --help     Show help
+# Defaults:
+#   ref: current git branch
+#   repo: GH_REPO env or detected from `gh repo view`
 
-remote="origin"
-branch=""
-message=""
-empty=false
-force=false
-no_push=false
-pull_rebase=false
-force_push=false
+workflow_name="CI"
+ref=""
+repo="${GH_REPO:-}"
+wait_for_run=false
 
-ts_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
-usage() { sed -n '2,20p' "$0"; }
+usage() {
+  cat <<USAGE
+Usage: bash scripts/ops/trigger-ci.sh [options]
 
-# Parse args
+Options:
+  --ref <git-ref>       Branch/tag/SHA to run CI against (default: current branch)
+  --repo <owner/repo>   GitHub repository (default: GH_REPO or gh repo view)
+  --wait                Wait for completion and fail on non-success
+  -h, --help            Show help
+USAGE
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -b|--branch) branch=${2:-}; shift 2;;
-    -r|--remote) remote=${2:-}; shift 2;;
-    -m|--message) message=${2:-}; shift 2;;
-    --empty) empty=true; shift;;
-    -f|--force) force=true; shift;;
-    -n|--no-push) no_push=true; shift;;
-    --pull-rebase) pull_rebase=true; shift;;
-    --force-push) force_push=true; shift;;
-    -h|--help) usage; exit 0;;
-    *) echo "Unknown option: $1" >&2; usage; exit 1;;
+    --ref)
+      ref=${2:-}
+      shift 2
+      ;;
+    --repo)
+      repo=${2:-}
+      shift 2
+      ;;
+    --wait)
+      wait_for_run=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
   esac
 done
 
-# Sanity checks
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Not a git repository" >&2; exit 1; }
+command -v gh >/dev/null 2>&1 || {
+  echo "GitHub CLI (gh) is required." >&2
+  exit 1
+}
 
-if [[ -z "$branch" ]]; then
-  branch=$(git rev-parse --abbrev-ref HEAD)
+gh auth status >/dev/null 2>&1 || {
+  echo "GitHub CLI is not authenticated. Run: gh auth login" >&2
+  exit 1
+}
+
+if [[ -z "${repo}" ]]; then
+  repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+fi
+if [[ -z "${repo}" ]]; then
+  echo "Could not determine repository. Pass --repo owner/repo or set GH_REPO." >&2
+  exit 1
 fi
 
-git remote get-url "$remote" >/dev/null 2>&1 || { echo "Remote '$remote' not found" >&2; exit 1; }
-
-default_msg="chore: trigger CI $(ts_utc)"
-[[ -z "$message" ]] && message="$default_msg"
-
-# Ensure commit author is set (repo-local)
-if ! git config user.email >/dev/null 2>&1; then
-  git config user.email "ci@example.com"
+if [[ -z "${ref}" ]]; then
+  ref=$(git symbolic-ref --short -q HEAD 2>/dev/null || true)
 fi
-if ! git config user.name >/dev/null 2>&1; then
-  git config user.name "CI Trigger Bot"
+if [[ -z "${ref}" ]]; then
+  echo "Could not determine current branch. Pass --ref explicitly." >&2
+  exit 1
 fi
 
-# Ensure we are on the intended branch
-current_branch=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$current_branch" != "$branch" ]]; then
-  git checkout "$branch"
-fi
+start_epoch=$(date +%s)
 
-if $empty; then
-  # Optional stash workflow for empty commit while changes exist
-  dirty=false; staged=false
-  git diff --quiet || dirty=true
-  git diff --cached --quiet || staged=true
-  stashed=false
-  if $dirty || $staged; then
-    if $force; then
-      echo "Stashing working changes to ensure an empty commit..."
-      git stash push -u -m "trigger-ci: stash $(ts_utc)" >/dev/null
-      stashed=true
-    else
-      echo "Refusing to create empty commit while changes exist. Use --force or omit --empty to commit changes." >&2
-      exit 1
-    fi
-  fi
-  cleanup() {
-    if $stashed; then
-      echo "Restoring stashed changes..."
-      git stash pop >/dev/null || true
-    fi
-  }
-  trap cleanup EXIT
-  echo "Creating empty commit on '$branch'..."
-  git commit --allow-empty -m "$message"
-else
-  echo "Staging and committing current changes on '$branch'..."
-  git add -A
-  if git diff --cached --quiet; then
-    echo "No changes to commit; creating empty commit instead..."
-    git commit --allow-empty -m "$message"
-  else
-    git commit -m "$message"
-  fi
-fi
+echo "Dispatching '${workflow_name}' on '${repo}' for ref '${ref}'..."
+gh workflow run "${workflow_name}" --repo "${repo}" --ref "${ref}"
 
-# Optional rebase before pushing
-if ! $no_push && $pull_rebase; then
-  echo "Rebasing '$branch' onto '$remote/$branch' before push..."
-  git fetch "$remote" || true
-  # If upstream not set, set it once
-  if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-    git branch --set-upstream-to "$remote/$branch" "$branch" || true
-  fi
-  git pull --rebase "$remote" "$branch" || {
-    echo "Rebase failed. Resolve conflicts and push manually, or rerun with --force-push if appropriate." >&2
-    exit 1
-  }
-fi
+echo "Workflow dispatched."
 
-if $no_push; then
-  echo "--no-push set; skipping push. Commit created locally."
+if [[ "${wait_for_run}" != "true" ]]; then
+  echo "Tip: watch runs with: gh run list --repo ${repo} --workflow \"${workflow_name}\""
   exit 0
 fi
 
-echo "Pushing to '$remote' '$branch'..."
-if $force_push; then
-  git push --force-with-lease "$remote" "$branch"
-else
-  git push "$remote" "$branch"
+run_id=""
+for _ in {1..24}; do
+  run_id=$(gh run list \
+    --repo "${repo}" \
+    --workflow "${workflow_name}" \
+    --json databaseId,createdAt,event,status \
+    --limit 20 | node -e '
+const fs=require("fs");
+const start=Number(process.argv[1]);
+const runs=JSON.parse(fs.readFileSync(0,"utf8"));
+const candidates=(runs||[])
+  .filter(r=>r.event==="workflow_dispatch")
+  .filter(r=>Math.floor(Date.parse(r.createdAt)/1000) >= start - 5)
+  .sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
+if(candidates[0]?.databaseId) process.stdout.write(String(candidates[0].databaseId));
+' "${start_epoch}")
+  if [[ -n "${run_id}" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+if [[ -z "${run_id}" ]]; then
+  echo "Failed to locate dispatched run. Check manually:" >&2
+  echo "gh run list --repo ${repo} --workflow \"${workflow_name}\"" >&2
+  exit 1
 fi
-echo "Done. CI/CD should be triggered by the new empty commit."
+
+echo "Watching run ${run_id}..."
+gh run watch "${run_id}" --repo "${repo}"
+
+conclusion=$(gh run view "${run_id}" --repo "${repo}" --json conclusion -q .conclusion)
+if [[ "${conclusion}" != "success" ]]; then
+  echo "CI run ${run_id} concluded with: ${conclusion}" >&2
+  exit 1
+fi
+
+echo "CI run ${run_id} completed successfully."

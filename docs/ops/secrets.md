@@ -17,6 +17,7 @@ Notes:
 - `FIREBASE_SERVICE_ACCOUNT_FILE` must point to a local JSON file; it’s piped directly into the secret.
 - If not running inside the repo, set `GH_REPO=owner/repo` in the env file.
 - You can rerun to update values safely.
+- If `gcloud` is installed, the helper script also verifies the deploy service account has required IAM roles and prints exact grant commands when missing.
 
 ## Required Secrets
 
@@ -25,6 +26,27 @@ Notes:
 - App runtime: `NEXT_PUBLIC_IDV_ONDEVICE`, `NEXT_PUBLIC_IDV_AI_APPROVAL`, `NEXT_PUBLIC_IDV_STRICT_MINIMAL`, `NEXT_PUBLIC_HUMAN_MODELS_URL`, `NEXT_PUBLIC_TESSERACT_BASE_URL`, `NEXT_ENABLE_IDV_CSP`, and (after deploy) `CLOUD_RUN_IDV_URL`
 - AI/Moderation: `HUGGINGFACE_API_KEY` (AI-assist detection), `PERSPECTIVE_API_KEY` (toxicity filter)
  - Transparency workflow: `FIREBASE_SERVICE_ACCOUNT_B64` (base64 of service account JSON for Admin SDK)
+
+## Deploy Service Account Roles (required)
+
+For `FIREBASE_SERVICE_ACCOUNT` used by `.github/workflows/deploy.yml`, ensure the service account has:
+
+- `roles/firebase.admin`
+- `roles/serviceusage.serviceUsageConsumer`
+
+Without `serviceUsageConsumer`, deploy may fail with:
+- `PERMISSION_DENIED`
+- `Caller does not have required permission to use project`
+- `Failed to get Firebase project`
+
+Verify bindings:
+
+```bash
+gcloud projects get-iam-policy db8app \
+  --flatten='bindings[].members' \
+  --filter='bindings.members:serviceAccount:<SERVICE_ACCOUNT_EMAIL>' \
+  --format='value(bindings.role)'
+```
 
 ## Create `FIREBASE_SERVICE_ACCOUNT_B64`
 

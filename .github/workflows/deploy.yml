@@ -1,24 +1,80 @@
 name: Deploy to Firebase Hosting
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref (branch/tag/SHA) to deploy
+        required: false
+        default: main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
+  CI: true
+  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCXfN1ncMTR0ytj8EEA6lB_sFfBkvWYgO0' }}
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'db8app.firebaseapp.com' }}
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'db8app' }}
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'db8app.firebasestorage.app' }}
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '119149680869' }}
+  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || '1:119149680869:web:27e943e5382f8ebf889c0c' }}
+  NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcRhbUrAAAAALuuqUtJPFY_Cv48Y_cXHDcGTdZ9' }}
+  NEXT_PUBLIC_IDV_ONDEVICE: ${{ secrets.NEXT_PUBLIC_IDV_ONDEVICE || 'true' }}
+  NEXT_PUBLIC_IDV_AI_APPROVAL: ${{ secrets.NEXT_PUBLIC_IDV_AI_APPROVAL || 'true' }}
+  NEXT_PUBLIC_IDV_STRICT_MINIMAL: ${{ secrets.NEXT_PUBLIC_IDV_STRICT_MINIMAL || 'true' }}
+  NEXT_PUBLIC_HUMAN_MODELS_URL: ${{ secrets.NEXT_PUBLIC_HUMAN_MODELS_URL || '/vendor/human/models/' }}
+  NEXT_PUBLIC_TESSERACT_BASE_URL: ${{ secrets.NEXT_PUBLIC_TESSERACT_BASE_URL || '/vendor/tesseract/' }}
+  NEXT_ENABLE_IDV_CSP: ${{ secrets.NEXT_ENABLE_IDV_CSP || 'false' }}
+  CLOUD_RUN_IDV_URL: ${{ secrets.CLOUD_RUN_IDV_URL || '' }}
 
 jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  quality_gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      NEXT_TELEMETRY_DISABLED: 1
-      CI: true
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run -s typecheck
+
+      - name: App Hosting quality gate
+        run: npm run -s apphosting:build
+
+      - name: Boundary checks
+        run: npm run -s check:boundaries
+
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: quality_gate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
 
       - name: Verify repo and framework files
         run: |
@@ -26,31 +82,87 @@ jobs:
           ls -la
           test -f package.json && node -e "const p=require('./package.json');console.log('next dep:', p.dependencies?.next || p.devDependencies?.next || '(none)')" || (echo 'missing package.json' && exit 1)
 
+      - name: Validate deploy secrets
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || 'db8app' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${FIREBASE_SERVICE_ACCOUNT}" ]]; then
+            echo "::error::Missing required secret FIREBASE_SERVICE_ACCOUNT"
+            exit 1
+          fi
+          if [[ -z "${FIREBASE_PROJECT_ID}" ]]; then
+            echo "::error::Missing required secret FIREBASE_PROJECT_ID"
+            exit 1
+          fi
+          node -e "const s=process.env.FIREBASE_SERVICE_ACCOUNT;try{const j=JSON.parse(s);if(!j.client_email){throw new Error('missing client_email')};console.log('deploy service account:',j.client_email)}catch(e){console.error('Invalid FIREBASE_SERVICE_ACCOUNT JSON:',e.message);process.exit(1)}"
+
+      - name: Verify Firebase API access for deploy credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || 'db8app' }}
+        run: |
+          set -euo pipefail
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "${FIREBASE_SERVICE_ACCOUNT}" > "${key_file}"
+          export GOOGLE_APPLICATION_CREDENTIALS="${key_file}"
+          npx --yes firebase-tools@15.5.1 hosting:sites:list --project "${FIREBASE_PROJECT_ID}" >/dev/null
+
       # Use the official Hosting action (frameworks builder) and pass env forward
       - name: Deploy to Firebase Hosting (frameworks)
         id: deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY || '' }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '' }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '' }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '' }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '' }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || '' }}
-          NEXT_PUBLIC_IDV_ONDEVICE: ${{ secrets.NEXT_PUBLIC_IDV_ONDEVICE || 'true' }}
-          NEXT_PUBLIC_IDV_AI_APPROVAL: ${{ secrets.NEXT_PUBLIC_IDV_AI_APPROVAL || 'true' }}
-          NEXT_PUBLIC_IDV_STRICT_MINIMAL: ${{ secrets.NEXT_PUBLIC_IDV_STRICT_MINIMAL || 'true' }}
-          NEXT_PUBLIC_HUMAN_MODELS_URL: ${{ secrets.NEXT_PUBLIC_HUMAN_MODELS_URL || '/vendor/human/models/' }}
-          NEXT_PUBLIC_TESSERACT_BASE_URL: ${{ secrets.NEXT_PUBLIC_TESSERACT_BASE_URL || '/vendor/tesseract/' }}
-          NEXT_ENABLE_IDV_CSP: ${{ secrets.NEXT_ENABLE_IDV_CSP || 'false' }}
-          CLOUD_RUN_IDV_URL: ${{ secrets.CLOUD_RUN_IDV_URL || '' }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ env.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ env.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ env.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_IDV_ONDEVICE: ${{ env.NEXT_PUBLIC_IDV_ONDEVICE }}
+          NEXT_PUBLIC_IDV_AI_APPROVAL: ${{ env.NEXT_PUBLIC_IDV_AI_APPROVAL }}
+          NEXT_PUBLIC_IDV_STRICT_MINIMAL: ${{ env.NEXT_PUBLIC_IDV_STRICT_MINIMAL }}
+          NEXT_PUBLIC_HUMAN_MODELS_URL: ${{ env.NEXT_PUBLIC_HUMAN_MODELS_URL }}
+          NEXT_PUBLIC_TESSERACT_BASE_URL: ${{ env.NEXT_PUBLIC_TESSERACT_BASE_URL }}
+          NEXT_ENABLE_IDV_CSP: ${{ env.NEXT_ENABLE_IDV_CSP }}
+          CLOUD_RUN_IDV_URL: ${{ env.CLOUD_RUN_IDV_URL }}
         with:
           entryPoint: .
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID || 'db8app' }}
+
+      - name: Post-deploy health checks
+        run: |
+          set -euo pipefail
+          urls=(
+            "https://dbaitr.com/api/health"
+            "https://studio--db8app.us-central1.hosted.app/api/health"
+          )
+          for url in "${urls[@]}"; do
+            echo "Checking ${url}"
+            ok=0
+            for attempt in {1..18}; do
+              status=$(curl -sS -o /tmp/health.json -w "%{http_code}" "${url}" || true)
+              body="$(cat /tmp/health.json 2>/dev/null || true)"
+              if [[ "${status}" == "200" ]] && [[ "${body}" == *'"ok":true'* ]]; then
+                echo "Health OK on attempt ${attempt}: ${body}"
+                ok=1
+                break
+              fi
+              echo "Attempt ${attempt} failed (status=${status}). Retrying in 10s..."
+              sleep 10
+            done
+            if [[ "${ok}" != "1" ]]; then
+              echo "::error::Health check failed for ${url}"
+              cat /tmp/health.json || true
+              exit 1
+            fi
+          done
 
       - name: Dump firebase-debug.log on failure
         if: failure()
