@@ -1,6 +1,7 @@
 # Deployment Workflow Rules
 
 This repo uses an explicit, workflow-dispatch friendly CI/CD model with no synthetic commits and no cross-workflow coupling.
+Use `docs/ops/production-publishing.md` as the canonical operator runbook for publishing.
 
 ## Workflows
 
