@@ -13,7 +13,8 @@ export const DELETE = withAuth(async (_req, ctx: any) => {
     const snap = await ref.get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const d = snap.data() as any;
-    if (!(d?.createdBy === uid || (ctx?.role === 'admin'))) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    const isPrivileged = ctx?.role === 'admin' || ctx?.role === 'super-admin';
+    if (!(d?.createdBy === uid || isPrivileged)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
     await ref.delete();
     return NextResponse.json({ ok: true });
   } catch (e: any) {

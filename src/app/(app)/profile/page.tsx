@@ -5,23 +5,25 @@ import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getDb } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ShieldCheck } from 'lucide-react';
+import { apiFetch } from '@/lib/http/client';
 
 const schema = z.object({
-  fullName: z.string().trim().min(2, 'Full name must be at least 2 characters.').max(50, 'Please keep names under 50 characters.'),
+  fullName: z.string()
+    .trim()
+    .min(3, 'Full name must be at least 3 characters.')
+    .max(80, 'Please keep names under 80 characters.')
+    .refine((v) => v.split(/\s+/).filter(Boolean).length >= 2, 'Please enter first and last name.'),
 });
 
 type Values = z.infer<typeof schema>;
 
 export default function ProfilePage() {
-  const db = getDb();
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const form = useForm<Values>({
@@ -36,10 +38,15 @@ export default function ProfilePage() {
   const onSubmit = async (values: Values) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        fullName: values.fullName.trim(),
-        updatedAt: serverTimestamp(),
+      const res = await apiFetch('/api/users/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: values.fullName.trim().replace(/\s+/g, ' ') }),
       });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || 'server_error');
+      }
       toast({ title: 'Profile updated', description: 'Your name has been saved.' });
     } catch (e: any) {
       toast({ title: 'Update failed', description: e?.message || 'Please try again.', variant: 'destructive' });

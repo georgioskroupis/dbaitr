@@ -5,7 +5,6 @@ This project practices data minimization — we only store what’s needed to pr
 ## Automated Cleanup (TTL)
 
 We provide a GitHub Actions workflow and script to clean up old records:
-- `idv_attempts`: deleted after 90 days (configurable via `IDV_TTL_DAYS`).
 - `reports` with `status == "resolved"`: deleted after 180 days (configurable via `REPORTS_TTL_DAYS`).
 
 Script: `scripts/ops/cleanup.mjs`
@@ -19,20 +18,27 @@ Authentication for the script:
 You can also run locally:
 ```
 GOOGLE_APPLICATION_CREDENTIALS=/abs/path/sa.json \
-IDV_TTL_DAYS=90 REPORTS_TTL_DAYS=180 \
+REPORTS_TTL_DAYS=180 \
 node scripts/ops/cleanup.mjs
 ```
 
 ## Firestore TTL Policy (Optional)
 
 Firestore supports server-side TTL. Consider enabling TTL policies as a complement or alternative:
-- For `idv_attempts`, set TTL on field `timestamp`.
 - For `reports`, set TTL on field `resolvedAt` for `status == "resolved"`.
 
 TTL is configured in the Google Cloud Console or via `gcloud`:
 - https://cloud.google.com/firestore/docs/ttl/overview
 
 Note: We kept an app-level cleanup script to avoid coupling TTL to environment-specific console settings and to allow nuanced logic.
+
+## Identity Verification Data
+
+- The application does not store ID images, selfies, or raw proof payloads in Firestore.
+- We store account profile data (including full name), verification state (`kycVerified` claim + mirrored user profile flag), and minimal personhood metadata.
+- Deduplication stores only an HMAC hash derived from provider nullifiers (no raw nullifier values).
+- One-time verification challenge records are retained briefly and removed by `scripts/ops/cleanup.mjs` (default 7 days).
+- If an external verifier is configured, proof payloads are sent over TLS and are not retained by our app.
 
 ## Encryption at Rest & In Transit
 

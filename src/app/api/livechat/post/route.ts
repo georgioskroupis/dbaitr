@@ -10,6 +10,13 @@ function isProfaneOrSuspicious(text: string): boolean {
   return bad.test(text) || url.test(text);
 }
 
+function isEmojiOnly(text: string): boolean {
+  const compact = text.replace(/\s+/g, '');
+  if (!compact) return false;
+  // Covers common emoji code points + modifiers/ZWJ sequences.
+  return /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\u200d\ufe0f]+$/u.test(compact);
+}
+
 export const POST = withAuth(async (req, ctx: any) => {
   try {
     const db = getDbAdmin();
@@ -17,13 +24,48 @@ export const POST = withAuth(async (req, ctx: any) => {
     const claims = (ctx?.claims || {}) as Record<string, unknown>;
     const body = await req.json();
     const roomId = (body?.roomId || '').trim();
-    const text = (body?.text || '').toString();
-    const type = (body?.type || 'message') as 'message'|'question'|'answer'|'system';
+    const text = (body?.text || '').toString().trim();
+    const requestedType = (body?.type || 'message') as string;
+    const allowedTypes = new Set(['message', 'question', 'answer']);
+    if (!allowedTypes.has(requestedType)) {
+      return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
+    }
+    const type = requestedType as 'message'|'question'|'answer';
     if (!roomId || !text) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
+    if (text.length > 500) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
 
     const roomRef = db.collection('liveRooms').doc(roomId);
-    const roomSnap = await roomRef.get();
-    if (!roomSnap.exists) return NextResponse.json({ ok: false, error: 'room_not_found' }, { status: 404 });
+    let roomSnap = await roomRef.get();
+    if (!roomSnap.exists) {
+      // Backfill compatibility: derive missing room doc from legacy liveDebates entry.
+      const debateSnap = await db.collection('liveDebates').doc(roomId).get();
+      if (!debateSnap.exists) return NextResponse.json({ ok: false, error: 'room_not_found' }, { status: 404 });
+      const debate = debateSnap.data() as any;
+      const mappedStatus =
+        debate?.status === 'live'
+          ? 'live'
+          : (debate?.status === 'complete' || debate?.status === 'canceled' || debate?.status === 'error')
+            ? 'ended'
+            : 'scheduled';
+      await roomRef.set({
+        title: debate?.title || 'Live Debate',
+        hostUid: debate?.createdBy || '',
+        moderators: [],
+        status: mappedStatus,
+        settings: {
+          supporterOnly: false,
+          slowModeSec: 0,
+          emojiOnly: false,
+          questionsOnly: false,
+          bannedUids: [],
+        },
+        pinned: [],
+        stats: { messageCount: 0 },
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      roomSnap = await roomRef.get();
+    }
     const room = roomSnap.data() as any;
     if (room.status !== 'live') return NextResponse.json({ ok: false, error: 'not_live' }, { status: 409 });
 
@@ -38,6 +80,9 @@ export const POST = withAuth(async (req, ctx: any) => {
       if (!(isHost || isMod || isSupporter)) {
         return NextResponse.json({ ok: false, error: 'supporters_only' }, { status: 403 });
       }
+    }
+    if (room?.settings?.emojiOnly && !isEmojiOnly(text)) {
+      return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
     }
 
     const slow = +(room?.settings?.slowModeSec || 0);
@@ -55,14 +100,16 @@ export const POST = withAuth(async (req, ctx: any) => {
     const banned = Array.isArray(room?.settings?.bannedUids) && room.settings.bannedUids.includes(uid);
     const shadowed = banned || isProfaneOrSuspicious(text);
     const role: 'host'|'mod'|'supporter'|'viewer' = isHost ? 'host' : isMod ? 'mod' : isSupporter ? 'supporter' : 'viewer';
+    const normalizedType: 'message'|'question'|'answer' = room?.settings?.questionsOnly ? 'question' : type;
+    const displayName = String((claims.name as string) || '').trim() || 'User';
 
     const msgRef = roomRef.collection('messages').doc();
     await msgRef.set({
       uid,
-      displayName: 'User',
+      displayName,
       role,
       text,
-      type,
+      type: normalizedType,
       replyToMsgId: null,
       shadowed,
       createdAt: FieldValue.serverTimestamp(),
@@ -70,7 +117,7 @@ export const POST = withAuth(async (req, ctx: any) => {
     try { await roomRef.set({ stats: { messageCount: FieldValue.increment(1) } }, { merge: true }); } catch {}
 
     try { await db.collection('_private').doc('telemetry').collection('events').add({
-      kind: 'livechat_post', roomId, uid, role, type, slow, supporterOnly: !!room?.settings?.supporterOnly, ts: FieldValue.serverTimestamp(),
+      kind: 'livechat_post', roomId, uid, role, type: normalizedType, slow, supporterOnly: !!room?.settings?.supporterOnly, ts: FieldValue.serverTimestamp(),
     }); } catch {}
 
     return NextResponse.json({ ok: true, id: msgRef.id });

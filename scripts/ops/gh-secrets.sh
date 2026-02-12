@@ -121,10 +121,6 @@ run gh secret set GCP_REGION --repo "${REPO}" -b "${GCP_REGION}"
 run gh secret set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "${REPO}" -b "${GCP_WORKLOAD_IDENTITY_PROVIDER}"
 run gh secret set GCP_SERVICE_ACCOUNT_EMAIL --repo "${REPO}" -b "${GCP_SERVICE_ACCOUNT_EMAIL}"
 
-if [[ -n "${CLOUD_RUN_SERVICE_IDV:-}" ]]; then
-  run gh secret set CLOUD_RUN_SERVICE_IDV --repo "${REPO}" -b "${CLOUD_RUN_SERVICE_IDV}"
-fi
-
 # App runtime env
 run gh secret set NEXT_PUBLIC_FIREBASE_API_KEY --repo "${REPO}" -b "${NEXT_PUBLIC_FIREBASE_API_KEY:-}"
 run gh secret set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN --repo "${REPO}" -b "${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}"
@@ -132,17 +128,29 @@ run gh secret set NEXT_PUBLIC_FIREBASE_PROJECT_ID --repo "${REPO}" -b "${NEXT_PU
 run gh secret set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET --repo "${REPO}" -b "${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}"
 run gh secret set NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --repo "${REPO}" -b "${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}"
 run gh secret set NEXT_PUBLIC_FIREBASE_APP_ID --repo "${REPO}" -b "${NEXT_PUBLIC_FIREBASE_APP_ID:-}"
-run gh secret set NEXT_PUBLIC_IDV_ONDEVICE --repo "${REPO}" -b "${NEXT_PUBLIC_IDV_ONDEVICE:-true}"
-run gh secret set NEXT_PUBLIC_IDV_AI_APPROVAL --repo "${REPO}" -b "${NEXT_PUBLIC_IDV_AI_APPROVAL:-true}"
-run gh secret set NEXT_PUBLIC_IDV_STRICT_MINIMAL --repo "${REPO}" -b "${NEXT_PUBLIC_IDV_STRICT_MINIMAL:-true}"
-run gh secret set NEXT_PUBLIC_HUMAN_MODELS_URL --repo "${REPO}" -b "${NEXT_PUBLIC_HUMAN_MODELS_URL:-/vendor/human/models/}"
-run gh secret set NEXT_PUBLIC_TESSERACT_BASE_URL --repo "${REPO}" -b "${NEXT_PUBLIC_TESSERACT_BASE_URL:-/vendor/tesseract/}"
-run gh secret set NEXT_ENABLE_IDV_CSP --repo "${REPO}" -b "${NEXT_ENABLE_IDV_CSP:-false}"
 
-if [[ -n "${CLOUD_RUN_IDV_URL:-}" ]]; then
-  run gh secret set CLOUD_RUN_IDV_URL --repo "${REPO}" -b "${CLOUD_RUN_IDV_URL}"
+# Personhood verification runtime secrets
+if [[ -n "${IDV_SELF_VERIFY_URL:-}" ]]; then
+  run gh secret set IDV_SELF_VERIFY_URL --repo "${REPO}" -b "${IDV_SELF_VERIFY_URL}"
 else
-  echo "Note: CLOUD_RUN_IDV_URL not set yet; deploy Cloud Run then set this secret."
+  echo "Warning: IDV_SELF_VERIFY_URL is empty; /api/idv/verify will return verification_unavailable."
 fi
+
+if [[ -n "${IDV_SELF_START_URL:-}" ]]; then
+  run gh secret set IDV_SELF_START_URL --repo "${REPO}" -b "${IDV_SELF_START_URL}"
+fi
+
+if [[ -n "${IDV_SELF_VERIFY_API_KEY:-}" ]]; then
+  run gh secret set IDV_SELF_VERIFY_API_KEY --repo "${REPO}" -b "${IDV_SELF_VERIFY_API_KEY}"
+fi
+
+if [[ -n "${IDV_DEDUP_HMAC_SECRET:-}" ]]; then
+  run gh secret set IDV_DEDUP_HMAC_SECRET --repo "${REPO}" -b "${IDV_DEDUP_HMAC_SECRET}"
+else
+  echo "Warning: IDV_DEDUP_HMAC_SECRET is empty; production verification will fail."
+fi
+
+run gh secret set IDV_CHALLENGE_TTL_MS --repo "${REPO}" -b "${IDV_CHALLENGE_TTL_MS:-600000}"
+run gh secret set IDV_SELF_VERIFY_TIMEOUT_MS --repo "${REPO}" -b "${IDV_SELF_VERIFY_TIMEOUT_MS:-15000}"
 
 echo "All requested secrets have been set."

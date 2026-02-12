@@ -1,90 +1,99 @@
-Live Chat integration for dbaitr
-
-Overview
-- A reusable LiveChat panel renders beneath the YouTube Live player on the live debate page.
-- Reads from Firestore at `liveRooms/{roomId}` and `liveRooms/{roomId}/messages/*`.
-- Presence and typing indicators use RTDB at `presence/{roomId}/{uid}`.
-- Posting is centralized through a server endpoint (`POST /api/livechat/post`) to enforce roles, supporter-only, slow-mode, and basic moderation. The client never writes messages directly.
-
-Roles & Gating
-- host: `liveRooms/{roomId}.hostUid`
-- mod: `liveRooms/{roomId}.moderators[]`
-- supporter: Firebase custom claim `supporter: true` or `subscription in {plus,supporter,core}` from Stripe webhook.
-- viewer: fallback.
-- supporterOnly: When `liveRooms/{roomId}.settings.supporterOnly = true`, only host/mod/supporter can post; everyone can read.
-
-Server endpoint
-- `POST /api/livechat/post` accepts JSON `{ roomId, text, type }` and requires an ID token. App Check is enforced.
-- Checks:
-  - room exists and is `status=live`.
-  - host/mod/supporter gating when `supporterOnly`.
-  - slow-mode via `liveRooms/{roomId}/userState/{uid}.lastPostAt` vs `settings.slowModeSec`.
-  - basic moderation (profanity/URL heuristic) marks a message `shadowed=true` (not blocked; only hidden from non-mod/host).
-  - Writes message to `liveRooms/{roomId}/messages` with `createdAt` and increments `stats.messageCount`.
-
-Client component
-- `src/components/live/LiveChat.tsx`:
-  - Props: `roomId`.
-  - Subscribes to `liveRooms/{roomId}` and last 50 messages ordered by `createdAt`.
-  - Hides `shadowed` messages for non-host/mod, except shows to the author.
-  - Composer respects `supporterOnly`, `emojiOnly`, `questionsOnly` in room settings (UI), while server enforces the final policy.
-  - Presence: counts watchers and shows typing indicators via RTDB.
-
-Rules (to apply separately)
-Firestore
-```
-match /databases/{db}/documents {
-  match /liveRooms/{roomId} {
-    allow read: if true;
-    allow write: if false; // settings and pins updated via privileged server endpoints only
-    match /messages/{msgId} {
-      allow read: if true;
-      allow create, update, delete: if false; // posting via server endpoint only
-    }
-    match /userState/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false; // written by server endpoint only
-    }
-  }
-}
-```
-
-RTDB
-```
-{
-  "rules": {
-    ".read": true,
-    "presence": {
-      "$roomId": {
-        "$uid": {
-          ".write": "auth != null && auth.uid === $uid"
-        }
-      }
-    }
-  }
-}
-```
-
-Embedding
-- The live debate page (`/live/[roomId]`) imports and renders `LiveChat` under the YouTube player:
-  - `import { LiveChat } from '@/components/live/LiveChat'`
-  - `<LiveChat roomId={params.id} />`
-
-Environment & App Check
-- Uses the existing production Firebase project configuration and App Check. In dev, use the debug token flow already implemented in the app.
-
-Analytics
-- The server endpoint logs anonymized event metadata in Firestore under `_private/telemetry/events` with `kind='livechat_post'` (no message content stored).
-
-Operations
-- Slow-mode: toggle `liveRooms/{roomId}.settings.slowModeSec` (seconds). The server enforces and the client shows a general disabled state; a retry-after is returned on hit.
-- Supporter-only: set `liveRooms/{roomId}.settings.supporterOnly=true`.
-- Shadow-ban & moderation tools: implement as privileged endpoints to flip `shadowed` on messages or maintain a banlist, and update UI via existing mod tools.
-Version: 2025.09
-Last updated: 2025-09-01
+Version: 2026.02
+Last updated: 2026-02-11
 Owner: Platform Engineering
 Non-negotiables:
-- Client reads messages; writes/mod actions via server APIs only
-- RTDB presence is read-only on client; server updates watchers/typing
-- App Check enforced for Firestore and APIs; fixed dev token in local
-Acceptance: Document matches component behavior and APIs
+- Client reads chat; all writes/mod actions go through server APIs
+- Firestore `liveRooms/**` is client read-only in rules
+- Presence uses RTDB with per-user paths and disconnect cleanup
+Acceptance: Document matches current `LiveChat` component and API handlers
+
+# Live Chat
+
+## Overview
+
+Live chat is rendered on `/live/[id]` via `LiveChat` and uses:
+
+- Firestore room + messages:
+  - `liveRooms/{roomId}`
+  - `liveRooms/{roomId}/messages/{msgId}`
+- RTDB presence:
+  - `presence/{roomId}/{uid}`
+
+Chat writes are API-only (`POST /api/livechat/post`).
+
+If direct client Firestore reads are denied in a session (for example, deployed rules drift from repo rules), `LiveChat` automatically switches to a compatibility mode that polls server state from `GET /api/livechat/state`.
+
+This chat system is intentionally separate from YouTube chat so moderation, policy, and telemetry are fully platform-controlled.
+
+## Room Lifecycle
+
+`liveRooms/{id}.status` is mirrored from live-debate lifecycle by server routes:
+
+- `scheduled` for pre-live/testing states
+- `live` when debate is live
+- `ended` for complete/canceled/error
+
+Posting is allowed only when room status is `live`.
+
+## Roles and Posting Gates
+
+From room data + claims:
+
+- host: `liveRooms/{roomId}.hostUid == uid`
+- mod: `liveRooms/{roomId}.moderators` contains uid
+- supporter: role/claims indicate supporter subscription
+
+Settings gates:
+
+- `supporterOnly=true`: only host/mod/supporter can post
+- `slowModeSec>0`: per-user cooldown enforced server-side
+- `emojiOnly=true`: server rejects non-emoji content
+- `questionsOnly=true`: server coerces message type to `question`
+- `bannedUids[]`: user messages are shadowed
+
+## Post Endpoint
+
+`POST /api/livechat/post` body `{ roomId, text, type }`
+
+- Protected with App Check + ID token (`withAuth`)
+- Validates room exists and is live
+- Enforces role/settings gates
+- Enforces max length (500 chars)
+- Stores message in Firestore and increments room message count
+- Logs telemetry event under `_private/telemetry/events`
+
+## Read Compatibility Endpoint
+
+`GET /api/livechat/state?roomId=<id>&limit=<n>`
+
+- App Check-protected public endpoint (`withAuth({ public: true })`)
+- Uses Admin SDK to return room metadata and latest messages
+- Used only when client Firestore listeners fail with `permission-denied`
+
+## Moderation Endpoints
+
+- `POST /api/livechat/mod/slow` -> set slow mode seconds
+- `POST /api/livechat/mod/shadow` -> shadow/unshadow uid
+- `POST /api/livechat/mod/pin` -> pin/unpin message id
+
+All require host/mod privileges for that room.
+
+## Presence
+
+Client writes own RTDB presence node and registers disconnect removal:
+
+- `set(presence/{roomId}/{uid}, { typing:false, ... })`
+- `onDisconnect(...).remove()`
+- `typing` toggled via updates as user types
+
+This prevents stale watcher counts across tab closes/disconnects.
+
+## Firestore Rules Expectations
+
+Implemented in `firestore.rules`:
+
+- `liveRooms/{roomId}` read/list allowed, writes denied
+- `liveRooms/{roomId}/messages/{msgId}` read/list allowed, writes denied
+- `liveRooms/{roomId}/userState/{uid}` read own only, writes denied
+
+All writes are performed by server APIs using Admin SDK.

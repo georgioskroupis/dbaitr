@@ -126,6 +126,7 @@ export default function DebugToolsClient() {
       case 'stream_not_found': return 'YouTube stream missing. Recreate/bind a new stream.';
       case 'youtube_not_connected': return 'Reconnect YouTube integration in your account settings.';
       case 'youtube_not_connected_global_mismatch': return 'Reconnect as the owner of the required global channel.';
+      case 'live_embedding_not_allowed': return 'Channel embedding is disabled in YouTube; enable embedding/defaults before creating new debates.';
       case 'login_timeout': return 'Login expired. Sign in again to refresh credentials.';
       case 'unauthenticated_appcheck': return 'App Check missing/invalid. Ensure App Check initialized client-side.';
       case 'unauthenticated': return 'Missing/invalid ID token. Ensure user is signed in.';

@@ -16,9 +16,9 @@ path,purpose,auth_verification,appcheck_verification,role_checks,rate_limits,sec
 /api/appeals/resolve,appeals/resolve,idtoken,none,isAdmin|isModerator|admin,,Missing App Check
 /api/auth/check-email,auth/check-email,none,present,admin,,Dev optional; rate limit advisable
 /api/auth/debug,auth/debug,none,none,admin,,Read-only; ensure no secrets exposed
-/api/idv/approve,idv/approve,idtoken,none,admin,,Missing App Check
-/api/idv/result,idv/result,idtoken,none,,,Missing App Check
-/api/idv/verify,idv/verify,idtoken,none,,,Missing App Check
+/api/idv/challenge,idv/challenge,idtoken,present,viewer+,,OK (withAuth + App Check)
+/api/idv/result,idv/result,idtoken,present,viewer+,,OK (withAuth + App Check)
+/api/idv/verify,idv/verify,idtoken,present,viewer+,,OK (withAuth + App Check)
 /api/integrations/youtube/config,integrations/youtube/config,none,none,,,None
 /api/integrations/youtube/oauth/callback,integrations/youtube/oauth/callback,none,none,admin,,Ensure redirect whitelist
 /api/integrations/youtube/oauth/start,integrations/youtube/oauth/start,idtoken,none,admin|supporter,,Missing App Check

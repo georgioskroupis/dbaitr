@@ -34,22 +34,20 @@ function initApp() {
     app = initializeApp(cfg);
   }
   auth = getAuthSdk(app);
-  // Configure Firestore transport to avoid WebChannel flakiness in dev environments
+  // Default Firestore transport is most stable across SDK/browser combinations.
+  // Optional opt-in for long polling remains available for constrained networks.
   try {
-    if (!getApps().length) {
-      // no-op; handled above
-    }
-    // If Firestore was not previously initialized, prefer initializeFirestore with long polling
-    try {
-      // This throws if Firestore already initialized; we guard below
-      db = initializeFirestore(app, {
-        // Prefer long polling in dev/hot-reload to avoid INTERNAL ASSERTION crashes
-        experimentalAutoDetectLongPolling: true,
-        // Disable fetch streams; fall back to XHR which is more stable in some dev setups
-        // Cast to any to avoid type coupling across SDK minors
-        ...(typeof window !== 'undefined' ? ({ useFetchStreams: false } as any) : {}),
-      } as any);
-    } catch {
+    const forceLongPolling = process.env.NEXT_PUBLIC_FIRESTORE_FORCE_LONG_POLLING === '1';
+    if (forceLongPolling) {
+      try {
+        db = initializeFirestore(app, {
+          experimentalForceLongPolling: true,
+          ...(typeof window !== 'undefined' ? ({ useFetchStreams: false } as any) : {}),
+        } as any);
+      } catch {
+        db = getFirestoreSdk(app);
+      }
+    } else {
       db = getFirestoreSdk(app);
     }
   } catch {

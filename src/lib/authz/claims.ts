@@ -1,7 +1,7 @@
 import { getAuthAdmin, getDbAdmin } from '@/lib/firebase/admin';
 import type { Role, Status } from './types';
 
-export async function setClaims(uid: string, claims: { role?: Role; status?: Status; kycVerified?: boolean }) {
+export async function setClaims(uid: string, claims: { role?: Role; status?: Status; kycVerified?: boolean; graceUntilMs?: number }) {
   const auth = getAuthAdmin();
   const existing = (await auth.getUser(uid)).customClaims || {};
   await auth.setCustomUserClaims(uid, { ...existing, ...claims });
@@ -13,4 +13,3 @@ export async function forceRefreshClaims(uid: string) {
   const db = getDbAdmin();
   await db.collection('user_private').doc(uid).set({ claimsChangedAt: new Date().toISOString() }, { merge: true });
 }
-

@@ -20,21 +20,31 @@ function mustNot(relPath, pattern, message) {
   if (pattern.test(src)) failures.push(`${relPath}: ${message}`);
 }
 
-// IDV: /result must not elevate users or mutate claims.
-must('src/app/api/idv/result/route.ts', /source:\s*'client_ack'/, 'must persist client ack audit records');
-must('src/app/api/idv/result/route.ts', /approved:\s*!!latest\?\.approved/, 'must mirror only server-stored latest decision');
-mustNot('src/app/api/idv/result/route.ts', /setClaims\s*\(/, 'must not set custom claims');
-mustNot('src/app/api/idv/result/route.ts', /kycVerified\s*:\s*true/, 'must not elevate KYC state');
-mustNot('src/app/api/idv/result/route.ts', /idv_verified\s*:\s*true/, 'must not mark idv_verified directly');
-mustNot('src/app/api/idv/result/route.ts', /status\s*:\s*['"]verified['"]/i, 'must not force verified status');
+// IDV: challenge endpoint issues one-time server-tracked challenges only.
+must('src/app/api/idv/challenge/route.ts', /requireStatus\(\['Grace',\s*'Verified'\]\)/, 'challenge endpoint must be status-gated');
+must('src/app/api/idv/challenge/route.ts', /challengeHash/, 'challenge endpoint must persist hashed challenge only');
+must('src/app/api/idv/challenge/route.ts', /collection\('challenges'\)/, 'challenge endpoint must write challenge records server-side');
 
-// IDV: /verify is the only approval authority.
-must('src/app/api/idv/verify/route.ts', /await\s+req\.formData\s*\(/, 'must use uploaded artifacts for server verification');
-must('src/app/api/idv/verify/route.ts', /await\s+setClaims\s*\(\s*uid\s*,\s*\{\s*status:\s*'Verified'\s*,\s*kycVerified:\s*true\s*\}\s*\)/s, 'must set verified claims only on server-approved flow');
-must('src/app/api/idv/verify/route.ts', /db\.collection\('idv_latest'\)\.doc\(uid\)\.set\(/, 'must persist latest server decision');
-must('src/app/api/idv/verify/route.ts', /db\.collection\('idv_attempts'\)\.doc\(\)/, 'must create idv attempt docs');
-must('src/app/api/idv/verify/route.ts', /await\s+attemptRef\.set\(/, 'must persist decision attempts');
-mustNot('src/app/api/idv/verify/route.ts', /const\s*\{[^}]*approved[^}]*\}\s*=\s*await\s+req\.json\s*\(/s, 'must not trust client-posted approved flags');
+// IDV: /verify is the only approval authority and must stay proof-based (no image uploads).
+must('src/app/api/idv/verify/route.ts', /await\s+req\.json\s*\(/, 'verify endpoint must accept JSON proof payloads');
+mustNot('src/app/api/idv/verify/route.ts', /await\s+req\.formData\s*\(/, 'verify endpoint must not accept uploaded image captures');
+must('src/app/api/idv/verify/route.ts', /verifySelfProof\s*\(/, 'verify endpoint must call provider proof verification');
+must('src/app/api/idv/verify/route.ts', /hashNullifierForDedup\s*\(/, 'verify endpoint must hash nullifier for dedup');
+must('src/app/api/idv/verify/route.ts', /await\s+setClaims\s*\(\s*uid\s*,\s*\{\s*status:\s*'Verified'\s*,\s*kycVerified:\s*true\s*\}\s*\)/s, 'verify endpoint must set verified claims only on server-approved flow');
+must('src/app/api/idv/verify/route.ts', /duplicate_identity/, 'verify endpoint must reject dedup collisions');
+mustNot('src/app/api/idv/verify/route.ts', /db\.collection\('idv_latest'\)/, 'must not persist idv_latest artifacts');
+mustNot('src/app/api/idv/verify/route.ts', /db\.collection\('idv_attempts'\)/, 'must not persist idv_attempts artifacts');
+mustNot('src/app/api/idv/verify/route.ts', /nullifier\s*:/, 'must not persist raw nullifier payloads');
+mustNot('src/app/api/idv/verify/route.ts', /idv_verified\s*:\s*true/, 'must not persist legacy idv flags');
+
+// IDV: /result is read-only status and must not elevate users.
+must('src/app/api/idv/result/route.ts', /approved\s*=\s*!!ctx\?\.kycVerified/, 'result endpoint must mirror claims-based approval state');
+mustNot('src/app/api/idv/result/route.ts', /setClaims\s*\(/, 'result endpoint must not set custom claims');
+mustNot('src/app/api/idv/result/route.ts', /kycVerified\s*:\s*true/, 'result endpoint must not elevate KYC state');
+
+// Profile bootstrap: fullName required and claims defaults must be server-owned.
+must('src/app/api/users/bootstrap/route.ts', /error:\s*'full_name_required'/, 'must reject profile bootstrap without full name');
+must('src/app/api/users/bootstrap/route.ts', /await\s+setClaims\s*\(/, 'must establish claims defaults server-side');
 
 // Moderation reports: reporter identity must be auth-derived.
 must('src/app/api/moderation/report/route.ts', /const\s+reporterUid\s*=\s*\(ctx\?\.uid\s+as\s+string\)\s*\|\|\s*null/, 'must derive reporter uid from auth context');

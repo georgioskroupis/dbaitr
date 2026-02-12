@@ -1,23 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
+import { getAuthAdmin, getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
 import { analyzeToxicity } from '@/lib/perspective';
 import { getClientKey, postIpLimiter, postUserLimiter } from '@/lib/rateLimit';
+import { withinGraceWindow } from '@/lib/authz/grace';
 
 export const runtime = 'nodejs';
-
-function withinGrace(registeredAt: any, days = 10): boolean {
-  try {
-    let d: Date | null = null;
-    if (!registeredAt) return false;
-    if (typeof registeredAt?.toDate === 'function') d = registeredAt.toDate();
-    else if (typeof registeredAt === 'string') d = new Date(registeredAt);
-    else if (registeredAt?.seconds) d = new Date(registeredAt.seconds * 1000);
-    if (!d || Number.isNaN(d.getTime())) return false;
-    const end = new Date(d); end.setDate(end.getDate() + days);
-    return new Date() <= end;
-  } catch { return false; }
-}
 
 export const POST = withAuth(async (req, ctx: any) => {
   try {
@@ -33,9 +21,7 @@ export const POST = withAuth(async (req, ctx: any) => {
     if (!postIpLimiter.check(ipKey)) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
     if (!postUserLimiter.check(`user:${uid}`)) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
 
-    // Gate: kycVerified or within grace
-    const userDoc = await db.collection('users').doc(uid).get();
-    const u = userDoc.data() as any || {};
+    // Gate: KYC claims or immutable account-creation grace period.
     // Per-topic strict policy disables grace
     let requireStrict = false;
     try {
@@ -43,7 +29,15 @@ export const POST = withAuth(async (req, ctx: any) => {
       const t = (tSnap.exists ? (tSnap.data() as any) : {}) || {};
       requireStrict = !!(t?.postingPolicy?.requireVerified || t?.requireVerifiedNow || t?.sensitive);
     } catch {}
-    const ok = requireStrict ? !!u.kycVerified : (!!u.kycVerified || withinGrace(u.registeredAt));
+    let ok = !!ctx?.kycVerified;
+    if (!ok && !requireStrict) {
+      try {
+        const userRecord = await getAuthAdmin().getUser(uid);
+        ok = withinGraceWindow(userRecord?.metadata?.creationTime || null);
+      } catch {
+        ok = false;
+      }
+    }
     if (!ok) return NextResponse.json({ ok: false, error: 'kyc_required' }, { status: 403 });
 
     // Enforce question limits and response rights

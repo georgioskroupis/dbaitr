@@ -148,13 +148,13 @@ export function UserNav({ includeMobileExtras = false }: { includeMobileExtras?:
               className="group cursor-default focus:bg-accent focus:text-accent-foreground"
             >
               <ShieldCheck className="mr-2 h-4 w-4 text-emerald-500 group-focus:text-accent-foreground" />
-              <span>KYC Verified</span>
+              <span>Human Verified</span>
             </DropdownMenuItem>
           ) : (
             <Link href="/verify-identity" passHref>
               <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
                 <ShieldAlert className="mr-2 h-4 w-4" />
-                <span>Verify Identity</span>
+                <span>Verify Personhood</span>
               </DropdownMenuItem>
             </Link>
           )}

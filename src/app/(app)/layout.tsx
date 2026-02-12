@@ -55,9 +55,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <Alert variant="destructive" className="mb-6 relative z-20">
             <AlertTitle className="font-semibold">Account Access Restricted</AlertTitle>
             <AlertDescription>
-              Your identity verification is overdue. Please complete it to restore full access.
+              Your personhood verification is overdue. Please complete it to restore full access.
               <Button variant="link" asChild className="p-0 ml-2 text-primary hover:text-primary/80 underline">
-                <Link href="/verify-identity">Verify Identity Now</Link>
+                <Link href="/verify-identity">Verify Personhood Now</Link>
               </Button>
             </AlertDescription>
           </Alert>

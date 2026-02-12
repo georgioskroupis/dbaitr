@@ -1,101 +1,188 @@
 import { NextResponse } from 'next/server';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
-import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
 import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { setClaims } from '@/lib/authz/claims';
+import { getClientKey, globalRateLimiter } from '@/lib/rateLimit';
+import {
+  hashChallenge,
+  hashNullifierForDedup,
+  normalizeChallenge,
+  normalizeChallengeId,
+  verifySelfProof,
+} from '@/lib/idv/personhood';
 
 export const runtime = 'nodejs';
 
-// Verifies captures through Cloud Run (or dev fallback) and persists only decision metadata.
-export const POST = withAuth(async (req, ctx: any) => {
-  try {
-    // Basic rate limit to reduce abuse
-    if (!globalRateLimiter.check(getClientKey(req))) {
-      return NextResponse.json({ approved: false, reason: 'rate_limited' }, { status: 429 });
-    }
-    const uid = ctx?.uid as string;
-    const db = getDbAdmin();
+class AppCodeError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+  ) {
+    super(code);
+  }
+}
 
-    const form = await req.formData();
-    const front = form.get('front');
-    const back = form.get('back');
-    const selfie = form.get('selfie');
-    if (!front || !back || !selfie) {
-      return NextResponse.json({ approved: false, reason: 'missing_images' }, { status: 400 });
-    }
+function verificationErrorStatus(reason: string): number {
+  if (reason === 'verification_unavailable') return 503;
+  if (reason === 'invalid_proof') return 400;
+  return 400;
+}
 
-    let cloudUrl = process.env.CLOUD_RUN_IDV_URL;
-    if (!cloudUrl && process.env.NODE_ENV !== 'production') {
-      // Try a local dev service if available
-      cloudUrl = process.env.IDV_DEV_LOCAL_URL || 'http://localhost:8000';
-    }
-    let approved = false;
-    let reason: string | null = null;
-    let source: 'cloud' | 'dev_fallback' | 'unavailable' = 'unavailable';
-    if (cloudUrl) {
-      // Proxy form-data to Cloud Run endpoint
-      const fd = new FormData();
-      fd.append('front', front as Blob, 'front.jpg');
-      fd.append('back', back as Blob, 'back.jpg');
-      fd.append('selfie', selfie as Blob, 'selfie.jpg');
-      fd.append('uid', uid as string);
-      const resp = await fetch(cloudUrl, {
-        method: 'POST',
-        body: fd,
-        // Propagate caller identity context to backend (optional, non-secret)
-        headers: {
-          'X-User-Id': uid,
-        },
-      });
-      const data = await resp.json().catch(() => ({}));
-      source = 'cloud';
-      approved = resp.ok && !!data?.approved;
-      reason = typeof data?.reason === 'string' ? data.reason : (resp.ok ? null : 'cloud_unavailable');
-    } else if (process.env.IDV_DEV_FAKE_APPROVE === 'true' && process.env.NODE_ENV !== 'production') {
-      // Minimal fallback if verification backend not configured
-      source = 'dev_fallback';
-      approved = true;
-      reason = 'dev_mode';
-    } else {
-      source = 'unavailable';
-      approved = false;
-      reason = 'cloud_unavailable';
-    }
+export const POST = withAuth(
+  async (req, ctx: any) => {
+    try {
+      if (!globalRateLimiter.check(getClientKey(req))) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'rate_limited' }, { status: 429 });
+      }
 
-    // Persist server decision for audit and anti-spoofing checks.
-    const attemptRef = db.collection('idv_attempts').doc();
-    await attemptRef.set({
-      uid,
-      approved,
-      reason: reason || null,
-      source,
-      timestamp: FieldValue.serverTimestamp(),
-    });
-    await db.collection('idv_latest').doc(uid).set({
-      attemptId: attemptRef.id,
-      approved,
-      reason: reason || null,
-      source,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+      const uid = String(ctx?.uid || '');
+      if (!uid) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'unauthenticated' }, { status: 401 });
+      }
 
-    // Approval must happen on the server path only; never trust client-posted approval payloads.
-    if (approved) {
+      const body = await req.json().catch(() => ({}));
+      const challengeId = normalizeChallengeId(body?.challengeId);
+      const challenge = normalizeChallenge(body?.challenge);
+      const proof = body?.proof;
+
+      if (!challengeId || !challenge) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'invalid_challenge' }, { status: 400 });
+      }
+      if (proof === undefined || proof === null) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'invalid_proof' }, { status: 400 });
+      }
+
+      const db = getDbAdmin();
+      const challengeRef = db.collection('_private').doc('idv').collection('challenges').doc(challengeId);
+      const challengeSnap = await challengeRef.get();
+      if (!challengeSnap.exists) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'invalid_challenge' }, { status: 400 });
+      }
+      const challengeDoc = (challengeSnap.data() as any) || {};
+      if (String(challengeDoc.uid || '') !== uid) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'invalid_challenge' }, { status: 400 });
+      }
+      if (challengeDoc.usedAt) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'challenge_used' }, { status: 409 });
+      }
+      if (typeof challengeDoc.expiresAtMs === 'number' && Date.now() > challengeDoc.expiresAtMs) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'challenge_expired' }, { status: 409 });
+      }
+      if (String(challengeDoc.challengeHash || '') !== hashChallenge(challenge)) {
+        return NextResponse.json({ ok: false, approved: false, reason: 'invalid_challenge' }, { status: 400 });
+      }
+
+      const provider = await verifySelfProof({ uid, challengeId, challenge, proof });
+      if (!provider.ok) {
+        return NextResponse.json(
+          { ok: false, approved: false, reason: provider.reason },
+          { status: verificationErrorStatus(provider.reason) }
+        );
+      }
+
+      let dedupHash = '';
+      try {
+        dedupHash = hashNullifierForDedup(provider.nullifier);
+      } catch {
+        return NextResponse.json(
+          { ok: false, approved: false, reason: 'verification_unavailable' },
+          { status: 503 }
+        );
+      }
+
+      const dedupRef = db.collection('_private').doc('idv').collection('nullifierHashes').doc(dedupHash);
+
+      try {
+        await db.runTransaction(async (tx) => {
+          const [challengeCurrent, dedupSnap] = await Promise.all([tx.get(challengeRef), tx.get(dedupRef)]);
+          if (!challengeCurrent.exists) throw new AppCodeError(400, 'invalid_challenge');
+
+          const current = (challengeCurrent.data() as any) || {};
+          if (String(current.uid || '') !== uid) throw new AppCodeError(400, 'invalid_challenge');
+          if (current.usedAt) throw new AppCodeError(409, 'challenge_used');
+          if (typeof current.expiresAtMs === 'number' && Date.now() > current.expiresAtMs) {
+            throw new AppCodeError(409, 'challenge_expired');
+          }
+          if (String(current.challengeHash || '') !== hashChallenge(challenge)) {
+            throw new AppCodeError(400, 'invalid_challenge');
+          }
+
+          if (dedupSnap.exists) {
+            const ownerUid = String(((dedupSnap.data() as any) || {}).uid || '');
+            if (ownerUid && ownerUid !== uid) {
+              throw new AppCodeError(409, 'duplicate_identity');
+            }
+          }
+
+          const dedupPayload: Record<string, unknown> = {
+            uid,
+            provider: 'self_openpassport',
+            assuranceLevel: provider.assuranceLevel,
+            attestationType: provider.attestationType,
+            updatedAt: FieldValue.serverTimestamp(),
+          };
+          if (!dedupSnap.exists) dedupPayload.createdAt = FieldValue.serverTimestamp();
+
+          tx.set(dedupRef, dedupPayload, { merge: true });
+          tx.set(
+            challengeRef,
+            {
+              status: 'verified',
+              usedAt: FieldValue.serverTimestamp(),
+              usedByUid: uid,
+              provider: 'self_openpassport',
+            },
+            { merge: true }
+          );
+        });
+      } catch (error: any) {
+        if (error instanceof AppCodeError) {
+          return NextResponse.json(
+            { ok: false, approved: false, reason: error.code },
+            { status: error.status }
+          );
+        }
+        return NextResponse.json({ ok: false, approved: false, reason: 'server_error' }, { status: 500 });
+      }
+
+      try {
+        await setClaims(uid, { status: 'Verified', kycVerified: true });
+      } catch {
+        await challengeRef.set(
+          {
+            status: 'claims_sync_failed',
+            claimsSyncFailedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        return NextResponse.json({ ok: false, approved: false, reason: 'server_error' }, { status: 500 });
+      }
+
       await db.collection('users').doc(uid).set(
         {
           kycVerified: true,
-          identity: { verified: true },
-          idv_verified: true,
           status: 'verified',
+          verifiedAt: FieldValue.serverTimestamp(),
+          personhood: {
+            provider: 'self_openpassport',
+            dedupHash,
+            assuranceLevel: provider.assuranceLevel,
+            attestationType: provider.attestationType,
+            verifiedAt: FieldValue.serverTimestamp(),
+          },
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
-      await setClaims(uid, { status: 'Verified', kycVerified: true });
-    }
 
-    return NextResponse.json({ approved, reason }, { status: 200 });
-  } catch {
-    return NextResponse.json({ approved: false, reason: 'server_error' }, { status: 500 });
+      return NextResponse.json({ ok: true, approved: true, reason: null, provider: 'self_openpassport' });
+    } catch {
+      return NextResponse.json({ ok: false, approved: false, reason: 'server_error' }, { status: 500 });
+    }
+  },
+  {
+    ...requireStatus(['Grace', 'Verified']),
+    rateLimit: { userPerMin: 6, ipPerMin: 60 },
+    idempotent: true,
   }
-}, { ...requireStatus(['Grace','Verified']) });
+);

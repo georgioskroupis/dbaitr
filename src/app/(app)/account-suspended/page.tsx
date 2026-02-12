@@ -40,15 +40,15 @@ export default function AccountSuspendedPage() {
           <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <CardTitle className="text-2xl text-destructive font-semibold">Account Access Restricted</CardTitle>
           <CardDescription className="text-red-300/80">
-            Your account access has been temporarily restricted because your identity verification is overdue.
+            Your account access has been temporarily restricted because your personhood verification is overdue.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 text-center p-0">
           <p className="text-white/80">
-            To restore full access to dbaitr, including posting and creating debates, please complete your identity verification.
+            To restore full access to dbaitr, including posting and creating debates, please complete personhood verification.
           </p>
           <Button asChild size="lg" className="w-full px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-semibold shadow-lg shadow-black/20 transition">
-            <Link href="/verify-identity">Complete Verification</Link>
+            <Link href="/verify-identity">Complete Personhood Check</Link>
           </Button>
           <p className="text-xs text-white/50">
             If you believe this is an error, please <Link href="/contact-support" className="text-rose-400 underline hover:text-white transition">contact support</Link>.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Data minimization cleanup:
-// - Delete idv_attempts older than IDV_TTL_DAYS (default 90)
 // - Delete reports with status == 'resolved' older than REPORTS_TTL_DAYS (default 180) by resolvedAt, then fallback to createdAt
+// - Delete expired IDV challenge records older than IDV_CHALLENGE_RETENTION_DAYS (default 7)
 // Usage: node scripts/ops/cleanup.mjs
 // Auth: FIREBASE_SERVICE_ACCOUNT_B64 or FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS
 
@@ -53,18 +53,11 @@ async function deleteQuery(db, q, label, limitBatch = 300) {
 async function main() {
   const app = initAdmin();
   const db = app.firestore();
-  const IDV_TTL_DAYS = parseInt(process.env.IDV_TTL_DAYS || '90', 10);
   const REPORTS_TTL_DAYS = parseInt(process.env.REPORTS_TTL_DAYS || '180', 10);
+  const IDV_CHALLENGE_RETENTION_DAYS = parseInt(process.env.IDV_CHALLENGE_RETENTION_DAYS || '7', 10);
 
-  const idvCutoff = daysAgo(IDV_TTL_DAYS);
   const reportsCutoff = daysAgo(REPORTS_TTL_DAYS);
-
-  // idv_attempts by timestamp
-  try {
-    await deleteQuery(db, db.collection('idv_attempts').where('timestamp', '<', idvCutoff), 'idv_attempts');
-  } catch (e) {
-    console.error('[cleanup] idv_attempts failed:', e.message || e);
-  }
+  const challengeCutoffMs = Date.now() - IDV_CHALLENGE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
   // reports resolved by resolvedAt
   try {
@@ -88,8 +81,18 @@ async function main() {
     console.warn('[cleanup] reports(createdAt) query failed or no index:', e.message || e);
   }
 
+  // _private/idv/challenges cleanup by expiresAtMs
+  try {
+    await deleteQuery(
+      db,
+      db.collection('_private').doc('idv').collection('challenges').where('expiresAtMs', '<', challengeCutoffMs).limit(500),
+      '_private/idv/challenges(expired)'
+    );
+  } catch (e) {
+    console.warn('[cleanup] _private/idv/challenges query failed or no index:', e.message || e);
+  }
+
   console.log('[cleanup] Done');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-

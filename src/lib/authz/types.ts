@@ -5,6 +5,7 @@ export interface ClaimsShape {
   role?: Role;
   status?: Status;
   kycVerified?: boolean;
+  graceUntilMs?: number;
   [k: string]: unknown;
 }
 

@@ -22,8 +22,8 @@ Notes:
 ## Required Secrets
 
 - Firebase: `FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID`
-- Cloud Run: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`, optional `CLOUD_RUN_SERVICE_IDV`
-- App runtime: `NEXT_PUBLIC_IDV_ONDEVICE`, `NEXT_PUBLIC_IDV_AI_APPROVAL`, `NEXT_PUBLIC_IDV_STRICT_MINIMAL`, `NEXT_PUBLIC_HUMAN_MODELS_URL`, `NEXT_PUBLIC_TESSERACT_BASE_URL`, `NEXT_ENABLE_IDV_CSP`, and (after deploy) `CLOUD_RUN_IDV_URL`
+- GCP deploy: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`
+- Personhood verification: `IDV_SELF_VERIFY_URL`, `IDV_DEDUP_HMAC_SECRET`, optional `IDV_SELF_START_URL`, optional `IDV_SELF_VERIFY_API_KEY`, optional runtime values `IDV_CHALLENGE_TTL_MS`, `IDV_SELF_VERIFY_TIMEOUT_MS`
 - AI/Moderation: `HUGGINGFACE_API_KEY` (AI-assist detection), `PERSPECTIVE_API_KEY` (toxicity filter)
  - Transparency workflow: `FIREBASE_SERVICE_ACCOUNT_B64` (base64 of service account JSON for Admin SDK)
 
@@ -57,11 +57,5 @@ gcloud projects get-iam-policy db8app \
 - In GitHub repo → Settings → Secrets → Actions → New repository secret → Name: `FIREBASE_SERVICE_ACCOUNT_B64` → paste value.
 
 The scheduled workflow `.github/workflows/update-transparency.yml` reads this secret and updates `analytics/transparency` daily.
-
-## After Cloud Run Deploy
-
-- Run the GitHub Action “Deploy IDV Service to Cloud Run”
-- Copy the service URL, then:
-  - `gh secret set CLOUD_RUN_IDV_URL -b "https://<service-url>"`
 
 Now merges to `main` will build with these envs and deploy to Firebase Hosting (dbaitr.com).

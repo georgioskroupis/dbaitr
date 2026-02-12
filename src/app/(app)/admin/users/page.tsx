@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
             </Select>
           </div>
           <div>
-            <div className="text-xs text-white/60 mb-1">KYC</div>
+            <div className="text-xs text-white/60 mb-1">Human Verification</div>
             <Select value={kyc} onValueChange={v => { setPage(1); setKyc(v); }}>
               <SelectTrigger className="w-40 h-9 bg-white/5 border-white/20 text-white"><SelectValue placeholder="Any" /></SelectTrigger>
               <SelectContent className="bg-black/90 border-white/10 text-white">
@@ -291,7 +291,7 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                   <div>Provider: {data.provider || 'unknown'}</div>
                   <div>Created: {data.createdAt ? new Date(data.createdAt).toLocaleString() : '—'}</div>
                   <div>Last active: {data.lastActiveAt ? new Date(data.lastActiveAt).toLocaleString() : '—'}</div>
-                  <div>KYC Verified: {String(!!data.kycVerified)}</div>
+                  <div>Human Verified: {String(!!data.kycVerified)}</div>
                   <div>Flags: {data.flagsCount ?? 0}</div>
                   <div className="mt-3 border-t border-white/10 pt-3">
                     <div className="text-white mb-2 font-medium">Actions</div>
@@ -302,7 +302,7 @@ function UserDrawer({ uid, onClose }: { uid: string | null; onClose: () => void 
                       <ActionButton label="Force sign-out" onClick={() => setConfirmOpen({ action: 'forceSignOut', label: 'SIGNOUT' })} />
                       <ActionButton label="Invalidate sessions" onClick={() => setConfirmOpen({ action: 'invalidateSessions', label: 'INVALIDATE' })} />
                       <ActionButton label="Reset password" onClick={() => setConfirmOpen({ action: 'forcePasswordReset', label: 'RESET' })} />
-                      <ActionButton label="KYC override" onClick={() => setConfirmOpen({ action: 'kycOverride', label: 'KYC' })} />
+                      <ActionButton label="Verification override" onClick={() => setConfirmOpen({ action: 'kycOverride', label: 'KYC' })} />
                       <ActionButton label="Change role" onClick={() => setConfirmOpen({ action: 'changeRole', label: 'ROLE' })} />
                       <ActionButton variant="destructive" label="Hard delete" onClick={() => setConfirmOpen({ action: 'hardDelete', label: 'DELETE' })} />
                     </div>

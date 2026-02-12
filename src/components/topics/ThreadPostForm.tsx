@@ -100,22 +100,11 @@ export function ThreadPostForm({
     if (isSuspended) {
       toast({
         title: "Account Access Restricted",
-        description: "Your account is currently restricted. Please complete your identity verification to participate in threads.",
+        description: "Your account is currently restricted. Please complete personhood verification to participate in threads.",
         variant: "destructive",
         duration: 7000,
       });
       router.push('/account-suspended');
-      return;
-    }
-
-    if (!kycVerified) {
-      toast({ 
-        title: "Identity Verification Required", 
-        description: "Please verify your ID to post in threads (10-day grace period applies).", 
-        variant: "destructive",
-        duration: 7000 
-      });
-      router.push('/verify-identity');
       return;
     }
 
@@ -156,7 +145,7 @@ export function ThreadPostForm({
       const map: Record<string, { title: string; description: string }> = {
         limit: { title: 'Limit Reached', description: 'You have asked 3 questions for this statement.' },
         forbidden: { title: 'Not Allowed', description: 'Only the statement author can respond.' },
-        kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
+        kyc_required: { title: 'Verification Required', description: 'Please verify personhood or wait for the grace period.' },
         appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
         unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
         toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },
@@ -213,9 +202,9 @@ export function ThreadPostForm({
               <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to participate
             </AlertTitle>
             <AlertDescription className="text-white/80">
-              Your identity verification deadline has expired. Please
+              Your personhood verification deadline has expired. Please
               <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
-                <Link href="/verify-identity">verify your identity</Link>
+                <Link href="/verify-identity">verify personhood</Link>
               </Button>
               to unlock posting.
             </AlertDescription>
@@ -319,12 +308,12 @@ export function ThreadPostForm({
         )}
         {!authLoading && user && !kycVerified && !isSuspended &&(
             <p className="text-xs text-rose-400 text-right">
-                Please <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify your ID</Link> to participate (10-day grace period).
+                Please <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify personhood</Link> to participate (10-day grace period).
             </p>
         )}
         {!authLoading && user && isSuspended && (
              <p className="text-xs text-rose-400 text-right">
-                Your account is suspended. Please <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify your ID</Link>.
+                Your account is suspended. Please <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify personhood</Link>.
             </p>
         )}
       </form>

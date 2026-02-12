@@ -51,10 +51,20 @@ export default function YoutubeIntegrationPage() {
   }, [user, globalMode.enabled]);
 
   React.useEffect(() => {
-    const connected = new URLSearchParams(location.search).get('connected');
+    const params = new URLSearchParams(location.search);
+    const connected = params.get('connected');
+    const oauthError = params.get('error');
     if (connected) {
       setMessage('Connected successfully.');
       // Refresh status shortly after redirect, then clean URL
+      setTimeout(() => { refreshStatus(); }, 500);
+      try { history.replaceState(null, '', location.pathname); } catch {}
+    } else if (oauthError) {
+      const map: Record<string, string> = {
+        access_denied: 'YouTube connection was canceled by the user.',
+        oauth_missing_code: 'YouTube OAuth callback did not include an authorization code. Please try reconnecting.',
+      };
+      setMessage(map[oauthError] || `YouTube connection failed: ${oauthError}`);
       setTimeout(() => { refreshStatus(); }, 500);
       try { history.replaceState(null, '', location.pathname); } catch {}
     } else {

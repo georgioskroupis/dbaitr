@@ -6,11 +6,12 @@ export interface UserProfile {
   email: string | null;
   fullName: string | null;
   photoURL?: string | null;
+  status?: 'grace' | 'verified' | 'suspended' | 'banned' | 'deleted' | string;
   kycVerified: boolean;
   createdAt: string; // Changed from Timestamp
   updatedAt?: string; // Changed from Timestamp
   provider?: 'password' | 'google' | 'apple' | 'unknown'; // Added provider
-  registeredAt: string; // ISOString timestamp, added for KYC grace period
+  registeredAt?: string; // ISOString timestamp, added for KYC grace period
 }
 
 export interface Topic {

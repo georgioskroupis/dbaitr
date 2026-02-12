@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
+    const oauthError = searchParams.get('error');
     const state = searchParams.get('state');
     const dev = process.env.NODE_ENV !== 'production';
     const rid = Math.random().toString(36).slice(2);
@@ -66,6 +67,18 @@ export async function GET(req: Request) {
       return NextResponse.json(body, { status: 403 });
     }
 
+    // Handle provider-side OAuth denial/cancel.
+    if (oauthError) {
+      try { await ref.delete(); } catch {}
+      const redirect = `/settings/integrations/youtube?error=${encodeURIComponent(oauthError)}`;
+      return NextResponse.redirect(new URL(redirect, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'));
+    }
+    if (!code) {
+      try { await ref.delete(); } catch {}
+      const redirect = '/settings/integrations/youtube?error=oauth_missing_code';
+      return NextResponse.redirect(new URL(redirect, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'));
+    }
+
     // Retrieve PKCE codeVerifier from pending state
     let codeVerifier: string | undefined = undefined;
     try { codeVerifier = (snap.data() as any)?.codeVerifier || undefined; } catch {}
@@ -80,7 +93,7 @@ export async function GET(req: Request) {
       return NextResponse.json(body, { status: 403 });
     }
     try {
-      await youtubeProvider.connect(uid, code!, codeVerifier);
+      await youtubeProvider.connect(uid, code, codeVerifier);
     } catch (e: any) {
       const msg = (e?.message || '').toString();
       await ref.delete().catch(() => {});
@@ -91,7 +104,7 @@ export async function GET(req: Request) {
       }
       if (msg === 'youtube_not_connected_global_mismatch') {
         if (dev) { try { console.error(JSON.stringify({ action: 'yt.oauth.cb.deny', reason: 'global_channel_mismatch' })); } catch {} }
-        return NextResponse.json({ ok: false, error: 'youtube_not_connected_global_mismatch', message: 'Reconnect as the owner of the configured channel' }, { status: 409 });
+        return NextResponse.json({ ok: false, error: 'youtube_not_connected', message: 'Reconnect as the owner of the configured channel' }, { status: 409 });
       }
       if (/invalid_grant/i.test(msg)) {
         if (dev) { try { console.error(JSON.stringify({ action: 'yt.oauth.cb.deny', reason: 'code_exchange_invalid_grant' })); } catch {} }

@@ -29,9 +29,15 @@ Standardized API Error Semantics
   - Meaning: Unhandled failure; inspect logs
 
 YouTube integration app codes
-- Create: 409 youtube_not_connected, 409 live_streaming_not_enabled
+- Create: 409 youtube_not_connected, 409 live_streaming_not_enabled, 409 live_embedding_not_allowed
 - Ingest: 400 no_stream, 404 stream_not_found, 409 youtube_not_connected, 409 no_ingestion_info
 - Transition: 400 invalid_transition, 409 stream_not_bound, 409 stream_inactive, 409 too_early, 409 youtube_not_connected, 409 live_streaming_not_enabled
+
+Identity/profile app codes
+- Profile bootstrap: 422 full_name_required
+- Personhood challenge: 429 rate_limited, 400 invalid_challenge, 409 challenge_expired, 409 challenge_used
+- Personhood proof verify: 400 invalid_proof, 409 duplicate_identity, 400 verification_failed, 503 verification_unavailable, 500 server_error
+- Personhood result: 200 not_verified (when claim is not yet verified)
 
 Notes
 - API responses include `{ ok: boolean, error?: string, requestId?: string }` for tracing.

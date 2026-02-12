@@ -32,6 +32,18 @@ async function run() {
       title: 'Debate',
       description: 'seeded',
     });
+    await db.collection('liveRooms').doc('ld1').set({
+      title: 'Debate Room',
+      hostUid: 'owner1',
+      status: 'scheduled',
+      settings: { supporterOnly: false, slowModeSec: 0 },
+    });
+    await db.collection('liveRooms').doc('ld1').collection('messages').doc('m1').set({
+      uid: 'owner1',
+      role: 'host',
+      text: 'seed',
+      createdAt: new Date(),
+    });
   });
 
   const viewer = ctx('v1', { role: 'viewer', status: 'Verified' });
@@ -46,9 +58,12 @@ async function run() {
   await assertFails(moderator.collection('reports').doc('r2').set({ reason: 'x' }));
   await assertSucceeds(moderator.collection('reports').doc('r1').get());
 
+  // users profile documents are server-owned creates.
+  await assertFails(viewer.collection('users').doc('v1').set({ uid: 'v1', email: 'v1@example.com' }));
+
   // server-only collections used by privileged APIs must remain client-denied.
-  await assertFails(viewer.collection('idv_latest').doc('v1').set({ approved: true }));
-  await assertFails(viewer.collection('idv_attempts').doc('a1').set({ approved: true }));
+  await assertFails(viewer.collection('_private').doc('idv').collection('challenges').doc('c1').set({ uid: 'v1' }));
+  await assertFails(viewer.collection('_private').doc('idv').collection('nullifierHashes').doc('n1').set({ uid: 'v1' }));
   await assertFails(viewer.collection('admin_operations').doc('op1').set({ ok: true }));
   await assertFails(viewer.collection('moderation_actions').doc('ma1').set({ action: 'clear_flag' }));
   await assertFails(superAdmin.collection('admin_operations').doc('op2').set({ ok: true }));
@@ -83,6 +98,12 @@ async function run() {
   // admin/** and analysis/** stay non-writable by clients.
   await assertFails(admin.collection('admin').doc('x').set({ any: 1 }));
   await assertFails(viewer.collection('analysis').doc('x').set({ any: 1 }));
+
+  // liveRooms/messages are client-read-only; writes must go through server APIs.
+  await assertSucceeds(viewer.collection('liveRooms').doc('ld1').get());
+  await assertSucceeds(viewer.collection('liveRooms').doc('ld1').collection('messages').doc('m1').get());
+  await assertFails(viewer.collection('liveRooms').doc('ld1').set({ title: 'nope' }, { merge: true }));
+  await assertFails(viewer.collection('liveRooms').doc('ld1').collection('messages').doc('m2').set({ text: 'nope' }));
 
   await env.cleanup();
   console.log('API security tests passed.');
