@@ -34,6 +34,10 @@ env:
   IDV_DEDUP_HMAC_SECRET: ${{ secrets.IDV_DEDUP_HMAC_SECRET || '' }}
   IDV_CHALLENGE_TTL_MS: ${{ secrets.IDV_CHALLENGE_TTL_MS || '600000' }}
   IDV_SELF_VERIFY_TIMEOUT_MS: ${{ secrets.IDV_SELF_VERIFY_TIMEOUT_MS || '15000' }}
+  APPHOSTING_LOCATION: ${{ vars.APPHOSTING_LOCATION || 'us-central1' }}
+  APPHOSTING_BACKEND_ID: ${{ vars.APPHOSTING_BACKEND_ID || 'studio' }}
+  APPHOSTING_ROLLOUT_TIMEOUT_SEC: ${{ vars.APPHOSTING_ROLLOUT_TIMEOUT_SEC || '900' }}
+  APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC: ${{ vars.APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC || '10' }}
 
 jobs:
   quality_gate:
@@ -80,6 +84,12 @@ jobs:
           pwd
           ls -la
           test -f package.json && node -e "const p=require('./package.json');console.log('next dep:', p.dependencies?.next || p.devDependencies?.next || '(none)')" || (echo 'missing package.json' && exit 1)
+
+      - name: Resolve deploy metadata
+        id: deploy_meta
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "not_before=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Validate deploy secrets
         env:
@@ -139,6 +149,18 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ${{ secrets.FIREBASE_PROJECT_ID || 'db8app' }}
+
+      - name: Verify App Hosting rollout reached SUCCEEDED
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || 'db8app' }}
+          APPHOSTING_LOCATION: ${{ env.APPHOSTING_LOCATION }}
+          APPHOSTING_BACKEND_ID: ${{ env.APPHOSTING_BACKEND_ID }}
+          APPHOSTING_EXPECTED_COMMIT: ${{ steps.deploy_meta.outputs.sha }}
+          APPHOSTING_ROLLOUT_NOT_BEFORE: ${{ steps.deploy_meta.outputs.not_before }}
+          APPHOSTING_ROLLOUT_TIMEOUT_SEC: ${{ env.APPHOSTING_ROLLOUT_TIMEOUT_SEC }}
+          APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC: ${{ env.APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC }}
+        run: node scripts/ops/verify-apphosting-rollout.mjs
 
       - name: Post-deploy health checks
         run: |

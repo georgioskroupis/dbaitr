@@ -1,5 +1,5 @@
 Version: 2026.02
-Last updated: 2026-02-11
+Last updated: 2026-02-12
 Owner: Platform Engineering
 Non-negotiables:
 - Production deploys are only from `main` via `.github/workflows/deploy.yml`
@@ -31,7 +31,7 @@ As of 2026-02-11, branch protection on `main` enforces:
   - Gate: `npm ci`, `typecheck`, `apphosting:build`, `check:boundaries`
 - Production deploy workflow: `.github/workflows/deploy.yml`
   - Triggers: `push` to `main`, manual dispatch
-  - Gate + deploy + health checks
+  - Gate + deploy + App Hosting rollout verification + health checks
 
 ## Standard publish path (recommended)
 
@@ -128,6 +128,9 @@ bash scripts/ops/enforce-main-protection.sh
     - `roles/firebase.admin`
     - `roles/serviceusage.serviceUsageConsumer`
   - See `docs/ops/secrets.md` for IAM verification commands.
+- Deploy fails at "Verify App Hosting rollout reached SUCCEEDED":
+  - Inspect the reported build error; this commonly indicates missing/misconfigured App Hosting Secret Manager entries.
+  - Ensure required secrets exist and backend access is granted (`firebase apphosting:secrets:grantaccess`).
 - Deploy succeeds but site unhealthy:
   - Inspect the failing run logs and App Hosting runtime logs before retrying.
 
