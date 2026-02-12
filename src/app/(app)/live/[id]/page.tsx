@@ -24,8 +24,28 @@ export default function LiveDetailPage() {
   const db = getDb();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const [role, setRole] = React.useState<string | null>(null);
   const [data, setData] = React.useState<any>(null);
   const [ingest, setIngest] = React.useState<{ ingestAddress: string; streamName: string } | null>(null);
+  const [transitioning, setTransitioning] = React.useState(false);
+  const [transitionMessage, setTransitionMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) {
+        if (!cancelled) setRole(null);
+        return;
+      }
+      try {
+        const t = await user.getIdTokenResult();
+        if (!cancelled) setRole(((t?.claims as any)?.role as string) || null);
+      } catch {
+        if (!cancelled) setRole(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   React.useEffect(() => {
     const ref = doc(db, 'liveDebates', id);
@@ -39,7 +59,9 @@ export default function LiveDetailPage() {
     return () => unsub();
   }, [id]);
 
-  const isOwner = user && data?.createdBy === user.uid;
+  const isOwner = !!(user && data?.createdBy === user.uid);
+  const hasControlRole = role === 'admin' || role === 'super-admin';
+  const canControl = isOwner || hasControlRole;
 
   const fetchIngest = async () => {
     if (!user) return;
@@ -56,6 +78,8 @@ export default function LiveDetailPage() {
   const transition = async (to: 'testing'|'live'|'complete') => {
     if (!user) return;
     const token = await user.getIdToken();
+    setTransitioning(true);
+    setTransitionMessage(null);
     try {
       // If jumping to live from scheduled, attempt testing first to avoid invalid_transition
       if (to === 'live' && data?.status === 'scheduled') {
@@ -63,6 +87,7 @@ export default function LiveDetailPage() {
         if (!r1.ok) {
           const j = await r1.json().catch(()=>({}));
           // Surface common errors to the host
+          setTransitionMessage(`Transition failed: ${j?.error || 'server_error'}`);
           alert(`Transition failed: ${j?.error || 'server_error'}`);
           return;
         }
@@ -70,11 +95,17 @@ export default function LiveDetailPage() {
       const r2 = await apiFetch(`/api/live/${id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ to }) });
       if (!r2.ok) {
         const j = await r2.json().catch(()=>({}));
+        setTransitionMessage(`Transition failed: ${j?.error || 'server_error'}`);
         alert(`Transition failed: ${j?.error || 'server_error'}`);
+        return;
       }
+      setTransitionMessage(`Transition request accepted: ${to}`);
     } catch {
       // eslint-disable-next-line no-alert
+      setTransitionMessage('Transition failed: network_error');
       alert('Transition failed: network_error');
+    } finally {
+      setTransitioning(false);
     }
   };
 
@@ -86,19 +117,22 @@ export default function LiveDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <h1 className="text-2xl font-semibold text-white">{data.title}</h1>
+      <p className="text-sm text-white/70">Status: <span className="text-white">{status}</span></p>
+      {transitionMessage && <p className="text-sm text-white/70">{transitionMessage}</p>}
       {vid && (status==='live' || status==='complete') && (
         <Player videoId={vid} live={status==='live'} />
       )}
       {status==='scheduled' && <p className="text-white/70">Scheduled. Waiting for start.</p>}
+      {status==='testing' && <p className="text-white/70">Testing mode active. Verify encoder health, then go live.</p>}
 
-      {(isOwner) && (
+      {canControl && (
         <Card className="bg-black/40 border border-white/10">
           <CardHeader><CardTitle className="text-white">Host Console</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-white/80">
             <div className="flex gap-2">
-              <Button onClick={() => transition('testing')} variant="outline">Go to Testing</Button>
-              <Button onClick={() => transition('live')} className="bg-rose-500 hover:bg-rose-400">Go Live</Button>
-              <Button onClick={() => transition('complete')} variant="outline">End Stream</Button>
+              <Button onClick={() => transition('testing')} variant="outline" disabled={transitioning}>Go to Testing</Button>
+              <Button onClick={() => transition('live')} className="bg-rose-500 hover:bg-rose-400" disabled={transitioning}>Go Live</Button>
+              <Button onClick={() => transition('complete')} variant="outline" disabled={transitioning}>End Stream</Button>
             </div>
             <div>
               <Button onClick={fetchIngest} variant="outline">Show RTMP Ingest</Button>

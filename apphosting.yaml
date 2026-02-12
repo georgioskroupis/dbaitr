@@ -54,30 +54,14 @@ env:
     availability:
       - RUNTIME
 
-  # IDV flags (public)
-  - variable: NEXT_PUBLIC_IDV_ONDEVICE
-    value: "true"
-    availability: [ BUILD, RUNTIME ]
+  # Personhood verification runtime configuration
+  - variable: IDV_CHALLENGE_TTL_MS
+    value: "600000"
+    availability: [ RUNTIME ]
 
-  - variable: NEXT_PUBLIC_IDV_AI_APPROVAL
-    value: "true"
-    availability: [ BUILD, RUNTIME ]
-
-  - variable: NEXT_PUBLIC_IDV_STRICT_MINIMAL
-    value: "true"
-    availability: [ BUILD, RUNTIME ]
-
-  - variable: NEXT_PUBLIC_HUMAN_MODELS_URL
-    value: "/vendor/human/models/"
-    availability: [ BUILD, RUNTIME ]
-
-  - variable: NEXT_PUBLIC_TESSERACT_BASE_URL
-    value: "/vendor/tesseract/"
-    availability: [ BUILD, RUNTIME ]
-
-  - variable: NEXT_ENABLE_IDV_CSP
-    value: "false"
-    availability: [ BUILD, RUNTIME ]
+  - variable: IDV_SELF_VERIFY_TIMEOUT_MS
+    value: "15000"
+    availability: [ RUNTIME ]
 
   # Optional canonical URL
   - variable: NEXT_PUBLIC_APP_URL
@@ -115,7 +99,11 @@ env:
   # `firebase apphosting:secrets:set`. We rely on ADC by default,
   # so this mapping is intentionally omitted to avoid requiring
   # the secret during build.
-  # Optional: Cloud Run IDV fallback service URL (add later if you deploy it)
-  # - variable: CLOUD_RUN_IDV_URL
-  #   value: "https://idv-xxxxx-uc.a.run.app"
-  #   availability: [RUNTIME]
+  - variable: IDV_SELF_VERIFY_URL
+    secret: IDV_SELF_VERIFY_URL
+    availability: [ RUNTIME ]
+
+  # Required in production for dedup hashing
+  - variable: IDV_DEDUP_HMAC_SECRET
+    secret: IDV_DEDUP_HMAC_SECRET
+    availability: [ RUNTIME ]

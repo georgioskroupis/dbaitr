@@ -16,6 +16,15 @@ export function getAuthorStatusBadge(
     };
   }
 
+  const status = String(profile.status || '').toLowerCase();
+  if (status === 'suspended' || status === 'banned' || status === 'deleted') {
+    return {
+      label: "Suspended",
+      variant: "destructive",
+      icon: <AlertCircle className="h-3 w-3 mr-1" />,
+    };
+  }
+
   if (profile.registeredAt) {
     try {
       const registeredDate = new Date(profile.registeredAt);

@@ -3,13 +3,14 @@
 
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import type { DocumentData } from 'firebase/firestore';
-import { doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore'; // Import Timestamp
+import { doc, onSnapshot, Timestamp } from 'firebase/firestore'; // Import Timestamp
 import * as React from 'react';
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { logger } from '@/lib/logger';
 import { getAuth, getDb } from '@/lib/firebase/client';
 import type { UserProfile } from '@/types';
+import { apiFetch } from '@/lib/http/client';
+import { withinGraceWindow } from '@/lib/authz/grace';
 // Avoid server action import in client provider
 
 interface AuthContextType {
@@ -17,7 +18,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   kycVerified: boolean;
-  isSuspended: boolean; // Added for KYC grace period
+  isSuspended: boolean; // Added for verification grace period
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,8 +53,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuspended, setIsSuspended] = useState(false);
+  const [claimStatus, setClaimStatus] = useState<string | null>(null);
+  const [claimKycVerified, setClaimKycVerified] = useState(false);
   // Track the Firestore user profile listener so we can reliably unsubscribe on sign-out
   const profileUnsubRef = useRef<null | (() => void)>(null);
+  const claimsUnsubRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
@@ -61,10 +65,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true); 
       // Always tear down any previous profile listener before switching user state
       try { if (profileUnsubRef.current) { profileUnsubRef.current(); profileUnsubRef.current = null; } } catch {}
+      try { if (claimsUnsubRef.current) { claimsUnsubRef.current(); claimsUnsubRef.current = null; } } catch {}
       if (firebaseUser) {
         setUser(firebaseUser);
 
-        // Profile creation ensured server-side on first write; skip client-side server action
+        // Ensure server-owned profile bootstrap and default claims.
+        try {
+          await apiFetch('/api/users/bootstrap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fullName: (firebaseUser.displayName || '').trim() || undefined,
+            }),
+          });
+        } catch {}
+
+        // Read claims from ID token, then keep them fresh on claimsChangedAt updates.
+        try {
+          const idTokenResult = await firebaseUser.getIdTokenResult();
+          setClaimStatus(String((idTokenResult.claims as any)?.status || '') || null);
+          setClaimKycVerified(!!(idTokenResult.claims as any)?.kycVerified);
+        } catch {
+          setClaimStatus(null);
+          setClaimKycVerified(false);
+        }
+
+        const claimsDocRef = doc(getDb(), 'user_private', firebaseUser.uid);
+        const unsubscribeClaims = onSnapshot(claimsDocRef, async () => {
+          try {
+            const fresh = await firebaseUser.getIdTokenResult(true);
+            setClaimStatus(String((fresh.claims as any)?.status || '') || null);
+            setClaimKycVerified(!!(fresh.claims as any)?.kycVerified);
+          } catch {}
+        }, () => {});
+        claimsUnsubRef.current = unsubscribeClaims;
 
         const userDocRef = doc(getDb(), "users", firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, async (docSnap) => {
@@ -91,9 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Only try fallback if still authenticated
             const current = getAuth().currentUser;
             if (current) {
-              const t = await current.getIdToken();
-              const { apiFetch } = await import('@/lib/http/client');
-              const res = await apiFetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } });
+              const res = await apiFetch('/api/users/me');
               if (res.ok) {
                 const j = await res.json();
                 if (j?.ok) setUserProfile(j.profile || null);
@@ -108,35 +140,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUser(null);
         setUserProfile(null);
+        setClaimStatus(null);
+        setClaimKycVerified(false);
         setLoading(false); 
       }
     });
-    return () => unsubscribeAuth();
+    return () => {
+      try { unsubscribeAuth(); } catch {}
+      try { if (profileUnsubRef.current) profileUnsubRef.current(); } catch {}
+      try { if (claimsUnsubRef.current) claimsUnsubRef.current(); } catch {}
+    };
   }, []); 
   
-  const kycVerified = !!userProfile?.kycVerified; 
+  // Claims are the source of truth for authorization-sensitive verification state.
+  const kycVerified = claimKycVerified;
 
   useEffect(() => {
-    if (userProfile && !userProfile.kycVerified && userProfile.registeredAt) {
-      try {
-        const registeredDate = new Date(userProfile.registeredAt); 
-        if (isNaN(registeredDate.getTime())) {
-          logger.warn("[AuthContext] Invalid registeredAt date for suspension check:", userProfile.registeredAt);
-          setIsSuspended(false); 
-          return;
-        }
-        const gracePeriodEndDate = new Date(registeredDate);
-        gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 10);
-        const now = new Date();
-        setIsSuspended(now > gracePeriodEndDate);
-      } catch (e) {
-        logger.error("[AuthContext] Error calculating suspension status:", e);
-        setIsSuspended(false);
-      }
-    } else {
-      setIsSuspended(false);
+    const hardBlocked = claimStatus === 'Suspended' || claimStatus === 'Banned' || claimStatus === 'Deleted';
+    if (hardBlocked) {
+      setIsSuspended(true);
+      return;
     }
-  }, [userProfile]);
+    if (!user) {
+      setIsSuspended(false);
+      return;
+    }
+    if (kycVerified) {
+      setIsSuspended(false);
+      return;
+    }
+    const creationTime = user.metadata?.creationTime || null;
+    setIsSuspended(!withinGraceWindow(creationTime));
+  }, [user, kycVerified, claimStatus]);
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading, kycVerified, isSuspended }}>

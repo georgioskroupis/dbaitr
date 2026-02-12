@@ -4,15 +4,18 @@ import type { Role, Status, CapabilityKey, ClaimsShape } from '@/lib/authz/types
 import { hasCapability } from '@/lib/authz/types';
 
 type Ctx = { uid: string; role?: Role; status?: Status; kycVerified: boolean; claims?: ClaimsShape } | undefined;
-type RouteCtx = { params?: any } | undefined;
-type Handler = (req: Request, ctx?: (NonNullable<Ctx> & { params?: any }) | { params?: any }) => Promise<Response>;
+type RouteCtx = { params: any };
+type Handler = (req: Request, ctx: (NonNullable<Ctx> & { params?: any }) | { params?: any }) => Promise<Response>;
 
 function json(status: number, body: any) { return new NextResponse(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
 
 type RateLimitOpts = { userPerMin?: number; ipPerMin?: number };
 export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatus?: Status[]; public?: boolean; capability?: CapabilityKey; rateLimit?: RateLimitOpts; idempotent?: boolean }) {
   // Next 15 passes (req, ctx?) where ctx.params may be a Promise
-  return async function (req: Request, ctx?: RouteCtx): Promise<Response> {
+  return async function (req: Request, ctx: RouteCtx): Promise<Response> {
+    const routeCtx = (ctx && typeof ctx === 'object' && 'params' in ctx
+      ? ctx
+      : { params: Promise.resolve({}) }) as RouteCtx;
     const t0 = Date.now();
     const rid = Math.random().toString(36).slice(2);
     const route = (() => { try { const u = new URL(req.url); return u.pathname; } catch { return 'unknown'; } })();
@@ -22,7 +25,7 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
     // Resolve params if provided and may be a promise
     let paramsResolved: any = undefined;
     try {
-      const p = (ctx as any)?.params;
+      const p = (routeCtx as any)?.params;
       paramsResolved = p && typeof p.then === 'function' ? await p : p;
     } catch { paramsResolved = undefined; }
     // Debug-only snapshot of identity to include in denial logs

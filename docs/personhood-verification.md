@@ -1,0 +1,123 @@
+Version: 2026.02
+Last updated: 2026-02-12
+Owner: Platform Engineering
+Non-negotiables:
+- No ID image uploads in app flows
+- No raw proof payload or raw nullifier persistence
+- Dedup uses one-way HMAC hash only
+- Claims (`kycVerified`) remain source of truth for posting gates
+Acceptance: Routes/docs/tests reflect the proof-based flow and apphosting build passes
+
+# Personhood Verification (Privacy-First)
+
+## Goal
+
+Verify that each account maps to one real human while minimizing retained data.
+
+We intentionally store:
+- Full name (public profile requirement)
+- Verification state (`kycVerified` claim and mirrored user profile flag)
+- Minimal metadata needed for dedup and auditability
+
+We intentionally do **not** store:
+- ID photos
+- Selfies
+- Raw proof payloads
+- Raw provider nullifiers
+
+## Current API Surface
+
+- `POST /api/idv/challenge`
+  - Auth: `withAuth` + App Check + ID token + `Grace|Verified`
+  - Issues one-time challenge and stores only `challengeHash`
+  - Optional verifier bootstrap URL is returned when configured
+
+- `POST /api/idv/verify`
+  - Auth: `withAuth` + App Check + ID token + `Grace|Verified`
+  - Accepts JSON proof payload (no image uploads)
+  - Verifies via configured provider endpoint
+  - Deduplicates with `HMAC(nullifier)` in `_private/idv/nullifierHashes/{hash}`
+  - On success, sets claims: `{ status: 'Verified', kycVerified: true }`
+
+- `POST /api/idv/result`
+  - Auth: `withAuth` + App Check + ID token + `Grace|Verified`
+  - Read-only status mirror; never elevates privileges
+
+## Provider Contract
+
+Configure a verifier backend that validates Self/OpenPassport proofs and returns JSON:
+
+```json
+{
+  "verified": true,
+  "nullifier": "provider-nullifier-string",
+  "assuranceLevel": "high",
+  "attestationType": "passport"
+}
+```
+
+Accepted aliases:
+- `ok` instead of `verified`
+- `nullifierHash` / `nullifier_hash` instead of `nullifier`
+
+Failure shape example:
+
+```json
+{
+  "verified": false,
+  "reason": "invalid_proof"
+}
+```
+
+## Storage Model
+
+- `_private/idv/challenges/{challengeId}`
+  - `uid`, `challengeHash`, `expiresAtMs`, `status`, `usedAt`
+- `_private/idv/nullifierHashes/{dedupHash}`
+  - `uid`, provider metadata, timestamps
+- `users/{uid}`
+  - `kycVerified`, `status`, `verifiedAt`, `personhood.{provider,dedupHash,...}`
+- Firebase custom claims
+  - `status=Verified`, `kycVerified=true`
+
+## Environment Variables
+
+Required in production:
+- `IDV_SELF_VERIFY_URL`
+- `IDV_DEDUP_HMAC_SECRET`
+
+Optional:
+- `IDV_SELF_START_URL` (returns verification deep link/session URL)
+- `IDV_SELF_VERIFY_API_KEY`
+- `IDV_CHALLENGE_TTL_MS` (default `600000`)
+- `IDV_SELF_VERIFY_TIMEOUT_MS` (default `15000`)
+
+Local dev only (never production):
+- `IDV_DEV_FAKE_APPROVE=true`
+
+## Manual Test Checklist
+
+User flow:
+1. Sign in and ensure full name is set in profile.
+2. Open `/verify-identity` and generate a challenge.
+3. Complete provider flow and submit proof JSON.
+4. Confirm success banner and `POST /api/idv/result` shows `approved: true`.
+
+Dedup protection:
+1. Verify account A with proof/nullifier.
+2. Attempt account B with same nullifier.
+3. Expect `409 duplicate_identity`.
+
+Grace/suspension behavior:
+1. User without verification can post only during grace window.
+2. After grace expires, posting endpoints return `kyc_required` and UI routes user to verification.
+
+Admin checks:
+1. In admin users page, verified users show `Human Verified: true`.
+2. Confirm no raw nullifier/proof appears in readable profile fields.
+
+## Security Notes
+
+- All verification endpoints remain App Check protected.
+- `_private/**` remains client-inaccessible by Firestore rules.
+- `scripts/checks/security-regression-guards.mjs` enforces proof-based invariants.

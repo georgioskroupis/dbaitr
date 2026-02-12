@@ -253,7 +253,7 @@ export function DebatePostCard({ statement }: DebateStatementCardProps) {
       const map: Record<string, { title: string; description: string }> = {
         limit: { title: 'Limit Reached', description: 'You have asked 3 questions for this statement.' },
         forbidden: { title: 'Not Allowed', description: 'Only the statement author can respond.' },
-        kyc_required: { title: 'Verification Required', description: 'Please verify your ID or wait for the grace period.' },
+        kyc_required: { title: 'Verification Required', description: 'Please verify personhood or wait for the grace period.' },
         appcheck: { title: 'Security Check Failed', description: 'App integrity verification failed. Refresh and try again.' },
         unauthorized: { title: 'Authentication Required', description: 'Please sign in again and retry.' },
         toxicity: { title: 'Content Blocked for Civility', description: 'Please rephrase to keep it respectful.' },

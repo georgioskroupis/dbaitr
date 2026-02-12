@@ -153,7 +153,7 @@ export default function TransparencyPage() {
           <ul className="list-disc list-inside space-y-1.5 marker:text-white/40">
             <li><span className="font-semibold">Frontend</span>: Next.js powering features like threads, analytics, search, pricing, and profiles.</li>
             <li><span className="font-semibold">Server</span>: API routes handling debate content, moderation, and analytics.</li>
-            <li><span className="font-semibold">Data &amp; Access</span>: Firestore stores topics, statements, users, and transparency metrics. Firebase Auth and KYC manage identity.</li>
+            <li><span className="font-semibold">Data &amp; Access</span>: Firestore stores topics, statements, users, and transparency metrics. Firebase Auth and proof-of-personhood checks manage identity rights.</li>
             <li><span className="font-semibold">Integrity</span>: Enforced through App Check, rate limits, Perspective toxicity filter, moderation tools, and sentiment analysis.</li>
           </ul>
           <div className="mt-3">
@@ -167,14 +167,14 @@ export default function TransparencyPage() {
 
         <Section title="Data Model">
           <p>
-            The model is straightforward: topics contain statements and threads; users have verified status; reports and appeals link to moderation; analytics track transparency and sentiment trends.
+            The model is straightforward: topics contain statements and threads; user profiles store public account fields (including full name) and verification state; reports and appeals link to moderation; analytics track transparency and sentiment trends.
           </p>
         </Section>
 
         <Section title="Main User Flows">
           <ul className="list-disc list-inside space-y-1.5 marker:text-white/40">
             <li><span className="font-semibold">Join &amp; Sign In</span>: Create an account with full name and email.</li>
-            <li><span className="font-semibold">Verify Identity</span>: Complete KYC/IDV with grace or strict requirements depending on topic.</li>
+            <li><span className="font-semibold">Verify Personhood</span>: Complete proof-of-personhood verification with grace or strict requirements depending on topic.</li>
             <li><span className="font-semibold">Explore &amp; Post</span>: Browse topics, search, and publish statements.</li>
             <li><span className="font-semibold">Debate</span>: Ask or respond in threads, with civility filters applied.</li>
             <li><span className="font-semibold">Insights</span>: View analytics such as Likert bars and filters.</li>
@@ -195,13 +195,13 @@ export default function TransparencyPage() {
 
         <Section title="Security &amp; Trust">
           <p>
-            Access is secured with App Check, Firestore rules, and KYC verification. Perspective filtering safeguards civility, rate limits maintain fairness, and cleanup workflows manage data retention responsibly.
+            Access is secured with App Check, Firestore rules, and personhood verification. We do not retain ID images or raw proof payloads in our database; we persist only verification state, minimal dedup metadata, and account profile fields. Perspective filtering safeguards civility, rate limits maintain fairness, and cleanup workflows manage data retention responsibly.
           </p>
         </Section>
 
         <Section title="How to Verify">
           <ol className="list-decimal list-inside space-y-1.5 marker:text-white/50">
-            <li><span className="font-semibold">Access</span>: Check App Check headers on requests and test KYC behavior on different topics.</li>
+            <li><span className="font-semibold">Access</span>: Check App Check headers on requests and test personhood-gated behavior on different topics.</li>
             <li><span className="font-semibold">Civility</span>: Submit toxic content to confirm it is blocked with an appeal option; attempt rapid posting to trigger rate limits.</li>
             <li><span className="font-semibold">Transparency</span>: Use analytics filters and review the /transparency page and cleanup logs to confirm accuracy and accountability.</li>
           </ol>

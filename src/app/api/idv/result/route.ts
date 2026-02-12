@@ -1,43 +1,53 @@
 import { NextResponse } from 'next/server';
-import { getDbAdmin, FieldValue } from '@/lib/firebase/admin';
 import { globalRateLimiter, getClientKey } from '@/lib/rateLimit';
 import { withAuth, requireStatus } from '@/lib/http/withAuth';
+import { getDbAdmin } from '@/lib/firebase/admin';
 
 export const runtime = 'nodejs';
 
-// Optional client acknowledgement endpoint.
-// Final approval is decided server-side in /api/idv/verify.
-export const POST = withAuth(async (req, ctx: any) => {
+function toIso(ts: any): string | null {
   try {
-    // Rate limit result posting per client
-    if (!globalRateLimiter.check(getClientKey(req))) {
-      return NextResponse.json({ success: false, reason: 'rate_limited' }, { status: 429 });
+    if (!ts) return null;
+    if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+    if (typeof ts === 'string') return ts;
+    if (ts?.seconds !== undefined) return new Date(ts.seconds * 1000).toISOString();
+  } catch {}
+  return null;
+}
+
+export const POST = withAuth(
+  async (req, ctx: any) => {
+    try {
+      if (!globalRateLimiter.check(getClientKey(req))) {
+        return NextResponse.json({ success: false, reason: 'rate_limited' }, { status: 429 });
+      }
+
+      const uid = String(ctx?.uid || '');
+      const approved = !!ctx?.kycVerified;
+
+      let provider: string | null = null;
+      let verifiedAt: string | null = null;
+      try {
+        const snap = await getDbAdmin().collection('users').doc(uid).get();
+        const data = snap.exists ? ((snap.data() as any) || {}) : {};
+        provider = String(data?.personhood?.provider || '') || null;
+        verifiedAt = toIso(data?.personhood?.verifiedAt || data?.verifiedAt);
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        approved,
+        reason: approved ? null : 'not_verified',
+        provider,
+        verifiedAt,
+      });
+    } catch {
+      return NextResponse.json({ success: false, reason: 'server_error' }, { status: 500 });
     }
-    const uid = ctx?.uid as string;
-
-    const { reason } = await req.json().catch(() => ({}));
-
-    const db = getDbAdmin();
-    const latestSnap = await db.collection('idv_latest').doc(uid).get();
-    const latest = latestSnap.exists ? (latestSnap.data() as any) : null;
-
-    // Audit client acknowledgement only. Approval is decided server-side in /api/idv/verify.
-    await db.collection('idv_attempts').add({
-      uid,
-      approved: !!latest?.approved,
-      reason: latest?.reason || null,
-      clientReason: reason || null,
-      source: 'client_ack',
-      timestamp: FieldValue.serverTimestamp(),
-    });
-
-    return NextResponse.json({
-      success: true,
-      approved: !!latest?.approved,
-      reason: latest?.reason || null,
-    });
-  } catch (error) {
-    console.error('Error handling IDV result:', error);
-    return NextResponse.json({ success: false, reason: 'server_error' }, { status: 500 });
+  },
+  {
+    ...requireStatus(['Grace', 'Verified']),
+    rateLimit: { userPerMin: 6, ipPerMin: 60 },
+    idempotent: true,
   }
-}, { ...requireStatus(['Grace','Verified']), rateLimit: { userPerMin: 6, ipPerMin: 60 }, idempotent: true });
+);

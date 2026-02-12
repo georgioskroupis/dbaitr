@@ -12,6 +12,16 @@ async function run() {
   const env = await initializeTestEnvironment({ projectId: 'demo-test', firestore: { rules } });
   const unauth = env.unauthenticatedContext().firestore();
   const ctx = (uid, claims) => env.authenticatedContext(uid, claims).firestore();
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.collection('users').doc('u1').set({
+      uid: 'u1',
+      email: 'u1@example.com',
+      fullName: 'User One',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  });
 
   // Public reads
   await assertSucceeds(unauth.collection('topics').doc('t1').get());
@@ -25,13 +35,16 @@ async function run() {
   await assertSucceeds(ctx('u1', { role: 'viewer', status: 'Verified' }).collection('users').doc('u1').get());
   await assertFails(ctx('u2', { role: 'viewer', status: 'Verified' }).collection('users').doc('u1').get());
   await assertSucceeds(ctx('admin1', { role: 'admin', status: 'Verified' }).collection('users').doc('u1').get());
+  await assertFails(ctx('u1', { role: 'viewer', status: 'Verified' }).collection('users').doc('u1').set({ uid: 'u1', email: 'u1@example.com' }));
+  await assertSucceeds(ctx('u1', { role: 'viewer', status: 'Verified' }).collection('users').doc('u1').set({ fullName: 'Valid Name', updatedAt: new Date() }, { merge: true }));
+  await assertFails(ctx('u1', { role: 'viewer', status: 'Verified' }).collection('users').doc('u1').set({ fullName: 'Anonymous', updatedAt: new Date() }, { merge: true }));
 
   // user_private owner only (admins also allowed)
   await assertSucceeds(ctx('u1', { role: 'viewer', status: 'Grace' }).collection('user_private').doc('u1').set({ claimsChangedAt: 'x' }));
   await assertFails(ctx('u2', { role: 'viewer', status: 'Grace' }).collection('user_private').doc('u1').set({ a: 1 }));
 
   // topics create
-  await assertSucceeds(ctx('u1', { role: 'viewer', status: 'Grace' }).collection('topics').add({ createdBy: 'u1', title: 't' }));
+  await assertSucceeds(ctx('u1', { role: 'viewer', status: 'Grace', graceUntilMs: Date.now() + 3600_000 }).collection('topics').add({ createdBy: 'u1', title: 't' }));
   await assertFails(ctx('u1', { role: 'viewer', status: 'Suspended' }).collection('topics').add({ createdBy: 'u1', title: 't' }));
 
   // statements create/update (owner or mod)

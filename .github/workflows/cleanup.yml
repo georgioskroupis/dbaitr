@@ -36,7 +36,6 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_B64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          IDV_TTL_DAYS: '90'
+          IDV_CHALLENGE_RETENTION_DAYS: '7'
           REPORTS_TTL_DAYS: '180'
         run: node scripts/ops/cleanup.mjs
-

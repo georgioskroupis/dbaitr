@@ -14,15 +14,13 @@ import {
   type AuthError,
   onAuthStateChanged,
 } from "firebase/auth";
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore"; // Firestore helpers only
-import { getAuth, getDb } from "@/lib/firebase/client";
+import { getAuth } from "@/lib/firebase/client";
 // Avoid importing server actions into client page
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, KeyRound, User, Eye, EyeOff, Apple, Chrome } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useFormEnterSubmit, focusById } from "@/hooks/useFormEnterSubmit";
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/http/client';
@@ -99,7 +97,7 @@ export default function UnifiedAuthPage() {
   }, [phase, email, loginForm, signupForm]);
 
 
-  const handleEmailSubmit: SubmitHandler<EmailFormValues> = async (values) => {
+  const handleEmailSubmit: SubmitHandler<EmailFormValues> = async () => {
     setIsLoading(true);
     const emailValue = emailForm.getValues("email"); // Retrieve the current value directly
 
@@ -120,11 +118,6 @@ export default function UnifiedAuthPage() {
       // If it fails, fall back to client Auth methods
       let serverExists: boolean | null = null;
       try {
-        const { getToken } = await import('firebase/app-check');
-        const { getAppCheckInstance } = await import('@/lib/appCheckClient');
-        const appCheckInstance = getAppCheckInstance();
-        const tokenResult = appCheckInstance ? await getToken(appCheckInstance, /* forceRefresh */ true).catch(() => null) : null;
-        const appCheckToken = tokenResult?.token;
         const res = await apiFetch('/api/auth/check-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -213,6 +206,27 @@ export default function UnifiedAuthPage() {
         logger.debug("User after login state stabilization:", getAuth().currentUser);
       }
 
+      // Ensure a server-owned user profile exists and claims defaults are present.
+      try {
+        const bootstrapRes = await apiFetch('/api/users/bootstrap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (!bootstrapRes.ok) {
+          const j = await bootstrapRes.json().catch(() => ({}));
+          if (j?.error === 'full_name_required') {
+            toast({
+              title: 'Profile Update Required',
+              description: 'Please add your full legal name in profile settings before continuing.',
+              variant: 'destructive',
+            });
+            router.push('/profile');
+            return;
+          }
+        }
+      } catch {}
+
       toast({ title: "Signed in successfully!" });
       const returnTo = searchParams.get("returnTo");
       router.push(returnTo || "/dashboard");
@@ -260,32 +274,8 @@ export default function UnifiedAuthPage() {
     }
   };
 
-  const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async (values) => {
-    if (process.env.NODE_ENV !== "production") {
-      logger.debug("📨 Signup form submitted with (from submit handler 'values' arg):", values);
-        const currentRHFValues = signupForm.getValues();
-      logger.debug("🧾 Values in RHF before explicit trigger (from signupForm.getValues()):", currentRHFValues);
-        if(values.password !== currentRHFValues.password) {
-            logger.warn("PASSWORD MISMATCH DETECTED (PRE-TRIGGER): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field.");
-        }
-         if (!currentRHFValues.password || currentRHFValues.password.length < 6) {
-            logger.error("SIGNUP SUBMIT DIAGNOSTIC (PRE-TRIGGER): Password in RHF (getValues) appears invalid or empty:", `"${currentRHFValues.password}"`);
-        }
-    }
-
+  const handleSignUpSubmit: SubmitHandler<SignupFormValues> = async () => {
     const isValid = await signupForm.trigger();
-    if (process.env.NODE_ENV !== "production") {
-        const postTriggerRHFValues = signupForm.getValues();
-      logger.debug("🧾 Values in RHF after explicit trigger (from signupForm.getValues()):", postTriggerRHFValues);
-      logger.debug("🧾 Form validity after trigger:", isValid);
-         if(values.password !== postTriggerRHFValues.password && isValid) {
-            logger.warn("PASSWORD MISMATCH DETECTED (POST-TRIGGER & VALID): 'values' argument from handleSubmit is different from signupForm.getValues() for the password field, even though form is considered valid.");
-        }
-        if (!postTriggerRHFValues.password || postTriggerRHFValues.password.length < 6) {
-            logger.error("SIGNUP SUBMIT DIAGNOSTIC (POST-TRIGGER): Password in RHF (getValues) appears invalid or empty AFTER trigger:", `"${postTriggerRHFValues.password}"`);
-        }
-    }
-
     if (!isValid) {
       toast({
         title: "Missing or Invalid Fields",
@@ -299,10 +289,7 @@ export default function UnifiedAuthPage() {
     const finalValuesForFirebase = signupForm.getValues(); // Use getValues after trigger for most certainty
     finalValuesForFirebase.email = (finalValuesForFirebase.email || '').trim().toLowerCase();
     finalValuesForFirebase.password = (finalValuesForFirebase.password || '').trim();
-    if (process.env.NODE_ENV !== "production") {
-      logger.debug("ℹ️ Starting sign-up process with FINAL values for Firebase:", finalValuesForFirebase);
-      logger.debug("🚀 Attempting to sign up with email:", finalValuesForFirebase.email, "and password:", finalValuesForFirebase.password ? "********" : "(empty)");
-    }
+    finalValuesForFirebase.fullName = (finalValuesForFirebase.fullName || '').trim().replace(/\s+/g, ' ');
 
     try {
       const userCredential = await createUserWithEmailAndPassword(getAuth(), finalValuesForFirebase.email, finalValuesForFirebase.password);
@@ -312,20 +299,6 @@ export default function UnifiedAuthPage() {
 
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: finalValuesForFirebase.fullName });
-        try {
-          const db = getDb();
-          const uref = doc(db, 'users', userCredential.user.uid);
-          await setDoc(uref, {
-            uid: userCredential.user.uid,
-            email: finalValuesForFirebase.email,
-            fullName: (finalValuesForFirebase.fullName || '').trim(),
-            kycVerified: false,
-            registeredAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true });
-        } catch (e) {
-          logger.error('Failed to create user profile document at signup:', e);
-        }
       }
       if (process.env.NODE_ENV !== "production") {
         logger.debug("🧾 Firebase current user immediately after signup success in try block:", getAuth().currentUser);
@@ -339,6 +312,22 @@ export default function UnifiedAuthPage() {
           }
         });
       });
+
+      // Server-owned profile bootstrap: full name is required and claims defaults are established here.
+      const bootstrapRes = await apiFetch('/api/users/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: finalValuesForFirebase.fullName,
+        }),
+      });
+      if (!bootstrapRes.ok) {
+        const j = await bootstrapRes.json().catch(() => ({}));
+        if (j?.error === 'full_name_required') {
+          throw new Error('full_name_required');
+        }
+        throw new Error('profile_bootstrap_failed');
+      }
 
       // Send email verification (best effort)
       try {
@@ -357,8 +346,8 @@ export default function UnifiedAuthPage() {
       const authError = error as AuthError;
       if (process.env.NODE_ENV !== "production") {
        logger.error("🔥 Full Auth Error (Signup):", error);
-       logger.error("🔥 Signup Error Code:", authError.code);
-       logger.error("🔥 Signup Error Message:", authError.message);
+       logger.error("🔥 Signup Error Code:", authError?.code || 'unknown');
+       logger.error("🔥 Signup Error Message:", authError?.message || String(error));
       }
 
       if (authError.code === "auth/email-already-in-use") {
@@ -370,10 +359,18 @@ export default function UnifiedAuthPage() {
         setPhase("login");
         return;
       }
+      if ((error as Error)?.message === 'full_name_required') {
+        toast({
+          title: "Full Name Required",
+          description: "Please provide your first and last name to create a public account.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Sign Up Failed",
-        description: authError.message || "An unexpected error occurred.",
+        description: authError?.message || "An unexpected error occurred.",
         variant: "destructive",
       });
 

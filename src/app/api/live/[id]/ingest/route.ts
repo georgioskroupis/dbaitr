@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request, context?: { params?: any }) {
+export async function GET(req: Request, context: { params: Promise<any> }) {
   const pIn = (context as any)?.params;
   const params = pIn && typeof pIn.then === 'function' ? await pIn : pIn;
   const requestId = Math.random().toString(36).slice(2);
@@ -201,16 +201,16 @@ export async function GET(req: Request, context?: { params?: any }) {
         const message = (e?.message || '').toString();
         try { devLog({ level: 'error', route: `/api/live/${params.id}/ingest`, requestId, action: 'ingest.provider', provider: { httpStatus, reasons }, outcome: 'error', message }, 'error'); } catch {}
         if (message === 'youtube_not_connected_global_mismatch') {
-          return NextResponse.json({ ok: false, error: 'youtube_not_connected_global_mismatch', requestId }, { status: 409 });
+          return NextResponse.json({ ok: false, error: 'youtube_not_connected', requestId }, { status: 409 });
         }
-        if (httpStatus === 401 || httpStatus === 403 || reason === 'invalid_grant' || reason === 'authError' || reason === 'UNAUTHENTICATED') {
+        if (httpStatus === 401 || httpStatus === 403 || reason === 'invalid_grant' || reason === 'authError' || reason === 'UNAUTHENTICATED' || /invalid_grant/i.test(message) || message === 'youtube_not_connected') {
           try {
             const yMod = await import('@/providers/video/youtube');
             await yMod.purgeYoutubeCredentials(uid);
           } catch {}
           return NextResponse.json({ ok: false, error: 'youtube_not_connected', requestId }, { status: 409 });
         }
-        if (httpStatus === 404 || reason === 'notFound') {
+        if (message === 'stream_not_found' || httpStatus === 404 || reason === 'notFound') {
           return NextResponse.json({ ok: false, error: 'stream_not_found', requestId }, { status: 404 });
         }
         try { devLog({ level: 'error', route: `/api/live/${params.id}/ingest`, requestId, action: 'ingest.exception', reasonPhase: 'provider', message }, 'error'); } catch {}
@@ -223,5 +223,5 @@ export async function GET(req: Request, context?: { params?: any }) {
     }
   }, { ...requireStatus(['Verified']) });
 
-  return handler(req);
+  return handler(req, { params });
 }

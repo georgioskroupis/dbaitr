@@ -9,6 +9,12 @@ import { purgeYoutubeCredentials } from '@/providers/video/youtube';
 
 const Schema = z.object({ to: z.enum(['testing', 'live', 'complete']) });
 
+function roomStatusFromDebateStatus(status: 'scheduled' | 'testing' | 'live' | 'complete' | 'canceled' | 'error'): 'scheduled' | 'live' | 'ended' {
+  if (status === 'live') return 'live';
+  if (status === 'complete' || status === 'canceled' || status === 'error') return 'ended';
+  return 'scheduled';
+}
+
 export const POST = withAuth(async (req, ctx: any) => {
   const id = (ctx?.params as any)?.id;
   const params = { id } as { id: string };
@@ -29,9 +35,10 @@ export const POST = withAuth(async (req, ctx: any) => {
     if (!snap.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const d = snap.data() as any;
     try { console.log(JSON.stringify({ level: 'info', route: `/api/live/${params.id}/transition`, action: 'loaded_doc', status: d?.status || null, createdBy: d?.createdBy || null, youtube: { broadcastId: d?.youtube?.broadcastId || null, streamId: d?.youtube?.streamId || null } })); } catch {}
-    if (!(d?.createdBy === (ctx?.uid as string) || (ctx?.role === 'admin'))) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+    const isPrivileged = ctx?.role === 'admin' || ctx?.role === 'super-admin';
+    if (!(d?.createdBy === (ctx?.uid as string) || isPrivileged)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
     const broadcastId = d?.youtube?.broadcastId;
-    if (!broadcastId) return NextResponse.json({ ok: false, error: 'no_broadcast' }, { status: 400 });
+    if (!broadcastId) return NextResponse.json({ ok: false, error: 'invalid_transition' }, { status: 400 });
 
     // Resolve global YouTube credentials before any provider calls
     try {
@@ -54,12 +61,14 @@ export const POST = withAuth(async (req, ctx: any) => {
     } catch (e: any) {
       const httpStatus = e?.response?.status || e?.status;
       const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || e?.response?.data?.error?.status || '';
+      const message = (e?.message || '').toString();
       try { console.warn(JSON.stringify({ level: 'warn', route: `/api/live/${params.id}/transition`, action: 'preflight.error', message: (e?.message || '').toString(), httpStatus, reason })); } catch {}
-      if (httpStatus === 401 || httpStatus === 403 || /invalid_grant/i.test(String(reason))) {
+      if (httpStatus === 401 || httpStatus === 403 || /invalid_grant/i.test(String(reason)) || /invalid_grant/i.test(message) || message === 'youtube_not_connected') {
         try { await purgeYoutubeCredentials(uid); } catch {}
         if (process.env.NODE_ENV !== 'production') { try { console.error(JSON.stringify({ action: 'yt.refresh.fail', reason: 'invalid_grant', requestId: rid })); } catch {} }
         return NextResponse.json({ ok: false, error: 'youtube_not_connected' }, { status: 409 });
       }
+      throw e;
     }
     const matchesDocStream = !!(bf.boundStreamId && streamId && bf.boundStreamId === streamId);
     const docSched = (d?.scheduledStartTime?.toMillis?.() ? new Date(d.scheduledStartTime.toMillis()) : (d?.scheduledStartTime ? new Date(d.scheduledStartTime) : null)) as Date | null;
@@ -77,18 +86,21 @@ export const POST = withAuth(async (req, ctx: any) => {
     } catch {}
 
     // Enforce preflight rules before calling YouTube
-    if (!matchesDocStream) {
+    if ((body.to === 'testing' || body.to === 'live') && !matchesDocStream) {
       return NextResponse.json({ ok: false, error: 'stream_not_bound' }, { status: 409 });
     }
-    if ((body.to === 'testing' || body.to === 'live') && tooEarly) {
+    if (body.to === 'live' && tooEarly) {
       return NextResponse.json({ ok: false, error: 'too_early' }, { status: 409 });
     }
-    // Require ACTIVE encoder before going live
-    if (body.to === 'live' && (sf.streamStatus || '').toLowerCase() !== 'active') {
+    // YouTube requires an active stream before testing/live transitions.
+    if ((body.to === 'testing' || body.to === 'live') && (sf.streamStatus || '').toLowerCase() !== 'active') {
       return NextResponse.json({ ok: false, error: 'stream_inactive' }, { status: 409 });
     }
     // Basic order enforcement based on our doc status
     const cur = (d?.status || 'scheduled') as string;
+    if (body.to === cur) {
+      return NextResponse.json({ ok: true, status: cur, noop: true });
+    }
     if (body.to === 'live' && cur !== 'testing') {
       return NextResponse.json({ ok: false, error: 'invalid_transition' }, { status: 400 });
     }
@@ -98,11 +110,31 @@ export const POST = withAuth(async (req, ctx: any) => {
     try { console.log(JSON.stringify({ level: 'info', route: `/api/live/${params.id}/transition`, action: 'yt.transition.call', to: body.to, broadcastId })); } catch {}
     await youtubeProvider.transition(uid, broadcastId, body.to);
     try { console.log(JSON.stringify({ level: 'info', route: `/api/live/${params.id}/transition`, action: 'yt.transition.ok', to: body.to })); } catch {}
+    const nextDebateStatus = body.to as 'testing' | 'live' | 'complete';
+    const roomStatus = roomStatusFromDebateStatus(nextDebateStatus);
+    const nowTs = FieldValue.serverTimestamp();
+    const batch = db.batch();
     // Persist status to Firestore for UI
-    await ref.set({ status: body.to, statusUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(ref, { status: nextDebateStatus, statusUpdatedAt: nowTs }, { merge: true });
+    batch.set(
+      db.collection('liveRooms').doc(params.id),
+      {
+        title: d?.title || 'Live Debate',
+        hostUid: d?.createdBy || '',
+        status: roomStatus,
+        updatedAt: nowTs,
+        ...(nextDebateStatus === 'live' ? { startedAt: nowTs } : {}),
+        ...(nextDebateStatus === 'complete' ? { endedAt: nowTs } : {}),
+      },
+      { merge: true },
+    );
+    await batch.commit();
     try { console.log(JSON.stringify({ level: 'info', route: `/api/live/${params.id}/transition`, action: 'status.persisted', status: body.to })); } catch {}
     return NextResponse.json({ ok: true, status: body.to });
   } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ ok: false, error: 'bad_request', issues: e.issues }, { status: 400 });
+    }
     const msg = (e?.message || '').toString();
     const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || e?.response?.data?.error?.status || '';
     const httpStatus = e?.response?.status;
@@ -114,9 +146,9 @@ export const POST = withAuth(async (req, ctx: any) => {
       }));
     } catch {}
     if (msg === 'youtube_not_connected_global_mismatch') {
-      return NextResponse.json({ ok: false, error: 'youtube_not_connected_global_mismatch' }, { status: 409 });
+      return NextResponse.json({ ok: false, error: 'youtube_not_connected' }, { status: 409 });
     }
-    if (msg === 'youtube_not_connected' || httpStatus === 401 || httpStatus === 403) {
+    if (msg === 'youtube_not_connected' || /invalid_grant/i.test(msg) || httpStatus === 401 || httpStatus === 403) {
       try { await purgeYoutubeCredentials(ctx?.uid as string); } catch {}
       if (process.env.NODE_ENV !== 'production') { try { console.error(JSON.stringify({ action: 'yt.refresh.fail', reason: 'invalid_grant', requestId: rid })); } catch {} }
       return NextResponse.json({ ok: false, error: 'youtube_not_connected' }, { status: 409 });

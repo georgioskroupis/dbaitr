@@ -73,7 +73,7 @@ export function NewTopicForm() {
     if (isSuspended) {
       toast({
         title: "Account Access Restricted",
-        description: "You can browse freely, but creating new topics is locked until you verify your identity.",
+        description: "You can browse freely, but creating new topics is locked until you verify personhood.",
         variant: "destructive",
         duration: 7000,
       });
@@ -155,9 +155,9 @@ export function NewTopicForm() {
                   <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to create topics
                 </AlertTitle>
                 <AlertDescription className="text-white/80">
-                  Your identity verification deadline has expired. Please
+                  Your personhood verification deadline has expired. Please
                   <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
-                    <Link href="/verify-identity">verify your identity</Link>
+                    <Link href="/verify-identity">verify personhood</Link>
                   </Button>
                   to unlock posting.
                 </AlertDescription>

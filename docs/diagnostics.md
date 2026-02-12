@@ -15,6 +15,11 @@ Retention
 
 YouTube Live Codes
 
+Live Create (`/api/live/create`)
+- 409 youtube_not_connected: Global channel OAuth credentials missing/invalid; reconnect.
+- 409 live_streaming_not_enabled: Enable Live Streaming in YouTube Studio (can take up to 24h).
+- 409 live_embedding_not_allowed: Channel embedding policy/defaults prevented embeddable broadcast creation.
+
 Live Ingest Lookup (`/api/live/[id]/ingest`)
 - 404 not_found: Debate doc missing.
 - 403 forbidden: Only creator or admin can fetch ingest.
@@ -28,6 +33,7 @@ Live Transition (`/api/live/[id]/transition`)
 - 400 invalid_transition: Invalid sequence or failedPrecondition.
 - 409 stream_not_bound: Broadcast not bound to expected stream.
 - 409 stream_inactive: Stream not ACTIVE; start encoder and retry.
+- 409 too_early: Attempted to go live significantly before scheduled start.
 - 409 youtube_not_connected: Credentials missing/expired/revoked; reconnect.
 - 409 live_streaming_not_enabled: Enable Live Streaming in YouTube Studio (can take up to 24h).
 

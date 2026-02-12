@@ -1,140 +1,229 @@
 "use client";
 
 import * as React from 'react';
-import { CaptureCamera } from './CaptureCamera';
-import { serverVerify } from '@/lib/idv/pipeline';
-import { downscaleBlob } from '@/lib/idv/resize';
-import { quickQualityChecks } from '@/lib/idv/quality';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
-
-type Step = 'front' | 'back' | 'selfie' | 'result';
+import {
+  createVerificationChallenge,
+  getVerificationResult,
+  submitVerificationProof,
+  type VerificationChallenge,
+} from '@/lib/idv/pipeline';
 
 export function IdvWizard() {
-  const [step, setStep] = React.useState<Step>('front');
-  const [frontBlob, setFrontBlob] = React.useState<Blob | null>(null);
-  const [backBlob, setBackBlob] = React.useState<Blob | null>(null);
-  const [selfieBlob, setSelfieBlob] = React.useState<Blob | null>(null);
+  const { user } = useAuth();
+  const [challenge, setChallenge] = React.useState<VerificationChallenge | null>(null);
+  const [proofJson, setProofJson] = React.useState('');
   const [approved, setApproved] = React.useState<boolean | null>(null);
   const [reason, setReason] = React.useState<string | null>(null);
+  const [provider, setProvider] = React.useState<string | null>(null);
+  const [verifiedAt, setVerifiedAt] = React.useState<string | null>(null);
   const [showInfo, setShowInfo] = React.useState(false);
-  const { user } = useAuth();
+  const [loadingChallenge, setLoadingChallenge] = React.useState(false);
+  const [submittingProof, setSubmittingProof] = React.useState(false);
 
-  const onCapture = (which: 'front' | 'back' | 'selfie') => async (blob: Blob, canvas: HTMLCanvasElement) => {
-    // Fast client-side quality gate to avoid slow server rejections
-    const qc = quickQualityChecks(canvas);
-    if (!qc.ok) {
-      setReason(qc.reasons?.[0] || 'quality_insufficient');
+  const expired =
+    !!challenge?.expiresAtMs && Number.isFinite(challenge.expiresAtMs) && Date.now() > challenge.expiresAtMs;
+
+  const startChallenge = async () => {
+    if (!user) {
+      setReason('unauthorized');
       return;
     }
-    if (which === 'front') {
-      const small = await downscaleBlob(blob, 1280, 'image/jpeg', 0.85);
-      setFrontBlob(small);
-      setStep('back');
-    }
-    if (which === 'back') {
-      const small = await downscaleBlob(blob, 1280, 'image/jpeg', 0.85);
-      setBackBlob(small);
-      setStep('selfie');
-    }
-    if (which === 'selfie') {
-      const small = await downscaleBlob(blob, 1280, 'image/jpeg', 0.85);
-      setSelfieBlob(small);
-      if (user) await decide(blob);
+    setLoadingChallenge(true);
+    setApproved(null);
+    setReason(null);
+    setProvider(null);
+    setVerifiedAt(null);
+    setProofJson('');
+    try {
+      const res = await createVerificationChallenge();
+      if (!res.ok || !res.challenge) {
+        setChallenge(null);
+        setReason(res.reason || 'server_error');
+        return;
+      }
+      setChallenge(res.challenge);
+    } finally {
+      setLoadingChallenge(false);
     }
   };
 
-  const decide = async (selfieBlob: Blob) => {
-    if (!frontBlob || !backBlob || !selfieBlob) return;
-    if (!user) { setReason('unauthorized'); return; }
-    const result = await serverVerify(frontBlob, backBlob, selfieBlob);
-    setApproved(result.approved);
-    setReason(result.reason || null);
-    setStep('result');
+  const submitProof = async () => {
+    if (!challenge) {
+      setReason('invalid_challenge');
+      return;
+    }
+    if (expired) {
+      setReason('challenge_expired');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(proofJson);
+    } catch {
+      setReason('invalid_proof_json');
+      setApproved(false);
+      return;
+    }
+
+    setSubmittingProof(true);
+    setApproved(null);
+    setReason(null);
+    try {
+      const res = await submitVerificationProof({
+        challengeId: challenge.challengeId,
+        challenge: challenge.challenge,
+        proof: parsed,
+      });
+      setApproved(res.approved);
+      setReason(res.reason || null);
+      setProvider(res.provider || null);
+
+      if (res.approved) {
+        const latest = await getVerificationResult();
+        setProvider(latest.provider || res.provider || null);
+        setVerifiedAt(latest.verifiedAt || null);
+      }
+    } finally {
+      setSubmittingProof(false);
+    }
   };
 
-  const getErrorMessage = (reason: string | null) => {
-    switch (reason) {
-      case 'too_dark':
-        return 'Too dark. Improve lighting and retake.';
-      case 'too_bright':
-        return 'Too bright. Avoid glare and retake.';
-      case 'too_blurry':
-        return 'Too blurry. Hold steady and retake.';
-      case 'quality_insufficient':
-        return 'Image quality is insufficient. Please retake.';
-      case 'quality_front':
-        return 'Image of front of ID is not clear enough. Please try again.';
-      case 'quality_back':
-        return 'Image of back of ID is not clear enough. Please try again.';
-      case 'quality_selfie':
-        return 'Selfie is not clear enough. Please try again.';
-      case 'barcode_mrz_not_found':
-        return 'Could not read the barcode or MRZ on the ID. Please try again.';
-      case 'face_mismatch':
-        return 'The face in the selfie does not match the face on the ID.';
-      case 'liveness_check_failed':
-        return 'Liveness check failed. Please make sure you are in a well-lit room and are not wearing any masks or glasses.';
-      case 'model_unavailable':
-        return 'Verification service is warming up. Please retry shortly.';
-      case 'cloud_unavailable':
-        return 'Verification service is temporarily unavailable. Please try again later.';
-      case 'server_error':
-      case 'server_fallback_error':
-        return 'A server error occurred. Please try again later.';
-      case 'missing_images':
-        return 'Missing captures. Please go through all steps again.';
+  const getReasonMessage = (r: string | null) => {
+    switch (r) {
+      case 'rate_limited':
+        return 'Too many attempts. Please wait a minute and retry.';
+      case 'invalid_challenge':
+        return 'The verification challenge is invalid. Generate a new one.';
+      case 'challenge_used':
+        return 'This challenge was already used. Generate a new one.';
+      case 'challenge_expired':
+        return 'This challenge has expired. Generate a new one.';
+      case 'invalid_proof_json':
+        return 'Proof must be valid JSON.';
+      case 'invalid_proof':
+        return 'The submitted proof could not be validated.';
+      case 'duplicate_identity':
+        return 'This identity is already linked to another account.';
+      case 'verification_unavailable':
+        return 'Verification service is temporarily unavailable. Please retry later.';
+      case 'verification_failed':
+        return 'Verification did not pass. Please retry with a new proof.';
       case 'unauthorized':
-        return 'Please sign in to continue verification.';
+        return 'Please sign in before starting verification.';
+      case 'server_error':
+        return 'Unexpected server error. Please retry shortly.';
+      case 'not_verified':
+        return 'Verification has not completed yet.';
       default:
-        return 'An unknown error occurred. Please try again.';
+        return 'Verification failed. Please try again.';
     }
   };
 
   return (
     <div className="space-y-6">
-      {step === 'front' && (
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-2">Step 1: Capture ID (front)</h3>
-          <CaptureCamera onCapture={onCapture('front')} overlay={<div className="border-2 border-white/40 rounded-md m-6 h-[70%]" />} facingMode="environment" />
-        </div>
-      )}
-      {step === 'back' && (
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-2">Step 2: Capture ID (back)</h3>
-          <CaptureCamera onCapture={onCapture('back')} overlay={<div className="border-2 border-white/40 rounded-md m-6 h-[70%]" />} facingMode="environment" />
-        </div>
-      )}
-      {step === 'selfie' && (
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-2">Step 3: Selfie + Liveness</h3>
-          <CaptureCamera onCapture={onCapture('selfie')} overlay={<div className="rounded-full border-2 border-white/40 m-10 h-[70%]" />} facingMode="user" />
-        </div>
-      )}
-      {step === 'result' && (
+      <div className="rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-white/75">
+        <p className="font-medium text-white">How it works</p>
+        <p className="mt-2">
+          1. Generate a one-time challenge for your account.
+          <br />
+          2. Complete proof-of-personhood in the configured verifier.
+          <br />
+          3. Paste the proof JSON and submit.
+        </p>
+      </div>
+
+      {!challenge ? (
         <div className="text-center">
-          <h3 className="text-white text-xl font-semibold mb-2">Verification Result</h3>
-          {approved ? (
-            <p className="text-green-400">Approved</p>
-          ) : (
-            <>
-              <p className="text-rose-400">Not approved: {getErrorMessage(reason)}</p>
-              <Button className="mt-3" onClick={() => setStep('front')}>Retry</Button>
-            </>
-          )}
+          <Button onClick={startChallenge} disabled={loadingChallenge || !user}>
+            {loadingChallenge ? 'Generating challenge...' : 'Generate Verification Challenge'}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 rounded-lg border border-white/10 bg-black/30 p-4">
+          <div className="space-y-1 text-xs text-white/70">
+            <p>
+              <span className="text-white/90">Challenge ID:</span> {challenge.challengeId}
+            </p>
+            <p>
+              <span className="text-white/90">Expires:</span>{' '}
+              {challenge.expiresAtMs ? new Date(challenge.expiresAtMs).toLocaleString() : 'soon'}
+            </p>
+            {challenge.sessionId && (
+              <p>
+                <span className="text-white/90">Session:</span> {challenge.sessionId}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded border border-white/10 bg-black/40 p-3 text-xs font-mono text-white/80 break-all">
+            {challenge.challenge}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {challenge.verificationUrl ? (
+              <Button asChild variant="secondary">
+                <a href={challenge.verificationUrl} target="_blank" rel="noopener noreferrer">
+                  Open Verification App
+                </a>
+              </Button>
+            ) : (
+              <p className="text-xs text-white/60">
+                No start URL configured. Use your verifier tooling with the challenge above.
+              </p>
+            )}
+            <Button variant="outline" onClick={startChallenge} disabled={loadingChallenge}>
+              Regenerate Challenge
+            </Button>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm text-white/80">Proof JSON</label>
+            <Textarea
+              value={proofJson}
+              onChange={(e) => setProofJson(e.target.value)}
+              placeholder='{"proof":"...","nullifier":"..."}'
+              className="min-h-40 bg-black/40 border-white/20 text-white"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button onClick={submitProof} disabled={submittingProof || !proofJson.trim() || expired}>
+              {submittingProof ? 'Submitting proof...' : 'Submit Proof'}
+            </Button>
+            {expired && <span className="text-xs text-rose-300">Challenge expired. Regenerate before submitting.</span>}
+          </div>
         </div>
       )}
+
+      {approved === true && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-900/20 p-4 text-emerald-300">
+          <p className="font-semibold">Verification approved.</p>
+          {provider && <p className="text-sm mt-1">Provider: {provider}</p>}
+          {verifiedAt && <p className="text-sm">Verified at: {new Date(verifiedAt).toLocaleString()}</p>}
+        </div>
+      )}
+
+      {approved === false && reason && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-900/20 p-4 text-rose-300">
+          <p className="font-semibold">Verification not approved.</p>
+          <p className="text-sm mt-1">{getReasonMessage(reason)}</p>
+        </div>
+      )}
+
       <div className="text-center">
-        <p className="text-xs text-white/60 inline">We process captures ephemerally and store only a boolean verification flag. </p>
+        <p className="text-xs text-white/60 inline">We store only your profile and verification state.</p>
         <Button variant="link" className="text-xs p-0 ml-1" onClick={() => setShowInfo((s) => !s)}>
           {showInfo ? 'Hide details' : 'What we store'}
         </Button>
       </div>
       {showInfo && (
         <div className="mt-2 text-xs text-white/70 border border-white/10 rounded p-3 bg-black/30">
-          <p>- Images are processed on your device for quick checks, then uploaded to the verification service and not stored by us.</p>
-          <p>- We log only the result (approved, reason) with a timestamp and your user ID to prevent abuse.</p>
-          <p>- On approval, we set a verification flag on your profile; you can revoke access anytime.</p>
+          <p>- We do not store ID images, selfies, or raw proof payloads.</p>
+          <p>- We store only verification state (`kycVerified`) and minimal personhood metadata on your account.</p>
+          <p>- Deduplication uses a one-way HMAC hash of a provider nullifier to prevent duplicate identities.</p>
         </div>
       )}
     </div>

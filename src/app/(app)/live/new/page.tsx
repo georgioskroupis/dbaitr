@@ -41,6 +41,13 @@ export default function NewLivePage() {
       let scheduledStartTime: string | undefined = undefined;
       try { if (scheduledLocal) scheduledStartTime = new Date(scheduledLocal).toISOString(); } catch {}
       const res = await apiFetch('/api/live/create', { method: 'POST', headers: { 'Content-Type':'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title, description, visibility, scheduledStartTime }) });
+      if (res.status === 400) {
+        const j = await res.json().catch(() => ({} as any));
+        if (j?.error === 'bad_request') {
+          setMessage('Please provide a valid scheduled start time.');
+          return;
+        }
+      }
       if (res.status === 403) {
         setMessage('Hosting live debates is limited to Supporters or Admins. Visit Pricing to upgrade.');
         return;
@@ -52,6 +59,10 @@ export default function NewLivePage() {
       }
       if (res.status === 409 && j?.error === 'live_streaming_not_enabled') {
         setMessage('Live streaming is not enabled on the configured YouTube channel. Enable it in YouTube Studio (Settings → Channel → Feature eligibility or Live → Enable) and wait up to 24 hours.');
+        return;
+      }
+      if (res.status === 409 && j?.error === 'live_embedding_not_allowed') {
+        setMessage('Channel embedding is disabled in YouTube settings/defaults. An admin must enable embedding for the configured channel before creating live debates.');
         return;
       }
       if (!res.ok || !j?.ok) {

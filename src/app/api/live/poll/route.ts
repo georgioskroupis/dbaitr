@@ -18,7 +18,7 @@ export const POST = withAuth(async (req) => {
       const q = await db.collection('liveDebates').where('status', 'in', ['scheduled','testing','live']).limit(10).get();
       targets = q.docs;
     }
-    const updates: Array<Promise<any>> = [];
+    const updates: Array<Promise<{ id: string; ok: boolean; error?: string }>> = [];
     for (const doc of targets) {
       const d = doc.data() as any;
       const uid = d?.createdBy;
@@ -27,12 +27,45 @@ export const POST = withAuth(async (req) => {
       updates.push((async () => {
         try {
           const st = await youtubeProvider.getStatus(uid, b);
-          await doc.ref.set({ status: st.lifecycle }, { merge: true });
-        } catch {}
+          const roomStatus =
+            st.lifecycle === 'live'
+              ? 'live'
+              : (st.lifecycle === 'complete' || st.lifecycle === 'canceled' || st.lifecycle === 'error')
+                ? 'ended'
+                : 'scheduled';
+          const batch = db.batch();
+          batch.set(doc.ref, { status: st.lifecycle }, { merge: true });
+          batch.set(
+            db.collection('liveRooms').doc(doc.id),
+            { status: roomStatus, title: d?.title || 'Live Debate', hostUid: d?.createdBy || '' },
+            { merge: true },
+          );
+          await batch.commit();
+          return { id: doc.id, ok: true };
+        } catch (e: any) {
+          const msg = (e?.message || 'unknown_error').toString();
+          try {
+            console.warn(JSON.stringify({
+              level: 'warn',
+              route: '/api/live/poll',
+              debateId: doc.id,
+              error: msg,
+            }));
+          } catch {}
+          return { id: doc.id, ok: false, error: msg };
+        }
       })());
     }
-    await Promise.all(updates);
-    return NextResponse.json({ ok: true, count: updates.length });
+    const results = await Promise.all(updates);
+    const updated = results.filter(r => r.ok).length;
+    const failed = results.filter(r => !r.ok);
+    return NextResponse.json({
+      ok: true,
+      count: results.length,
+      updated,
+      failed: failed.length,
+      failedIds: failed.slice(0, 10).map(r => r.id),
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: 'server_error', message: e?.message }, { status: 500 });
   }

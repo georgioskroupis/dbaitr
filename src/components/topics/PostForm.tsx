@@ -131,7 +131,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
     if (isSuspended) {
       toast({
         title: "Account Access Restricted",
-        description: "Your account is currently restricted. Please complete your identity verification to post statements.",
+        description: "Your account is currently restricted. Please complete personhood verification to post statements.",
         variant: "destructive",
         duration: 7000,
       });
@@ -189,7 +189,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
       const map: Record<string, { title: string; description: string }> = {
         kyc_required: {
           title: 'Verification Required',
-          description: 'Please verify your ID or wait for the grace period to post.',
+          description: 'Please verify personhood or wait for the grace period to post.',
         },
         source_required: {
           title: 'Source Required',
@@ -263,7 +263,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         <AlertDescription className="text-red-300">
           Your account is currently restricted. Please{' '}
           <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">
-            complete your identity verification
+            complete personhood verification
           </Link>{' '}
           to post statements.
         </AlertDescription>
@@ -295,9 +295,9 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
               <Lock className="h-4 w-4 mr-2" /> Account restricted — verify to post
             </AlertTitle>
             <AlertDescription className="text-white/80">
-              Your identity verification deadline has expired. Please
+              Your personhood verification deadline has expired. Please
               <Button asChild variant="link" className="p-0 h-auto text-yellow-300 underline hover:text-white transition ml-1">
-                <Link href="/verify-identity">verify your identity</Link>
+                <Link href="/verify-identity">verify personhood</Link>
               </Button>
               to unlock posting.
             </AlertDescription>
@@ -321,7 +321,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
                     !user 
                       ? "Please sign in to contribute to the debate." 
                       : !kycVerified
-                      ? "Please verify your identity to participate (10-day grace period applies)."
+                      ? "Please verify personhood to participate (10-day grace period applies)."
                       : "Share your main argument or perspective on this topic..."
                   }
                   className="w-full px-4 py-3 rounded-lg border border-white/20 bg-white/5 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-md transition min-h-[120px] resize-none"
@@ -410,7 +410,7 @@ export function PostForm({ topic, onStatementCreated }: StatementFormProps) {
         {!user && !authLoading && null}
         {user && !kycVerified && !authLoading && !isSuspended && ( 
           <p className="mt-2 text-xs text-rose-400">
-            You need to <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify your ID</Link> to participate (10-day grace period).
+            You need to <Link href="/verify-identity" className="text-rose-400 underline hover:text-white transition">verify personhood</Link> to participate (10-day grace period).
           </p>
         )}
         </div>

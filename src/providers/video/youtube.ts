@@ -30,6 +30,76 @@ function oauthClient(): OAuth2Client {
   return o;
 }
 
+function providerError(e: any): { reason: string; message: string; httpStatus: number | null; code: number | null } {
+  return {
+    reason: (
+      e?.errors?.[0]?.reason ||
+      e?.response?.data?.error?.errors?.[0]?.reason ||
+      e?.response?.data?.error?.status ||
+      ''
+    ).toString(),
+    message: (e?.message || e?.response?.data?.error?.message || '').toString(),
+    httpStatus: typeof e?.response?.status === 'number' ? e.response.status : null,
+    code: typeof e?.response?.data?.error?.code === 'number' ? e.response.data.error.code : null,
+  };
+}
+
+function isAuthLikeError(err: { reason: string; message: string; httpStatus: number | null; code: number | null }): boolean {
+  const r = err.reason.toLowerCase();
+  const m = err.message.toLowerCase();
+  return (
+    err.httpStatus === 401 ||
+    err.httpStatus === 403 ||
+    err.code === 401 ||
+    err.code === 403 ||
+    r === 'forbidden' ||
+    r === 'insufficientpermissions' ||
+    r === 'unauthenticated' ||
+    r === 'autherror' ||
+    r === 'invalid_grant' ||
+    m.includes('invalid_grant') ||
+    m.includes('unauthorized') ||
+    m.includes('insufficient')
+  );
+}
+
+function isLiveNotEnabledError(err: { reason: string; message: string }): boolean {
+  const r = err.reason.toLowerCase();
+  const m = err.message.toLowerCase();
+  return (
+    r === 'livestreamingnotenabled' ||
+    r === 'insufficientlivepermissions' ||
+    m.includes('not enabled for live streaming') ||
+    m.includes('live streaming is not enabled')
+  );
+}
+
+function isEmbedNotAllowedError(err: { reason: string; message: string }): boolean {
+  const r = err.reason.toLowerCase();
+  const m = err.message.toLowerCase();
+  return (
+    r === 'invalidembedsetting' ||
+    r === 'forbiddenembedsetting' ||
+    r === 'embedsettingnotallowed' ||
+    r === 'embednotallowed' ||
+    m.includes('cannot embed this broadcast') ||
+    m.includes('invalid value for the contentdetails.enable_embed') ||
+    m.includes('allow embedding') ||
+    m.includes('embedding has been disabled') ||
+    m.includes('playback on other websites has been disabled')
+  );
+}
+
+function mapBroadcastLifecycle(raw: string | null | undefined): Lifecycle {
+  const v = (raw || '').toLowerCase();
+  if (!v || v === 'created' || v === 'ready') return 'scheduled';
+  if (v === 'teststarting' || v === 'testing') return 'testing';
+  if (v === 'livestarting' || v === 'live') return 'live';
+  if (v === 'complete') return 'complete';
+  if (v === 'revoked') return 'canceled';
+  return 'error';
+}
+
 async function getGlobalTokenDoc() {
   const db = getDbAdmin();
   const ref = db!.collection('_private').doc('youtubeTokens').collection('global').doc('host');
@@ -113,27 +183,39 @@ export const youtubeProvider: VideoProvider = {
     boundStreamId: string | null;
     scheduledStartTime: string | null;
   }> {
-    const o = await getOAuthClientFor(uid);
-    const yt = google.youtube({ version: 'v3', auth: o });
-    const res = await yt.liveBroadcasts.list({ part: ['status', 'contentDetails', 'snippet'], id: [broadcastId] });
-    const b = res.data.items?.[0];
-    const lifecycle = (b?.status?.lifeCycleStatus || null) as string | null;
-    const boundStreamId = (b?.contentDetails as any)?.boundStreamId || null;
-    const scheduledStartTime = (b?.snippet?.scheduledStartTime || null) as string | null;
-    return { lifecycle, boundStreamId, scheduledStartTime };
+    try {
+      const o = await getOAuthClientFor(uid);
+      const yt = google.youtube({ version: 'v3', auth: o });
+      const res = await yt.liveBroadcasts.list({ part: ['status', 'contentDetails', 'snippet'], id: [broadcastId] });
+      const b = res.data.items?.[0];
+      const lifecycle = (b?.status?.lifeCycleStatus || null) as string | null;
+      const boundStreamId = (b?.contentDetails as any)?.boundStreamId || null;
+      const scheduledStartTime = (b?.snippet?.scheduledStartTime || null) as string | null;
+      return { lifecycle, boundStreamId, scheduledStartTime };
+    } catch (e: any) {
+      const err = providerError(e);
+      if (isAuthLikeError(err)) throw new Error('youtube_not_connected');
+      throw e;
+    }
   },
   async getStreamInfo(uid, streamId: string): Promise<{
     streamStatus: string | null;
     healthStatus: string | null;
   }> {
-    const o = await getOAuthClientFor(uid);
-    const yt = google.youtube({ version: 'v3', auth: o });
-    const res = await yt.liveStreams.list({ part: ['status'], id: [streamId] });
-    const s = res.data.items?.[0];
-    const streamStatus = (s?.status?.streamStatus || null) as string | null;
-    // @ts-ignore healthStatus may be present depending on channel/stream
-    const healthStatus = (s?.status?.healthStatus?.status || null) as string | null;
-    return { streamStatus, healthStatus };
+    try {
+      const o = await getOAuthClientFor(uid);
+      const yt = google.youtube({ version: 'v3', auth: o });
+      const res = await yt.liveStreams.list({ part: ['status'], id: [streamId] });
+      const s = res.data.items?.[0];
+      const streamStatus = (s?.status?.streamStatus || null) as string | null;
+      // @ts-ignore healthStatus may be present depending on channel/stream
+      const healthStatus = (s?.status?.healthStatus?.status || null) as string | null;
+      return { streamStatus, healthStatus };
+    } catch (e: any) {
+      const err = providerError(e);
+      if (isAuthLikeError(err)) throw new Error('youtube_not_connected');
+      throw e;
+    }
   },
   async revoke(_uid) {
     const { data, ref } = await getGlobalTokenDoc();
@@ -160,9 +242,11 @@ export const youtubeProvider: VideoProvider = {
     };
     const contentDetails: youtube_v3.Schema$LiveBroadcastContentDetails = {
       enableDvr: input.allowDvr ?? true,
-      enableAutoStart: input.autoStart ?? false,
-      enableAutoStop: input.autoStop ?? true,
-      // Low latency settings are not directly toggled here; channels may need default setting.
+      // Always allow embed playback for platform-hosted debates.
+      enableEmbed: true,
+      monitorStream: { enableMonitorStream: true },
+      ...(typeof input.autoStart === 'boolean' ? { enableAutoStart: input.autoStart } : {}),
+      ...(typeof input.autoStop === 'boolean' ? { enableAutoStop: input.autoStop } : {}),
     };
     try {
       const res = await yt.liveBroadcasts.insert({
@@ -170,17 +254,60 @@ export const youtubeProvider: VideoProvider = {
         requestBody: { snippet, status, contentDetails, kind: 'youtube#liveBroadcast' },
       });
       const id = res.data.id!;
+      let broadcastDetails = (res.data.contentDetails || {}) as youtube_v3.Schema$LiveBroadcastContentDetails;
+      const readContentDetails = async (): Promise<youtube_v3.Schema$LiveBroadcastContentDetails> => {
+        const verify = await yt.liveBroadcasts.list({ part: ['contentDetails'], id: [id] });
+        return (verify.data.items?.[0]?.contentDetails || {}) as youtube_v3.Schema$LiveBroadcastContentDetails;
+      };
+      const forceEnableEmbed = async (base: youtube_v3.Schema$LiveBroadcastContentDetails) => {
+        await yt.liveBroadcasts.update({
+          part: ['id', 'contentDetails'],
+          requestBody: {
+            id,
+            contentDetails: {
+              ...base,
+              enableEmbed: true,
+              enableDvr: base.enableDvr ?? (input.allowDvr ?? true),
+              monitorStream: base.monitorStream || { enableMonitorStream: true },
+              ...(typeof input.autoStart === 'boolean' ? { enableAutoStart: input.autoStart } : {}),
+              ...(typeof input.autoStop === 'boolean' ? { enableAutoStop: input.autoStop } : {}),
+            },
+          },
+        });
+      };
+
+      // Defensive enforcement: always verify embed policy, even if insert response reports true.
+      try {
+        if (broadcastDetails.enableEmbed !== true) {
+          await forceEnableEmbed(broadcastDetails);
+          broadcastDetails = await readContentDetails();
+        } else {
+          broadcastDetails = await readContentDetails();
+          if (broadcastDetails.enableEmbed !== true) {
+            await forceEnableEmbed(broadcastDetails);
+            broadcastDetails = await readContentDetails();
+          }
+        }
+        if (broadcastDetails.enableEmbed !== true) {
+          throw new Error('live_embedding_not_allowed');
+        }
+      } catch (e: any) {
+        const err = providerError(e);
+        if (isEmbedNotAllowedError(err) || (e?.message || '').toString() === 'live_embedding_not_allowed') {
+          throw new Error('live_embedding_not_allowed');
+        }
+        throw e;
+      }
       return { broadcastId: id, videoId: id };
     } catch (e: any) {
-      const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || e?.response?.data?.error?.status || '';
-      const message = (e?.message || e?.response?.data?.error?.message || '').toString();
-      if (reason === 'forbidden' || reason === 'insufficientPermissions' || message.includes('insufficient')) {
-        throw new Error('youtube_not_connected');
-      }
-      if (reason === 'liveStreamingNotEnabled' || message.includes('not enabled for live streaming')) {
+      const err = providerError(e);
+      if (isLiveNotEnabledError(err)) {
         throw new Error('live_streaming_not_enabled');
       }
-      if (reason === 'UNAUTHENTICATED' || reason === 'authError') {
+      if (isEmbedNotAllowedError(err)) {
+        throw new Error('live_embedding_not_allowed');
+      }
+      if (isAuthLikeError(err)) {
         throw new Error('youtube_not_connected');
       }
       throw e;
@@ -207,18 +334,27 @@ export const youtubeProvider: VideoProvider = {
       const streamName = res.data.cdn?.ingestionInfo?.streamName || '';
       return { streamId, ingestAddress, streamName };
     } catch (e: any) {
-      const reason = e?.errors?.[0]?.reason || e?.response?.data?.error?.errors?.[0]?.reason || '';
-      const message = (e?.message || '').toString();
-      if (reason === 'liveStreamingNotEnabled' || message.includes('not enabled for live streaming')) {
+      const err = providerError(e);
+      if (isLiveNotEnabledError(err)) {
         throw new Error('live_streaming_not_enabled');
+      }
+      if (isAuthLikeError(err)) {
+        throw new Error('youtube_not_connected');
       }
       throw e;
     }
   },
   async bind(uid, broadcastId, streamId) {
-    const o = await getOAuthClientFor(uid);
-    const yt = google.youtube({ version: 'v3', auth: o });
-    await yt.liveBroadcasts.bind({ part: ['id', 'contentDetails'], id: broadcastId, streamId });
+    try {
+      const o = await getOAuthClientFor(uid);
+      const yt = google.youtube({ version: 'v3', auth: o });
+      await yt.liveBroadcasts.bind({ part: ['id', 'contentDetails'], id: broadcastId, streamId });
+    } catch (e: any) {
+      const err = providerError(e);
+      if (isLiveNotEnabledError(err)) throw new Error('live_streaming_not_enabled');
+      if (isAuthLikeError(err)) throw new Error('youtube_not_connected');
+      throw e;
+    }
   },
   async transition(uid, broadcastId, to) {
     const o = await getOAuthClientFor(uid);
@@ -245,8 +381,12 @@ export const youtubeProvider: VideoProvider = {
         }));
       } catch {}
       // Common cases we want to surface as non-500s
-      if (reason === 'err||StreamInactive' || message.toLowerCase().includes('stream inactive')) {
+      if (reason === 'err||StreamInactive' || reason === 'errorStreamInactive' || message.toLowerCase().includes('stream inactive')) {
         throw new Error('stream_inactive');
+      }
+      if (reason === 'redundantTransition' || message.toLowerCase().includes('redundant transition')) {
+        // Already in the requested lifecycle; treat as idempotent success.
+        return;
       }
       if (reason === 'invalidTransition' || message.includes('invalid transition')) {
         throw new Error('invalid_transition');
@@ -261,37 +401,55 @@ export const youtubeProvider: VideoProvider = {
       if (reason === 'liveStreamNotBound' || message.includes('stream not bound')) {
         throw new Error('stream_not_bound');
       }
-      if (reason === 'forbidden' || message.includes('insufficient')) {
-        throw new Error('youtube_not_connected');
-      }
-      if (reason === 'liveStreamingNotEnabled' || message.includes('not enabled for live streaming')) {
+      const err = providerError(e);
+      if (isLiveNotEnabledError(err)) {
         throw new Error('live_streaming_not_enabled');
       }
-      if (reason === 'UNAUTHENTICATED' || reason === 'authError') {
+      if (isAuthLikeError(err)) {
         throw new Error('youtube_not_connected');
       }
       throw e;
     }
   },
   async getIngest(uid, streamId) {
-    const o = await getOAuthClientFor(uid);
-    const yt = google.youtube({ version: 'v3', auth: o });
-    const res = await yt.liveStreams.list({ part: ['cdn'], id: [streamId] });
-    const s = res.data.items?.[0];
-    return {
-      ingestAddress: s?.cdn?.ingestionInfo?.ingestionAddress || '',
-      streamName: s?.cdn?.ingestionInfo?.streamName || '',
-    };
+    try {
+      const o = await getOAuthClientFor(uid);
+      const yt = google.youtube({ version: 'v3', auth: o });
+      const res = await yt.liveStreams.list({ part: ['cdn'], id: [streamId] });
+      const s = res.data.items?.[0];
+      const ingestAddress =
+        s?.cdn?.ingestionInfo?.rtmpsIngestionAddress ||
+        s?.cdn?.ingestionInfo?.ingestionAddress ||
+        '';
+      return {
+        ingestAddress,
+        streamName: s?.cdn?.ingestionInfo?.streamName || '',
+      };
+    } catch (e: any) {
+      const err = providerError(e);
+      if (isAuthLikeError(err)) throw new Error('youtube_not_connected');
+      if (err.httpStatus === 404 || err.reason.toLowerCase() === 'notfound') throw new Error('stream_not_found');
+      throw e;
+    }
   },
   async getStatus(uid, broadcastId) {
-    const o = await getOAuthClientFor(uid);
-    const yt = google.youtube({ version: 'v3', auth: o });
-    const res = await yt.liveBroadcasts.list({ part: ['status', 'contentDetails'], id: [broadcastId] });
-    const b = res.data.items?.[0];
-    const life = (b?.status?.lifeCycleStatus || 'complete') as Lifecycle;
-    // Health is not exposed directly; we approximate from monitorStream if present
-    const health: 'good' | 'ok' | 'bad' = 'ok';
-    return { lifecycle: life, health };
+    try {
+      const o = await getOAuthClientFor(uid);
+      const yt = google.youtube({ version: 'v3', auth: o });
+      const res = await yt.liveBroadcasts.list({ part: ['status', 'contentDetails'], id: [broadcastId] });
+      const b = res.data.items?.[0];
+      if (!b) {
+        return { lifecycle: 'error', health: 'bad' as const };
+      }
+      const raw = (b?.status?.lifeCycleStatus || null) as string | null;
+      const life = mapBroadcastLifecycle(raw);
+      const health: 'good' | 'ok' | 'bad' = 'ok';
+      return { lifecycle: life, health };
+    } catch (e: any) {
+      const err = providerError(e);
+      if (isAuthLikeError(err)) throw new Error('youtube_not_connected');
+      throw e;
+    }
   },
 };
 

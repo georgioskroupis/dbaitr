@@ -11,8 +11,25 @@ export const POST = withAuth(async (req, ctx: any) => {
     const secondsRaw = body?.seconds;
     if (!roomId) return NextResponse.json({ ok: false, error: 'bad_request' }, { status: 400 });
     const roomRef = db.collection('liveRooms').doc(roomId);
-    const snap = await roomRef.get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: 'room_not_found' }, { status: 404 });
+    let snap = await roomRef.get();
+    if (!snap.exists) {
+      const debateSnap = await db.collection('liveDebates').doc(roomId).get();
+      if (!debateSnap.exists) return NextResponse.json({ ok: false, error: 'room_not_found' }, { status: 404 });
+      const debate = debateSnap.data() as any;
+      const mappedStatus =
+        debate?.status === 'live'
+          ? 'live'
+          : (debate?.status === 'complete' || debate?.status === 'canceled' || debate?.status === 'error')
+            ? 'ended'
+            : 'scheduled';
+      await roomRef.set({
+        title: debate?.title || 'Live Debate',
+        hostUid: debate?.createdBy || '',
+        moderators: [],
+        status: mappedStatus,
+      }, { merge: true });
+      snap = await roomRef.get();
+    }
     const room = snap.data() as any;
     const isHost = room.hostUid === uid;
     const isMod = Array.isArray(room.moderators) && room.moderators.includes(uid);

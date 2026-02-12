@@ -34,7 +34,8 @@ Acceptance: Document matches current implementation; pipeline stays green
 This document reflects the as-built state after the unified Auth + App Check redesign.
 
 - Gateway: `withAuth(handler, opts)` verifies App Check (header `X-Firebase-AppCheck`) and Firebase ID token, applies capability/role/status gates, rate limits, and optional idempotency keys.
-- Claims: `role` (viewer|supporter|admin|super-admin), `status` (Grace|Verified|Suspended), `kycVerified` boolean, `claimsChangedAt` timestamp.
+- Claims: `role` (viewer|supporter|admin|super-admin), `status` (Grace|Verified|Suspended), `kycVerified` boolean (human/personhood verified), `graceUntilMs` timestamp, `claimsChangedAt` signal.
+- User profile bootstrap: `/api/users/bootstrap` (server-owned) creates/repairs `users/{uid}`, requires a valid full name, and initializes missing default claims.
 - Presence cookies: `db8_authp`, `db8_appcp` are opaque non-secret markers (rotated periodically) to help SSR guards; they never contain tokens.
 - Route policy: capability-based affordances live in `routePolicy` and hooks (`useAdminGate`, `useIsAdmin`) and are backed by withAuth checks server-side.
 - Admin writes: All writes to `admin/**` and `analysis/**` are done on the server via Admin SDK. Clients never write there.
