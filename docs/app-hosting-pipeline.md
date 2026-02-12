@@ -1,5 +1,5 @@
 Version: 2025.09
-Last updated: 2026-02-11
+Last updated: 2026-02-12
 Owner: Platform Engineering
 Non-negotiables:
 - App Hosting build is gated by `npm run apphosting:build`
@@ -21,6 +21,7 @@ GitHub workflow wiring
   - Runs on pushes to `main` and manual dispatch.
   - Executes the same quality gate before deploy.
   - Validates deploy secrets and Firebase API access before deploy.
+  - Verifies the App Hosting rollout for the exact deployed commit reaches `SUCCEEDED`.
   - Runs post-deploy health checks for `dbaitr.com` and App Hosting backend URL.
 - Operator scripts:
   - `npm run ci:trigger -- --wait` dispatches CI directly (no empty commit needed).
@@ -37,6 +38,7 @@ Previews
 Failure handling
 - If lint or rules tests fail, the build exits non‑zero and the deploy is skipped. Fix locally and push again.
 - If deploy credential validation fails (permission denied / missing secrets), deploy exits before rollout.
+- If App Hosting build/rollout fails asynchronously (for example, missing Secret Manager secrets), deploy is marked failed by rollout verification.
 - If post-deploy health checks fail, deploy is marked failed even if upload succeeded.
 
 Required IAM for GitHub deploy service account
