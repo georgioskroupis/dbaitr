@@ -17,7 +17,9 @@ Claims Lifecycle & Session Refresh
 
 Status transitions
 - Grace → Verified: on personhood verification completion, set { status: 'Verified', kycVerified: true }.
+- Grace/Suspended/Verified → Verified: super-admin `kycOverride(true)` also sets `kycVerified=true` and reconciles status to `Verified` unless account is terminal.
+- Grace/Verified → Grace|Suspended: super-admin `kycOverride(false)` sets `kycVerified=false` and reconciles status using `graceUntilMs`.
 - Grace → Suspended: when `graceUntilMs` has passed and `kycVerified=false`, bootstrap/enforcement paths move status to `Suspended`.
 - Any → Suspended: restrict posting; SSR guard redirects to /account-suspended; APIs return 423 for forbidden actions.
 - Any → Banned: revoke refresh tokens; client should sign-out; only public pages accessible.
-- Deleted: used during deletion workflow; deny writes; tombstone user data; then hard-delete account.
+- Any → Deleted: `hardDelete` sets claims `{ status: 'Deleted', role: 'restricted', kycVerified: false }`, tombstones profile, revokes sessions, and deletes Auth user.
