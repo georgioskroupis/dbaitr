@@ -8,6 +8,12 @@ export const runtime = 'nodejs';
 
 type Action = 'suspend'|'ban'|'reinstate'|'changeRole'|'forceSignOut'|'forcePasswordReset'|'invalidateSessions'|'kycOverride'|'hardDelete';
 const VALID_ROLES: Role[] = ['restricted', 'viewer', 'supporter', 'moderator', 'admin', 'super-admin'];
+const CLAIM_STATUSES: Status[] = ['Grace', 'Verified', 'Suspended', 'Banned', 'Deleted'];
+
+function normalizeClaimStatus(value: unknown): Status | null {
+  const status = String(value || '').trim() as Status;
+  return CLAIM_STATUSES.includes(status) ? status : null;
+}
 
 export const POST = withAuth(async (req, ctx?: { params?: { uid: string } } & any) => {
   try {
@@ -30,6 +36,10 @@ export const POST = withAuth(async (req, ctx?: { params?: { uid: string } } & an
     const snap = await userRef.get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
     const cur = (snap.data() as any) || {};
+    const authUser = await auth.getUser(uid).catch(() => null);
+    const curClaims = ((authUser?.customClaims as any) || {}) as { status?: Status; graceUntilMs?: number; kycVerified?: boolean };
+    const curClaimStatus = normalizeClaimStatus(curClaims.status);
+    const curClaimGraceUntilMs = typeof curClaims.graceUntilMs === 'number' ? curClaims.graceUntilMs : null;
 
     // Permissions
     const isSuper = actorRole === 'super-admin';
@@ -67,6 +77,23 @@ export const POST = withAuth(async (req, ctx?: { params?: { uid: string } } & an
       updates.kycVerified = kyc;
       updates.kycOverriddenAt = FieldValue.serverTimestamp();
       claimUpdates.kycVerified = kyc;
+      const isTerminalStatus =
+        curClaimStatus === 'Banned' ||
+        curClaimStatus === 'Deleted' ||
+        cur.status === 'banned' ||
+        cur.status === 'deleted';
+      if (!isTerminalStatus) {
+        if (kyc) {
+          updates.status = 'verified';
+          updates.reinstatedAt = FieldValue.serverTimestamp();
+          claimUpdates.status = 'Verified';
+        } else {
+          const withinGrace = typeof curClaimGraceUntilMs === 'number' ? Date.now() <= curClaimGraceUntilMs : false;
+          updates.status = withinGrace ? 'grace' : 'suspended';
+          if (!withinGrace) updates.suspendedAt = FieldValue.serverTimestamp();
+          claimUpdates.status = withinGrace ? 'Grace' : 'Suspended';
+        }
+      }
     } else if (action === 'forceSignOut' || action === 'invalidateSessions') {
       await auth.revokeRefreshTokens(uid);
     } else if (action === 'forcePasswordReset') {
@@ -81,6 +108,9 @@ export const POST = withAuth(async (req, ctx?: { params?: { uid: string } } & an
       updates.fullName = 'Deleted User';
       updates.photoURL = null;
       updates.email = null;
+      claimUpdates.status = 'Deleted';
+      claimUpdates.role = 'restricted';
+      claimUpdates.kycVerified = false;
       shouldDeleteAuthUser = true;
     }
 

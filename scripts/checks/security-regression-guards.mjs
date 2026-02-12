@@ -57,6 +57,10 @@ must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.status\s*=\
 must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.status\s*=\s*cur\.kycVerified\s*\?\s*'Verified'\s*:\s*'Grace'/, 'reinstate must update claims status');
 must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.role\s*=\s*targetRole\s+as\s+Role/, 'changeRole must update claims role');
 must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.kycVerified\s*=\s*kyc/, 'kycOverride must update claims kycVerified');
+must('src/app/api/admin/users/action/[uid]/route.ts', /if\s*\(kyc\)\s*\{[\s\S]*claimUpdates\.status\s*=\s*'Verified'/, 'kycOverride=true must set verified claims status');
+must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.status\s*=\s*withinGrace\s*\?\s*'Grace'\s*:\s*'Suspended'/, 'kycOverride=false must set grace/suspended claims status');
+must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.status\s*=\s*'Deleted'/, 'hardDelete must mark claims status deleted');
+must('src/app/api/admin/users/action/[uid]/route.ts', /claimUpdates\.role\s*=\s*'restricted'/, 'hardDelete must downgrade claims role');
 must('src/app/api/admin/users/action/[uid]/route.ts', /await\s+setClaims\s*\(\s*uid\s*,\s*claimUpdates\s*\)/, 'must apply claim updates after actions');
 
 // Diagnostics ingest routes: admin-only + explicit feature flag.

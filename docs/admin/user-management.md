@@ -11,8 +11,16 @@ Endpoints
 - POST `/api/admin/users/list`: body `{ q, filters, sortBy, sortDir, page, pageSize }`, returns `{ items, total }`.
 - GET `/api/admin/users/get/{uid}`: returns profile + activity + flags + notes + security meta.
 - POST `/api/admin/users/action/{uid}`: body `{ action, reason, ... }`.
-  - Actions: `suspend|ban|reinstate|changeRole|forceSignOut|forcePasswordReset|invalidateSessions|kycOverride`.
-  - Auth: `admin|super-admin`; `changeRole|kycOverride` require `super-admin`.
+  - Actions: `suspend|ban|reinstate|changeRole|forceSignOut|forcePasswordReset|invalidateSessions|kycOverride|hardDelete`.
+  - Auth: `admin|super-admin`; `changeRole|kycOverride|hardDelete` require `super-admin`.
+  - `kycOverride` reconciliation:
+    - Always updates claim `kycVerified`.
+    - If `kyc=true` and user is not terminal (`banned|deleted`), status is set to `verified` and claim status to `Verified`.
+    - If `kyc=false` and user is not terminal, status/claim become `grace|Grace` when within `graceUntilMs`, otherwise `suspended|Suspended`.
+  - `hardDelete` reconciliation:
+    - Tombstones profile fields and marks user status `deleted`.
+    - Forces claims to terminal restricted state: `status=Deleted`, `role=restricted`, `kycVerified=false`.
+    - Revokes refresh tokens and deletes the Firebase Auth user.
 
 Indexes
 - Added suggested composites: `(role,status,createdAt desc)`, `(status,lastActiveAt desc)`, `(kycVerified,status,createdAt desc)`, `(provider,createdAt desc)`.
@@ -24,4 +32,3 @@ UI
 Security
 - Firestore Rules: allow admins to read other users; writes continue server-only via Admin SDK. Owners can edit only `fullName|photoURL|updatedAt`.
 - Rate limiting: future improvement (out of MVP scope) — APIs are admin-only and log every action.
-
