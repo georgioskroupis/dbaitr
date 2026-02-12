@@ -186,6 +186,8 @@ async function main() {
   const explicitBackend = env('APPHOSTING_BACKEND_ID');
   const notBeforeIso = env('APPHOSTING_ROLLOUT_NOT_BEFORE');
   const notBeforeMs = parseIsoMs(notBeforeIso);
+  const lookbackSec = parsePositiveInt('APPHOSTING_ROLLOUT_LOOKBACK_SEC', 7200);
+  const effectiveNotBeforeMs = notBeforeMs ? Math.max(0, notBeforeMs - lookbackSec * 1000) : 0;
   const timeoutSec = parsePositiveInt('APPHOSTING_ROLLOUT_TIMEOUT_SEC', 900);
   const pollSec = parsePositiveInt('APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC', 10);
   const deadlineMs = Date.now() + timeoutSec * 1000;
@@ -202,8 +204,10 @@ async function main() {
   console.log(
     `[rollout-check] backend=${backendId} location=${location} expected_commit=${expectedCommit} timeout=${timeoutSec}s`
   );
-  if (notBeforeMs) {
-    console.log(`[rollout-check] filtering rollouts created at or after ${new Date(notBeforeMs).toISOString()}`);
+  if (effectiveNotBeforeMs) {
+    console.log(
+      `[rollout-check] filtering rollouts created at or after ${new Date(effectiveNotBeforeMs).toISOString()} (lookback=${lookbackSec}s)`
+    );
   }
 
   const buildCache = new Map();
@@ -224,7 +228,7 @@ async function main() {
           ? Date.parse(String(r.createTime))
           : 0,
       }))
-      .filter((r) => (notBeforeMs ? r._createMs >= notBeforeMs : true))
+      .filter((r) => (effectiveNotBeforeMs ? r._createMs >= effectiveNotBeforeMs : true))
       .sort((a, b) => b._createMs - a._createMs);
 
     let matched = null;
