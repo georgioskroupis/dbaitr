@@ -38,6 +38,7 @@ env:
   APPHOSTING_BACKEND_ID: ${{ vars.APPHOSTING_BACKEND_ID || 'studio' }}
   APPHOSTING_ROLLOUT_TIMEOUT_SEC: ${{ vars.APPHOSTING_ROLLOUT_TIMEOUT_SEC || '900' }}
   APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC: ${{ vars.APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC || '10' }}
+  APPHOSTING_ROLLOUT_LOOKBACK_SEC: ${{ vars.APPHOSTING_ROLLOUT_LOOKBACK_SEC || '7200' }}
 
 jobs:
   quality_gate:
@@ -160,6 +161,7 @@ jobs:
           APPHOSTING_ROLLOUT_NOT_BEFORE: ${{ steps.deploy_meta.outputs.not_before }}
           APPHOSTING_ROLLOUT_TIMEOUT_SEC: ${{ env.APPHOSTING_ROLLOUT_TIMEOUT_SEC }}
           APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC: ${{ env.APPHOSTING_ROLLOUT_POLL_INTERVAL_SEC }}
+          APPHOSTING_ROLLOUT_LOOKBACK_SEC: ${{ env.APPHOSTING_ROLLOUT_LOOKBACK_SEC }}
         run: node scripts/ops/verify-apphosting-rollout.mjs
 
       - name: Post-deploy health checks

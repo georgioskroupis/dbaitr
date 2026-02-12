@@ -131,6 +131,7 @@ bash scripts/ops/enforce-main-protection.sh
 - Deploy fails at "Verify App Hosting rollout reached SUCCEEDED":
   - Inspect the reported build error; this commonly indicates missing/misconfigured App Hosting Secret Manager entries.
   - Ensure required secrets exist and backend access is granted (`firebase apphosting:secrets:grantaccess`).
+  - If rollout started slightly before deploy-step timestamps, adjust `APPHOSTING_ROLLOUT_LOOKBACK_SEC` repository variable (default: 7200).
 - Deploy succeeds but site unhealthy:
   - Inspect the failing run logs and App Hosting runtime logs before retrying.
 

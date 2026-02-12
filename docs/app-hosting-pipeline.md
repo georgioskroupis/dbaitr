@@ -22,6 +22,7 @@ GitHub workflow wiring
   - Executes the same quality gate before deploy.
   - Validates deploy secrets and Firebase API access before deploy.
   - Verifies the App Hosting rollout for the exact deployed commit reaches `SUCCEEDED`.
+  - Uses a rollout lookback window (`APPHOSTING_ROLLOUT_LOOKBACK_SEC`, default 7200s) to avoid false negatives when App Hosting starts rollout before workflow deploy steps begin.
   - Runs post-deploy health checks for `dbaitr.com` and App Hosting backend URL.
 - Operator scripts:
   - `npm run ci:trigger -- --wait` dispatches CI directly (no empty commit needed).
