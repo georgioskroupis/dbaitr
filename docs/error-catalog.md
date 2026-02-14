@@ -1,5 +1,5 @@
-Version: 2025.09
-Last updated: 2025-09-01
+Version: 2026.02
+Last updated: 2026-02-14
 Owner: Platform Engineering
 Non-negotiables:
 - Do not leak provider/raw errors to clients
@@ -37,6 +37,7 @@ Identity/profile app codes
 - Profile bootstrap: 422 full_name_required
 - Personhood challenge: 429 rate_limited, 400 invalid_challenge, 409 challenge_expired, 409 challenge_used
 - Personhood proof verify: 400 invalid_proof, 409 duplicate_identity, 400 verification_failed, 503 verification_unavailable, 500 server_error
+- Personhood relay callback: 400 invalid_payload, 400 invalid_challenge, 409 challenge_expired, 409 duplicate_identity, 503 verification_unavailable
 - Personhood result: 200 not_verified (when claim is not yet verified)
 
 Notes

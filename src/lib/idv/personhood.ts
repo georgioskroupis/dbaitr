@@ -22,6 +22,20 @@ export type SelfVerificationResult =
       reason: VerificationFailureReason;
     };
 
+export type RelayVerificationResult =
+  | {
+      ok: true;
+      nullifier: string;
+      assuranceLevel: string | null;
+      attestationType: string | null;
+      challengeId: string;
+      challenge: string;
+    }
+  | {
+      ok: false;
+      reason: VerificationFailureReason | 'invalid_challenge' | 'invalid_payload';
+    };
+
 export type StartSessionResult = {
   verificationUrl: string | null;
   sessionId: string | null;
@@ -44,6 +58,9 @@ function hasUsableApiKey(value: string): boolean {
 
 function normalizeFailureReason(value: unknown): VerificationFailureReason {
   const raw = asString(value).toLowerCase();
+  if (raw === 'pending' || raw === 'challenge_pending') {
+    return 'verification_failed';
+  }
   if (raw === 'invalid_proof' || raw === 'challenge_mismatch' || raw === 'proof_invalid') {
     return 'invalid_proof';
   }
@@ -56,6 +73,28 @@ function normalizeFailureReason(value: unknown): VerificationFailureReason {
     return 'verification_unavailable';
   }
   return 'verification_failed';
+}
+
+function decodeChallengeContext(raw: unknown): { challengeId: string | null; challenge: string | null } {
+  const direct = asString(raw);
+  if (!direct) return { challengeId: null, challenge: null };
+
+  try {
+    const parsed = JSON.parse(direct);
+    const challengeId = normalizeChallengeId((parsed as any)?.challengeId || (parsed as any)?.cid);
+    const challenge = normalizeChallenge((parsed as any)?.challenge || (parsed as any)?.c);
+    if (challengeId && challenge) return { challengeId, challenge };
+  } catch {}
+
+  try {
+    const decoded = Buffer.from(direct, 'base64url').toString('utf8');
+    const parsed = JSON.parse(decoded);
+    const challengeId = normalizeChallengeId((parsed as any)?.challengeId || (parsed as any)?.cid);
+    const challenge = normalizeChallenge((parsed as any)?.challenge || (parsed as any)?.c);
+    if (challengeId && challenge) return { challengeId, challenge };
+  } catch {}
+
+  return { challengeId: null, challenge: null };
 }
 
 export function hashChallenge(challenge: string): string {
@@ -203,6 +242,76 @@ export async function verifySelfProof(input: {
     const assuranceLevel = asString(data?.assuranceLevel || data?.assurance_level || '') || null;
     const attestationType = asString(data?.attestationType || data?.attestation_type || '') || null;
     return { ok: true, nullifier, assuranceLevel, attestationType };
+  } catch {
+    return { ok: false, reason: 'verification_unavailable' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function verifySelfRelayPayload(payload: unknown): Promise<RelayVerificationResult> {
+  const verifyUrl = asString(process.env.IDV_SELF_VERIFY_URL);
+  if (!verifyUrl || !isLikelyUrl(verifyUrl)) {
+    return { ok: false, reason: 'verification_unavailable' };
+  }
+
+  if (process.env.NODE_ENV === 'production' && !verifyUrl.startsWith('https://')) {
+    return { ok: false, reason: 'verification_unavailable' };
+  }
+
+  const timeoutRaw = Number(process.env.IDV_SELF_VERIFY_TIMEOUT_MS || 15000);
+  const timeoutMs = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : 15000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const key = asString(process.env.IDV_SELF_VERIFY_API_KEY);
+    if (hasUsableApiKey(key)) headers['X-Idv-Api-Key'] = key;
+
+    const resp = await fetch(verifyUrl, {
+      method: 'POST',
+      headers,
+      cache: 'no-store',
+      signal: controller.signal,
+      body: JSON.stringify(payload ?? {}),
+    }).catch(() => null);
+
+    if (!resp) return { ok: false, reason: 'verification_unavailable' };
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const reasonRaw = asString(data?.reason || data?.error).toLowerCase();
+      if (reasonRaw === 'invalid_challenge') return { ok: false, reason: 'invalid_challenge' };
+      if (reasonRaw === 'invalid_payload') return { ok: false, reason: 'invalid_payload' };
+      return { ok: false, reason: normalizeFailureReason(reasonRaw) };
+    }
+
+    const verified = !!(data?.verified ?? data?.ok);
+    if (!verified) {
+      const reasonRaw = asString(data?.reason || data?.error).toLowerCase();
+      if (reasonRaw === 'invalid_challenge') return { ok: false, reason: 'invalid_challenge' };
+      if (reasonRaw === 'invalid_payload') return { ok: false, reason: 'invalid_payload' };
+      return { ok: false, reason: normalizeFailureReason(reasonRaw) };
+    }
+
+    const nullifier = normalizeNullifier(data?.nullifier || data?.nullifierHash || data?.nullifier_hash);
+    if (!nullifier) return { ok: false, reason: 'invalid_proof' };
+
+    const challengeIdDirect = normalizeChallengeId(data?.challengeId || data?.context?.challengeId);
+    const challengeDirect = normalizeChallenge(data?.challenge || data?.context?.challenge);
+    let challengeId = challengeIdDirect;
+    let challenge = challengeDirect;
+    if (!challengeId || !challenge) {
+      const decoded = decodeChallengeContext(data?.userDefinedData || data?.context?.userDefinedData);
+      challengeId = challengeId || decoded.challengeId;
+      challenge = challenge || decoded.challenge;
+    }
+    if (!challengeId || !challenge) return { ok: false, reason: 'invalid_challenge' };
+
+    const assuranceLevel = asString(data?.assuranceLevel || data?.assurance_level || '') || null;
+    const attestationType = asString(data?.attestationType || data?.attestation_type || '') || null;
+    return { ok: true, nullifier, assuranceLevel, attestationType, challengeId, challenge };
   } catch {
     return { ok: false, reason: 'verification_unavailable' };
   } finally {
