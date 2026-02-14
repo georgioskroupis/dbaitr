@@ -120,6 +120,7 @@ export default function UnifiedAuthPage() {
       try {
         const res = await apiFetch('/api/auth/check-email', {
           method: 'POST',
+          allowAnonymous: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: sanitizedEmail })
         });
@@ -151,16 +152,14 @@ export default function UnifiedAuthPage() {
       }
 
       setEmail(sanitizedEmail);
-      // Decision logic with anti-enumeration tolerance:
-      // - If Admin says true -> login
-      // - Else if methods suggest existing providers -> login
-      // - Else if inconclusive (admin false/null AND no methods) -> prefer login to avoid false negatives
-      // - Else -> signup
-      const inconclusive = (serverExists === null || serverExists === false) && methods.length === 0;
-      const exists = serverExists === true || methods.length > 0 || inconclusive;
+      // Decision logic:
+      // - Server says exists -> login
+      // - Server says not found -> signup
+      // - If server unavailable, fall back to provider methods only
+      const exists = serverExists === true || (serverExists === null && methods.length > 0);
       if (process.env.NODE_ENV !== 'production') {
-        console.debug('[auth] decision', { serverExists, methods, inconclusive, exists });
-        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} inconclusive=${inconclusive} exists=${exists}` });
+        console.debug('[auth] decision', { serverExists, methods, exists });
+        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} exists=${exists}` });
       }
       setPhase(exists ? 'login' : 'signup');
     } catch (error) {
