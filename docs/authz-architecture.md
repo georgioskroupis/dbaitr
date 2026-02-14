@@ -35,6 +35,7 @@ This document reflects the as-built state after the unified Auth + App Check red
 
 - Gateway: `withAuth(handler, opts)` verifies App Check (header `X-Firebase-AppCheck`) and Firebase ID token, applies capability/role/status gates, rate limits, and optional idempotency keys.
 - ID token verification defaults to signature/issuer/audience/expiry validation (`verifyIdToken(token)`) for availability; strict revocation checks can be enabled with `AUTH_CHECK_REVOKED_STRICT=1`.
+- Status gating supports a narrow fallback: when a route explicitly allows `Grace`, missing status claims are treated as `Grace` to avoid deadlocks during bootstrap/claim initialization.
 - Claims: `role` (viewer|supporter|admin|super-admin), `status` (Grace|Verified|Suspended), `kycVerified` boolean (human/personhood verified), `graceUntilMs` timestamp, `claimsChangedAt` signal.
 - User profile bootstrap: `/api/users/bootstrap` (server-owned) creates/repairs `users/{uid}`, requires a valid full name, and initializes missing default claims.
 - Presence cookies: `db8_authp`, `db8_appcp` are opaque non-secret markers (rotated periodically) to help SSR guards; they never contain tokens.

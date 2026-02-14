@@ -117,6 +117,7 @@ export default function UnifiedAuthPage() {
       // Ask server (Admin SDK) whether the email exists.
       // If this cannot be resolved, stay on email step instead of misrouting.
       let serverExists: boolean | null = null;
+      let serverConfidence: 'high' | 'medium' | 'low' = 'low';
       let serverCheckResolved = false;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -132,6 +133,8 @@ export default function UnifiedAuthPage() {
           if (res.ok) {
             const j = await res.json();
             serverExists = !!(j?.ok && j.exists);
+            const c = String(j?.confidence || '').toLowerCase();
+            serverConfidence = c === 'high' || c === 'medium' ? c : 'low';
             serverCheckResolved = true;
             if (process.env.NODE_ENV !== 'production') {
               console.debug('[auth] check-email payload', j);
@@ -176,12 +179,13 @@ export default function UnifiedAuthPage() {
       }
 
       setEmail(sanitizedEmail);
-      const exists = serverExists === true;
+      const goToSignup = serverExists === false && serverConfidence === 'high';
+      const exists = !goToSignup;
       if (process.env.NODE_ENV !== 'production') {
-        console.debug('[auth] decision', { serverExists, methods, exists });
-        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} exists=${exists}` });
+        console.debug('[auth] decision', { serverExists, serverConfidence, methods, exists, goToSignup });
+        toast({ title: 'Auth Debug', description: `serverExists=${serverExists} confidence=${serverConfidence} methods=${methods.join(',')||'[]'} next=${goToSignup ? 'signup' : 'login'}` });
       }
-      setPhase(exists ? 'login' : 'signup');
+      setPhase(goToSignup ? 'signup' : 'login');
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
         logger.error("🔥 Full Auth Error (Email Check):", error);
