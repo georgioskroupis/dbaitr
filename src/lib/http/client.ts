@@ -13,25 +13,45 @@ function setHeader(headers: Headers, key: string, value: string) {
   else headers.set(key, value);
 }
 
+async function acquireAppCheckToken(opts?: { force?: boolean; attempts?: number; delayMs?: number }) {
+  const force = opts?.force === true;
+  const attempts = Math.max(1, opts?.attempts ?? 3);
+  const delayMs = Math.max(0, opts?.delayMs ?? 150);
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const token = await getAppCheckToken(force || i > 0);
+      if (token) return token;
+    } catch {}
+    if (i < attempts - 1) await sleep(delayMs * (i + 1));
+  }
+  return null;
+}
+
 export async function apiFetch(input: RequestInfo | URL, init?: ApiFetchOptions) {
   const opts = init || {};
   const headers = new Headers(opts.headers || {});
 
-  // App Check: try once, then retry once if needed
-  let appCheckToken: string | null = null;
-  try { appCheckToken = await getAppCheckToken(); } catch { appCheckToken = null; }
-  if (!appCheckToken) {
-    await sleep(150);
-    try { appCheckToken = await getAppCheckToken(true); } catch { appCheckToken = null; }
-  }
+  // App Check: acquire token with bounded retries
+  const appCheckToken = await acquireAppCheckToken({ attempts: 3, delayMs: 150 });
   if (appCheckToken) setHeader(headers, 'X-Firebase-AppCheck', appCheckToken);
 
   // ID token: required unless allowAnonymous is true
   const user = (() => { try { return getAuth().currentUser; } catch { return null; } })();
-  const { token: idToken, source: idSource } = await getStableIdToken(user, opts.allowAnonymous === true);
+  let { token: idToken, source: idSource } = await getStableIdToken(user, opts.allowAnonymous === true);
+  if (user && !idToken) {
+    const forced = await getStableIdToken(user, false, /* force */ true);
+    idToken = forced.token;
+    idSource = forced.source;
+  }
   if (idToken) setHeader(headers, 'Authorization', `Bearer ${idToken}`);
   if (!user && !idToken && !opts.allowAnonymous) {
     const err = new Error('Unauthenticated: ID token required');
+    // @ts-expect-error add code for typed handling
+    err.code = 'unauthenticated';
+    throw err;
+  }
+  if (user && !idToken) {
+    const err = new Error('Authenticated user without ID token');
     // @ts-expect-error add code for typed handling
     err.code = 'unauthenticated';
     throw err;
@@ -49,21 +69,16 @@ export async function apiFetch(input: RequestInfo | URL, init?: ApiFetchOptions)
 
   const finalInit: RequestInit = { ...opts, headers };
   const res = await fetch(input, finalInit);
-  if (res.status === 401 && user) {
-    // Force-refresh ID token once and retry a single time
-    await forceRefreshIdToken(user);
-    // App Check may not be ready on first request right after login/signup.
-    let retryAppCheckToken: string | null = appCheckToken;
-    if (!retryAppCheckToken) {
-      await sleep(250);
-      try { retryAppCheckToken = await getAppCheckToken(true); } catch { retryAppCheckToken = null; }
-    } else {
-      try { retryAppCheckToken = await getAppCheckToken(true); } catch { retryAppCheckToken = appCheckToken; }
-    }
+  if (res.status === 401) {
+    // Single retry: force-refresh App Check (and ID token when authenticated)
+    if (user) await forceRefreshIdToken(user);
+    const retryAppCheckToken = await acquireAppCheckToken({ force: true, attempts: 3, delayMs: 250 });
     const retryHeaders = new Headers(opts.headers || {});
     if (retryAppCheckToken) setHeader(retryHeaders, 'X-Firebase-AppCheck', retryAppCheckToken);
-    const fresh = await getStableIdToken(user, false, /*force*/ true);
-    if (fresh.token) setHeader(retryHeaders, 'Authorization', `Bearer ${fresh.token}`);
+    if (user) {
+      const fresh = await getStableIdToken(user, false, /* force */ true);
+      if (fresh.token) setHeader(retryHeaders, 'Authorization', `Bearer ${fresh.token}`);
+    }
     const retryInit: RequestInit = { ...opts, headers: retryHeaders };
     return fetch(input, retryInit);
   }
