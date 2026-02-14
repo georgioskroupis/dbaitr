@@ -23,6 +23,18 @@ export function IdvWizard() {
   const [loadingChallenge, setLoadingChallenge] = React.useState(false);
   const [submittingProof, setSubmittingProof] = React.useState(false);
 
+  const warmAppCheck = React.useCallback(async () => {
+    try {
+      const { getAppCheckToken } = await import('@/lib/firebase/client');
+      for (let i = 0; i < 3; i++) {
+        const token = await getAppCheckToken(i > 0);
+        if (token) return true;
+        await new Promise((resolve) => setTimeout(resolve, 200 * (i + 1)));
+      }
+    } catch {}
+    return false;
+  }, []);
+
   const expired =
     !!challenge?.expiresAtMs && Number.isFinite(challenge.expiresAtMs) && Date.now() > challenge.expiresAtMs;
 
@@ -38,6 +50,7 @@ export function IdvWizard() {
     setVerifiedAt(null);
     setProofJson('');
     try {
+      await warmAppCheck();
       const res = await createVerificationChallenge();
       if (!res.ok || !res.challenge) {
         setChallenge(null);
@@ -72,6 +85,7 @@ export function IdvWizard() {
     setApproved(null);
     setReason(null);
     try {
+      await warmAppCheck();
       const res = await submitVerificationProof({
         challengeId: challenge.challengeId,
         challenge: challenge.challenge,
@@ -113,6 +127,8 @@ export function IdvWizard() {
         return 'Verification did not pass. Please retry with a new proof.';
       case 'unauthorized':
         return 'Please sign in before starting verification.';
+      case 'unauthenticated_appcheck':
+        return 'Security checks are still initializing. Please wait a few seconds and retry.';
       case 'server_error':
         return 'Unexpected server error. Please retry shortly.';
       case 'not_verified':

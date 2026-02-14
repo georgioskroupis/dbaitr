@@ -114,34 +114,58 @@ export default function UnifiedAuthPage() {
       logger.debug("🔥 Auth instance project:", getAuth().app.options.projectId);
       logger.debug("📬 Email submitted:", sanitizedEmail);
 
-      // Ask server (Admin SDK) whether the email exists; in dev, App Check header is optional per API handler
-      // If it fails, fall back to client Auth methods
+      // Ask server (Admin SDK) whether the email exists.
+      // If this cannot be resolved, stay on email step instead of misrouting.
       let serverExists: boolean | null = null;
-      try {
-        const res = await apiFetch('/api/auth/check-email', {
-          method: 'POST',
-          allowAnonymous: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: sanitizedEmail })
-        });
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('[auth] check-email status', res.status);
-        }
-        if (res.ok) {
-          const j = await res.json();
-          serverExists = !!(j?.ok && j.exists);
+      let serverCheckResolved = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await apiFetch('/api/auth/check-email', {
+            method: 'POST',
+            allowAnonymous: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: sanitizedEmail })
+          });
           if (process.env.NODE_ENV !== 'production') {
-            console.debug('[auth] check-email payload', j);
+            console.debug('[auth] check-email status', { status: res.status, attempt: attempt + 1 });
+          }
+          if (res.ok) {
+            const j = await res.json();
+            serverExists = !!(j?.ok && j.exists);
+            serverCheckResolved = true;
+            if (process.env.NODE_ENV !== 'production') {
+              console.debug('[auth] check-email payload', j);
+            }
+            break;
+          }
+
+          if (res.status === 401 && attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+            continue;
+          }
+          break;
+        } catch {
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+            continue;
           }
         }
-      } catch {}
+      }
+      if (!serverCheckResolved) {
+        toast({
+          title: 'Please try again',
+          description: 'Could not verify this email right now. Retry in a moment.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      // Production: Fetch sign-in methods for hints and as a fallback signal
+      // Optional hinting for provider-specific messaging.
       let methods: string[] = [];
       try {
         methods = await fetchSignInMethodsForEmail(getAuth(), sanitizedEmail);
         setSignInHints(methods);
-        if ((serverExists ?? (methods.length > 0)) && methods.length && !methods.includes('password')) {
+        if (serverExists && methods.length && !methods.includes('password')) {
           const provider = methods.includes('google.com') ? 'Google' : methods.includes('apple.com') ? 'Apple' : 'your original provider';
           toast({ title: 'Use your original sign-in method', description: `This email is registered with ${provider}. Use ${provider} to continue.` });
         }
@@ -152,11 +176,7 @@ export default function UnifiedAuthPage() {
       }
 
       setEmail(sanitizedEmail);
-      // Decision logic:
-      // - Server says exists -> login
-      // - Server says not found -> signup
-      // - If server unavailable, fall back to provider methods only
-      const exists = serverExists === true || (serverExists === null && methods.length > 0);
+      const exists = serverExists === true;
       if (process.env.NODE_ENV !== 'production') {
         console.debug('[auth] decision', { serverExists, methods, exists });
         toast({ title: 'Auth Debug', description: `serverExists=${serverExists} methods=${methods.join(',')||'[]'} exists=${exists}` });
