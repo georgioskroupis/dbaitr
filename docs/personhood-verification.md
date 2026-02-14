@@ -103,6 +103,11 @@ User flow:
 3. Complete provider flow and submit proof JSON.
 4. Confirm success banner and `POST /api/idv/result` shows `approved: true`.
 
+If UI shows `No start URL configured`:
+1. Set `IDV_SELF_START_URL` in Secret Manager and map it in `apphosting.yaml`.
+2. Ensure it points to an endpoint that returns JSON with `verificationUrl` (and optional `sessionId`).
+3. Redeploy, then regenerate a challenge.
+
 Dedup protection:
 1. Verify account A with proof/nullifier.
 2. Attempt account B with same nullifier.

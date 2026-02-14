@@ -103,6 +103,16 @@ env:
     secret: IDV_SELF_VERIFY_URL
     availability: [ RUNTIME ]
 
+  # Optional verifier session bootstrap endpoint (returns verificationUrl/sessionId)
+  - variable: IDV_SELF_START_URL
+    secret: IDV_SELF_START_URL
+    availability: [ RUNTIME ]
+
+  # Optional verifier API key sent as X-Idv-Api-Key
+  - variable: IDV_SELF_VERIFY_API_KEY
+    secret: IDV_SELF_VERIFY_API_KEY
+    availability: [ RUNTIME ]
+
   # Required in production for dedup hashing
   - variable: IDV_DEDUP_HMAC_SECRET
     secret: IDV_DEDUP_HMAC_SECRET

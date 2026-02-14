@@ -36,6 +36,12 @@ function isLikelyUrl(value: string): boolean {
   return value.startsWith('https://') || value.startsWith('http://');
 }
 
+function hasUsableApiKey(value: string): boolean {
+  if (!value) return false;
+  const lowered = value.toLowerCase();
+  return lowered !== 'disabled' && lowered !== 'unset' && lowered !== 'none';
+}
+
 function normalizeFailureReason(value: unknown): VerificationFailureReason {
   const raw = asString(value).toLowerCase();
   if (raw === 'invalid_proof' || raw === 'challenge_mismatch' || raw === 'proof_invalid') {
@@ -98,7 +104,7 @@ export async function startSelfVerificationSession(input: {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const key = asString(process.env.IDV_SELF_VERIFY_API_KEY);
-    if (key) headers['X-Idv-Api-Key'] = key;
+    if (hasUsableApiKey(key)) headers['X-Idv-Api-Key'] = key;
 
     const resp = await fetch(startUrl, {
       method: 'POST',
@@ -162,7 +168,7 @@ export async function verifySelfProof(input: {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const key = asString(process.env.IDV_SELF_VERIFY_API_KEY);
-    if (key) headers['X-Idv-Api-Key'] = key;
+    if (hasUsableApiKey(key)) headers['X-Idv-Api-Key'] = key;
 
     const payload = {
       uid: input.uid,
