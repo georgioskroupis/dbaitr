@@ -22,6 +22,7 @@ export function IdvWizard() {
   const [showInfo, setShowInfo] = React.useState(false);
   const [loadingChallenge, setLoadingChallenge] = React.useState(false);
   const [submittingProof, setSubmittingProof] = React.useState(false);
+  const [refreshingResult, setRefreshingResult] = React.useState(false);
 
   const warmAppCheck = React.useCallback(async () => {
     try {
@@ -64,6 +65,20 @@ export function IdvWizard() {
       setLoadingChallenge(false);
     }
   };
+
+  const refreshVerificationResult = React.useCallback(async () => {
+    setRefreshingResult(true);
+    try {
+      await warmAppCheck();
+      const latest = await getVerificationResult();
+      setApproved(latest.approved);
+      setReason(latest.reason || null);
+      setProvider(latest.provider || null);
+      setVerifiedAt(latest.verifiedAt || null);
+    } finally {
+      setRefreshingResult(false);
+    }
+  }, [warmAppCheck]);
 
   const submitProof = async () => {
     if (!challenge) {
@@ -140,6 +155,15 @@ export function IdvWizard() {
     }
   };
 
+  React.useEffect(() => {
+    if (!challenge?.verificationUrl) return;
+    if (approved === true) return;
+    const t = setInterval(() => {
+      void refreshVerificationResult();
+    }, 10000);
+    return () => clearInterval(t);
+  }, [challenge?.verificationUrl, approved, refreshVerificationResult]);
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-white/75">
@@ -192,6 +216,9 @@ export function IdvWizard() {
                 No start URL configured. Use your verifier tooling with the challenge above.
               </p>
             )}
+            <Button variant="outline" onClick={refreshVerificationResult} disabled={refreshingResult}>
+              {refreshingResult ? 'Checking status...' : 'Check Verification Status'}
+            </Button>
             <Button variant="outline" onClick={startChallenge} disabled={loadingChallenge}>
               Regenerate Challenge
             </Button>

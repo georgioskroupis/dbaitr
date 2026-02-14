@@ -43,6 +43,28 @@ Optional script flags:
 - `--idv-api-key <key>`
 - `--idv-dedup <secret>`
 
+## Self-hosted verifier deployment (recommended)
+
+Deploy the in-repo verifier service and update app secrets in one command:
+
+```bash
+PROJECT_ID=db8app \
+REGION=us-central1 \
+SERVICE_NAME=idv \
+PUBLIC_APP_URL=https://dbaitr.com \
+SELF_SCOPE_SEED=dbaitr-human-v1 \
+SELF_ENDPOINT_TYPE=https \
+SELF_MOCK_PASSPORT=false \
+bash scripts/ops/deploy-idv-self.sh
+```
+
+What this does:
+- Deploys `services/idv` to Cloud Run
+- Configures Cloud Run to read `IDV_SELF_VERIFY_API_KEY` as `IDV_SHARED_API_KEY`
+- Updates Secret Manager:
+  - `IDV_SELF_START_URL` -> `<service-url>/start`
+  - `IDV_SELF_VERIFY_URL` -> `<service-url>/verify`
+
 ## Manual (CLI) alternative
 If you prefer to set secrets manually:
 
