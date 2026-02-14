@@ -74,8 +74,9 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
       }
       // Status gate, case-insensitive
       if (opts?.allowedStatus && opts.allowedStatus.length) {
-        const have = ((claims.status as string | undefined) || '').toLowerCase();
         const allowed = opts.allowedStatus.map(s => String(s).toLowerCase());
+        const fallback = allowed.includes('grace') ? 'Grace' : '';
+        const have = ((claims.status as string | undefined) || fallback).toLowerCase();
         if (have === 'suspended') {
           if (process.env.NODE_ENV !== 'production') {
             try { console.error(`[withAuth] deny status: have=${claims.status || 'none'} needAny=${allowed.join('|')} requestId=${rid}`); } catch {}
