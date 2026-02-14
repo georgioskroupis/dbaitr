@@ -52,8 +52,16 @@ export async function apiFetch(input: RequestInfo | URL, init?: ApiFetchOptions)
   if (res.status === 401 && user) {
     // Force-refresh ID token once and retry a single time
     await forceRefreshIdToken(user);
+    // App Check may not be ready on first request right after login/signup.
+    let retryAppCheckToken: string | null = appCheckToken;
+    if (!retryAppCheckToken) {
+      await sleep(250);
+      try { retryAppCheckToken = await getAppCheckToken(true); } catch { retryAppCheckToken = null; }
+    } else {
+      try { retryAppCheckToken = await getAppCheckToken(true); } catch { retryAppCheckToken = appCheckToken; }
+    }
     const retryHeaders = new Headers(opts.headers || {});
-    if (appCheckToken) setHeader(retryHeaders, 'X-Firebase-AppCheck', appCheckToken);
+    if (retryAppCheckToken) setHeader(retryHeaders, 'X-Firebase-AppCheck', retryAppCheckToken);
     const fresh = await getStableIdToken(user, false, /*force*/ true);
     if (fresh.token) setHeader(retryHeaders, 'Authorization', `Bearer ${fresh.token}`);
     const retryInit: RequestInit = { ...opts, headers: retryHeaders };
