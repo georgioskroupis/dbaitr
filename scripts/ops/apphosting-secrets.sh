@@ -16,6 +16,10 @@ set -euo pipefail
 #   --stripe-key VALUE        Set STRIPE_SECRET_KEY
 #   --stripe-webhook VALUE    Set STRIPE_WEBHOOK_SECRET
 #   --gemini-key VALUE        Set GEMINI_API_KEY
+#   --idv-verify-url VALUE    Set IDV_SELF_VERIFY_URL
+#   --idv-start-url VALUE     Set IDV_SELF_START_URL
+#   --idv-api-key VALUE       Set IDV_SELF_VERIFY_API_KEY (optional)
+#   --idv-dedup VALUE         Set IDV_DEDUP_HMAC_SECRET
 #   --dry-run                 Print actions without applying
 
 project_id="${PROJECT_ID:-}"
@@ -24,12 +28,20 @@ dry_run=false
 stripe_key=""
 stripe_webhook=""
 gemini_key=""
+idv_verify_url="${IDV_SELF_VERIFY_URL:-}"
+idv_start_url="${IDV_SELF_START_URL:-}"
+idv_api_key="${IDV_SELF_VERIFY_API_KEY:-}"
+idv_dedup_secret="${IDV_DEDUP_HMAC_SECRET:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stripe-key) stripe_key=${2:-}; shift 2;;
     --stripe-webhook) stripe_webhook=${2:-}; shift 2;;
     --gemini-key) gemini_key=${2:-}; shift 2;;
+    --idv-verify-url) idv_verify_url=${2:-}; shift 2;;
+    --idv-start-url) idv_start_url=${2:-}; shift 2;;
+    --idv-api-key) idv_api_key=${2:-}; shift 2;;
+    --idv-dedup) idv_dedup_secret=${2:-}; shift 2;;
     --dry-run) dry_run=true; shift;;
     --backend) backend_id=${2:-}; shift 2;;
     *) echo "Unknown option: $1" >&2; exit 1;;
@@ -93,8 +105,44 @@ ensure_secret() {
   fi
 }
 
+ensure_secret_if_set() {
+  local name="$1"; local value="$2";
+  if [[ -z "$value" ]]; then
+    echo "Skipping '$name' (no value provided)."
+    return 0
+  fi
+  ensure_secret "$name" "$value"
+}
+
+if [[ -n "$idv_verify_url" ]]; then
+  if [[ "$idv_verify_url" =~ ^https?:// ]]; then
+    :
+  else
+    echo "IDV_SELF_VERIFY_URL must be an http(s) URL when provided." >&2
+    exit 1
+  fi
+fi
+
+if [[ -n "$idv_start_url" ]]; then
+  if [[ "$idv_start_url" =~ ^https?:// ]]; then
+    :
+  else
+    echo "IDV_SELF_START_URL must be an http(s) URL when provided." >&2
+    exit 1
+  fi
+fi
+
+if [[ -n "$idv_verify_url" && -z "$idv_dedup_secret" ]]; then
+  echo "IDV_DEDUP_HMAC_SECRET is required when IDV_SELF_VERIFY_URL is provided." >&2
+  exit 1
+fi
+
 ensure_secret STRIPE_SECRET_KEY "$stripe_key"
 ensure_secret STRIPE_WEBHOOK_SECRET "$stripe_webhook"
 ensure_secret GEMINI_API_KEY "$gemini_key"
+ensure_secret_if_set IDV_SELF_VERIFY_URL "$idv_verify_url"
+ensure_secret_if_set IDV_SELF_START_URL "$idv_start_url"
+ensure_secret_if_set IDV_SELF_VERIFY_API_KEY "$idv_api_key"
+ensure_secret_if_set IDV_DEDUP_HMAC_SECRET "$idv_dedup_secret"
 
 echo "All secrets configured and access granted."
