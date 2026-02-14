@@ -455,7 +455,7 @@ export default function UnifiedAuthPage() {
           <h2 className="text-xl font-semibold text-white">Welcome Back</h2>
           <p className="text-sm text-white/50">
             Logging in as <span className="font-medium text-rose-400">{email}</span>.
-            Not you? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset(); }}>Start Over</Button>
+            Not you? <Button type="button" variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => { setPhase("email"); emailForm.reset(); loginForm.reset(); signupForm.reset(); }}>Start Over</Button>
           </p>
           <div>
             <Label htmlFor="login-password" className="text-white">Password</Label> {/* Fixed: className for Label */}
@@ -531,7 +531,7 @@ export default function UnifiedAuthPage() {
           <h2 className="text-xl font-semibold text-white">Create Your Account</h2>
           <p className="text-sm text-white/50">
             Signing up with <span className="font-medium text-rose-400">{email}</span>.
-            Already have an account? <Button variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
+            Already have an account? <Button type="button" variant="link" className="p-0 h-auto text-sm text-rose-400 underline hover:text-white transition" onClick={() => {
                 setPhase("login");
             }}>Sign In</Button>
           </p>

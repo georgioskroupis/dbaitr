@@ -7,6 +7,17 @@ import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firesto
 import { getAppCheck, type AppCheck } from 'firebase-admin/app-check';
 
 let app: AdminApp | null = null;
+let resolvedProjectId: string | null = null;
+
+function resolveProjectId(creds: any): string | undefined {
+  if (resolvedProjectId) return resolvedProjectId;
+  const fromEnv = String(process.env.FIREBASE_PROJECT_ID || '').trim();
+  const fromCreds = String(creds?.project_id || '').trim();
+  const fromPublicEnv = String(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '').trim();
+  const picked = fromEnv || fromCreds || fromPublicEnv || '';
+  resolvedProjectId = picked || null;
+  return resolvedProjectId || undefined;
+}
 
 export function getAdminApp(): AdminApp {
   if (app) return app;
@@ -25,7 +36,10 @@ export function getAdminApp(): AdminApp {
       try { creds = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
     }
   }
-  app = creds?.client_email ? initializeApp({ credential: cert(creds) }) : initializeApp();
+  const projectId = resolveProjectId(creds);
+  app = creds?.client_email
+    ? initializeApp({ credential: cert(creds), ...(projectId ? { projectId } : {}) })
+    : initializeApp(projectId ? { projectId } : undefined);
   return app;
 }
 
