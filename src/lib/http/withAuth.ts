@@ -19,6 +19,8 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
     const t0 = Date.now();
     const rid = Math.random().toString(36).slice(2);
     const route = (() => { try { const u = new URL(req.url); return u.pathname; } catch { return 'unknown'; } })();
+    const hasAuthHeader = !!req.headers.get('authorization');
+    const hasAppCheckHeader = !!(req.headers.get('X-Firebase-AppCheck') || req.headers.get('X-Firebase-AppCheck-Token'));
     if (process.env.NODE_ENV !== 'production') {
       try { console.error('[withAuth] entry', { requestId: rid, route }); } catch {}
     }
@@ -153,6 +155,8 @@ export function withAuth(handler: Handler, opts?: { minRole?: Role; allowedStatu
             uid: dbgUid || null,
             role: dbgClaims?.role || null,
             statusClaim: dbgClaims?.status || null,
+            hasAuthHeader,
+            hasAppCheckHeader,
             latency_ms: Date.now() - t0,
           }));
         } catch {}

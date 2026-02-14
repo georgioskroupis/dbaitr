@@ -40,6 +40,7 @@ export function IdvWizard() {
 
   const startChallenge = async () => {
     if (!user) {
+      setApproved(false);
       setReason('unauthorized');
       return;
     }
@@ -54,6 +55,7 @@ export function IdvWizard() {
       const res = await createVerificationChallenge();
       if (!res.ok || !res.challenge) {
         setChallenge(null);
+        setApproved(false);
         setReason(res.reason || 'server_error');
         return;
       }

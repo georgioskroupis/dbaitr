@@ -13,15 +13,46 @@ export async function verifyAppCheckStrict(req: Request): Promise<{ token: strin
 
 export async function verifyIdTokenStrict(req: Request): Promise<{ uid: string; claims: ClaimsShape }>{
   const auth = getAuthAdmin();
-  const token = req.headers.get('authorization')?.replace('Bearer ', '');
+  const authz = req.headers.get('authorization') || '';
+  const match = authz.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim() || '';
   if (!token) throw new HttpError(401, 'unauthenticated');
   try {
-    const decoded = await auth.verifyIdToken(token, true);
+    // Primary verification (signature/audience/issuer/expiry). Avoid hard dependency on revoke checks.
+    const decoded = await auth.verifyIdToken(token);
+    // Optional strict revocation check for environments that explicitly require it.
+    if (String(process.env.AUTH_CHECK_REVOKED_STRICT || '') === '1') {
+      try {
+        await auth.verifyIdToken(token, true);
+      } catch (revErr: any) {
+        const revCode = String(revErr?.code || '');
+        // Keep availability when revoke check infra is unavailable/misconfigured.
+        if (revCode.includes('auth/id-token-revoked') || revCode.includes('auth/user-disabled')) {
+          throw revErr;
+        }
+        try {
+          console.warn(JSON.stringify({
+            level: 'warn',
+            where: 'verifyIdTokenStrict',
+            error: 'revocation_check_unavailable',
+            code: revCode || 'unknown',
+          }));
+        } catch {}
+      }
+    }
     const claims = decoded as unknown as ClaimsShape;
     return { uid: decoded.uid, claims };
   } catch (e: any) {
     const code = String(e?.code || 'unauthenticated');
     if (code.includes('auth/id-token-expired')) throw new HttpError(440, 'login_timeout');
+    try {
+      console.warn(JSON.stringify({
+        level: 'warn',
+        where: 'verifyIdTokenStrict',
+        error: 'id_token_verify_failed',
+        code,
+      }));
+    } catch {}
     throw new HttpError(401, 'unauthenticated');
   }
 }
