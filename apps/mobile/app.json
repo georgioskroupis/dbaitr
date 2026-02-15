@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "dbaitr",
+    "slug": "dbaitr-mobile",
+    "scheme": "dbaitr",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dbaitr.mobile"
+    },
+    "android": {
+      "package": "com.dbaitr.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

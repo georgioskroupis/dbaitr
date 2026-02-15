@@ -10,9 +10,12 @@
     "start": "next start",
     "lint": "next lint && node scripts/checks/missing-appcheck-header.mjs && node scripts/checks/forbid-duplicate-inits.mjs && node scripts/checks/forbid-legacy-role-flags.mjs && node scripts/checks/forbid-youtube-per-user.mjs && node scripts/checks/no-trailing-imports.mjs && node scripts/checks/security-regression-guards.mjs",
     "lint:appcheck": "node scripts/checks/missing-appcheck-header.mjs",
-    "check": "npm run lint && npm run test:rules",
+    "check": "npm run lint && npm run check:foundation && npm run test:rules",
     "apphosting:build": "npm run check && next build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run -s typecheck:web && npm run -s typecheck:shared",
+    "typecheck:web": "tsc --noEmit",
+    "typecheck:shared": "tsc --noEmit -p packages/shared/tsconfig.json",
+    "check:foundation": "node scripts/checks/monorepo-foundation.mjs",
     "dev:bootstrap": "bash scripts/dev/bootstrap.sh",
     "check:boundaries": "node scripts/checks/no-server-actions-in-client.mjs",
     "ai": "node scripts/ai/codex-run.mjs",
@@ -26,7 +29,9 @@
     "ops:push:main": "bash scripts/ops/push-main.sh",
     "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
     "admin:set-role": "node scripts/admin/set-role.mjs",
-    "test:rules": "node scripts/tests/rules.test.mjs && node scripts/tests/api-security.test.mjs"
+    "test:rules": "node scripts/tests/rules.test.mjs && node scripts/tests/api-security.test.mjs",
+    "mobile:start": "npm --prefix apps/mobile run start",
+    "mobile:typecheck": "npm --prefix apps/mobile run typecheck"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.1.0",
