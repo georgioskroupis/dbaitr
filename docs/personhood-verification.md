@@ -84,6 +84,18 @@ The recommended setup is a self-hosted verifier service (`services/idv`) on Clou
 
 No third-party verifier receives authority over account status. Only app server routes can set claims.
 
+## Mobile-first Direction
+
+Verification is moving to a mobile-first flow:
+- Web keeps challenge/status visibility and initiates handoff.
+- Native mobile app performs verification UX and proof submission.
+- Server routes remain the only authority for `kycVerified` and status changes.
+
+Phase 1 scaffold is tracked in:
+- `apps/mobile/**`
+- `packages/shared/**`
+- `/docs/mobile-architecture.md`
+
 ## Storage Model
 
 - `_private/idv/challenges/{challengeId}`

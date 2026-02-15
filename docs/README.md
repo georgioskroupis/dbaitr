@@ -9,6 +9,7 @@ Docs Index
 - diagnostics.md — Admin diagnostics: filters, aggregates, retention, requestId tracing.
 - claims-lifecycle.md — How claims are updated and clients refresh tokens.
 - personhood-verification.md — Proof-based human verification architecture, dedup model, provider contract, and test checklist.
+- mobile-architecture.md — Web + React Native split, trust boundaries, and phased rollout for in-app verification.
 - live-debates.md — YouTube integration flows: create, bind, ingest (fast-path), transition (preflight), poll/reconcile.
 - live-chat.md — Live chat data model and presence (Firestore + RTDB), API-only writes.
 - ops/data-retention.md — Data minimization and retention policy (including ID verification storage posture).
