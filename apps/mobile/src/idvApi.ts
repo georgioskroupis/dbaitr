@@ -1,26 +1,20 @@
 import type { IdvChallengeResponse, IdvResultResponse } from '@dbaitr/shared/idv';
-import { getApiBaseUrl } from './config';
+import { mobileApiFetch, readJsonSafe } from './http/apiFetch';
 
-export async function fetchIdvResult(idToken: string): Promise<IdvResultResponse> {
-  const res = await fetch(`${getApiBaseUrl()}/api/idv/result`, {
+export async function fetchIdvResult(): Promise<IdvResultResponse | null> {
+  const res = await mobileApiFetch('/api/idv/result', {
     method: 'POST',
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      'content-type': 'application/json',
-    },
+    headers: { 'content-type': 'application/json' },
     body: '{}',
   });
-  return (await res.json()) as IdvResultResponse;
+  return readJsonSafe<IdvResultResponse>(res);
 }
 
-export async function createIdvChallenge(idToken: string): Promise<IdvChallengeResponse> {
-  const res = await fetch(`${getApiBaseUrl()}/api/idv/challenge`, {
+export async function createIdvChallenge(): Promise<IdvChallengeResponse | null> {
+  const res = await mobileApiFetch('/api/idv/challenge', {
     method: 'POST',
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      'content-type': 'application/json',
-    },
+    headers: { 'content-type': 'application/json' },
     body: '{}',
   });
-  return (await res.json()) as IdvChallengeResponse;
+  return readJsonSafe<IdvChallengeResponse>(res);
 }

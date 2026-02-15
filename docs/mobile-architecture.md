@@ -44,9 +44,14 @@ Acceptance: Mobile scaffold and shared contracts exist, CI validates foundation,
   - mobile scaffold and shared package foundation
   - CI foundation guard
   - architecture docs for future implementation
-- Phase 2:
+- Phase 2 (implemented baseline):
   - Firebase auth + secure session bootstrap in mobile
-  - mobile App Check wiring
+  - mobile App Check wiring and protected API header injection
+  - implemented in:
+    - `apps/mobile/src/firebase/native.ts`
+    - `apps/mobile/src/http/apiFetch.ts`
+    - `apps/mobile/src/auth/AuthProvider.tsx`
+    - `apps/mobile/app/auth.tsx`
 - Phase 3:
   - web-to-mobile handoff tokens and deep link flow
 - Phase 4:

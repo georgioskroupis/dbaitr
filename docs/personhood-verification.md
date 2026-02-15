@@ -95,6 +95,7 @@ Phase 1 scaffold is tracked in:
 - `apps/mobile/**`
 - `packages/shared/**`
 - `/docs/mobile-architecture.md`
+- `/docs/mobile-auth-appcheck.md`
 
 ## Storage Model
 

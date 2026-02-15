@@ -35,3 +35,4 @@ Acceptance: Policy aligns with current code and Console config
 - Init order: `initAppCheckIfConfigured()` runs in the app shell before any feature initializes Firestore. Our `getDb()` singleton also calls `ensureAppCheck()` as a safety net.
 - Enforcement: Protected API routes require App Check headers via `withAuth`. Client SDK calls (Firestore/Storage) include App Check automatically once initialized.
 - Domains: Localhost and apphosting preview domains are allowed in Console. Production domains are restricted.
+- Mobile: React Native app uses `@react-native-firebase/app-check` and injects `X-Firebase-AppCheck` in every protected API call; see `docs/mobile-auth-appcheck.md`.

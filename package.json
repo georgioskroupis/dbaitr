@@ -30,6 +30,7 @@
     "ops:apphosting:secrets": "bash scripts/ops/apphosting-secrets.sh",
     "admin:set-role": "node scripts/admin/set-role.mjs",
     "test:rules": "node scripts/tests/rules.test.mjs && node scripts/tests/api-security.test.mjs",
+    "mobile:install": "npm --prefix apps/mobile install",
     "mobile:start": "npm --prefix apps/mobile run start",
     "mobile:typecheck": "npm --prefix apps/mobile run typecheck"
   },
