@@ -6,12 +6,19 @@ const root = process.cwd();
 
 const requiredPaths = [
   'apps/mobile/package.json',
+  'apps/mobile/.env.example',
+  'apps/mobile/app/auth.tsx',
   'apps/mobile/app/index.tsx',
   'apps/mobile/app/verify.tsx',
+  'apps/mobile/src/auth/AuthProvider.tsx',
+  'apps/mobile/src/http/apiFetch.ts',
+  'apps/mobile/src/firebase/native.ts',
   'packages/shared/package.json',
   'packages/shared/src/index.ts',
+  'packages/shared/src/auth.ts',
   'packages/shared/src/idv.ts',
   'docs/mobile-architecture.md',
+  'docs/mobile-auth-appcheck.md',
 ];
 
 const missing = requiredPaths.filter((rel) => !fs.existsSync(path.join(root, rel)));
@@ -42,6 +49,10 @@ if (deps['@dbaitr/shared'] !== 'file:../../packages/shared') {
 }
 if (!deps.expo || !deps['expo-router'] || !deps['react-native']) {
   console.error('Monorepo foundation check failed: mobile package must declare expo, expo-router, and react-native');
+  process.exit(1);
+}
+if (!deps['@react-native-firebase/app'] || !deps['@react-native-firebase/auth'] || !deps['@react-native-firebase/app-check']) {
+  console.error('Monorepo foundation check failed: mobile package must declare @react-native-firebase/app, /auth, and /app-check');
   process.exit(1);
 }
 

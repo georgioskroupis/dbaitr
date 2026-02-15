@@ -1,17 +1,37 @@
 import { Link } from 'expo-router';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useAuth } from '../src/auth/AuthProvider';
 
 export default function HomeScreen() {
+  const { initializing, user, profile, signOut } = useAuth();
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>dbaitr Mobile</Text>
         <Text style={styles.body}>
-          This is the mobile foundation. Personhood verification is designed to complete entirely in-app.
+          Native auth + App Check are now wired. Verification APIs use the same protected backend contract as web.
         </Text>
+        {initializing && <Text style={styles.meta}>Session: loading…</Text>}
+        {!initializing && !user && <Text style={styles.meta}>Session: signed out</Text>}
+        {!initializing && user && (
+          <Text style={styles.meta}>
+            Session: {profile?.fullName || user.email || 'signed in'} ({profile?.status || 'unknown'})
+          </Text>
+        )}
+        {!user && (
+          <Link href="/auth" style={styles.link}>
+            Continue to Sign In
+          </Link>
+        )}
         <Link href="/verify" style={styles.link}>
           Open Personhood Verification
         </Link>
+        {!!user && (
+          <Pressable style={styles.button} onPress={() => void signOut()}>
+            <Text style={styles.buttonText}>Sign Out</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -49,5 +69,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1d4ed8',
+  },
+  meta: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  button: {
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
